@@ -1,0 +1,50 @@
+# Archivos y directorios generados por Gradle
+.gradle/
+/build/
+/app/build/
+
+# Archivos de configuración de Android Studio y IDEs
+.idea/
+*.iml
+*.iws
+*.ipr
+local.properties
+.DS_Store
+
+# Archivos de depuración y caché
+*.apk
+*.ap_
+*.aab
+*.aar
+*.dex
+*.class
+*.jar
+*.keystore
+*.jks
+
+# Archivos de log
+*.log
+
+# Archivos de seguridad (aunque la API Key se guarda en EncryptedSharedPreferences, es buena práctica ignorar cualquier archivo de texto plano que pudiera contenerla)
+# Por ejemplo, si alguna vez se usara un archivo de propiedades para la API Key:
+# api_keys.properties
+
+# Archivos de prueba generados
+/app/src/androidTest/java/com/rayoai/data/repository/UserPreferencesRepositoryImplTest.kt.bak # Archivos de backup generados por el editor
+
+# Archivos de configuración de KSP/KAPT
+.ksp_generated/
+.apt_generated/
+
+# Archivos de cobertura de código
+/app/jacoco/
+
+# Archivos de lint
+/app/lint-results.html
+/app/lint-results.xml
+
+# Archivos de depuración de Android
+captures/
+
+# Archivos de memoria del agente (si aplica)
+.gemini_memory

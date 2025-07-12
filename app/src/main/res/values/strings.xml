@@ -1,0 +1,8 @@
+<resources>
+    <string name="app_name">RayoAI</string>
+    <string name="describe_image_label">Describir imagen</string>
+    <string name="settings_title">Ajustes</string>
+    <string name="channel_name">Descripciones de RayoAI</string>
+    <string name="channel_description">Notificaciones de descripciones de imágenes generadas por RayoAI</string>
+    <string name="history_title">Historial</string>
+</resources>
