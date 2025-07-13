@@ -1,5 +1,6 @@
 package com.rayoai.presentation.ui.navigation
 
+import android.net.Uri
 import androidx.compose.foundation.layout.padding
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.History
@@ -43,7 +44,7 @@ val items = listOf(
 )
 
 @Composable
-fun AppNavigation() {
+fun AppNavigation(imageUri: Uri?) {
     val navController = rememberNavController()
     Scaffold(
         bottomBar = {
@@ -75,7 +76,7 @@ fun AppNavigation() {
             startDestination = Screen.Home.route,
             modifier = Modifier.padding(innerPadding)
         ) {
-            composable(Screen.Home.route) { HomeScreen(navController = navController) }
+            composable(Screen.Home.route) { HomeScreen(navController = navController, imageUri = imageUri) }
             composable(Screen.History.route) { HistoryScreen() }
             composable(Screen.About.route) { AboutScreen() }
             composable(Screen.Settings.route) { SettingsScreen() }

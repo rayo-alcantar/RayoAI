@@ -1,5 +1,6 @@
 package com.rayoai.domain.usecase
 
+import android.graphics.Bitmap
 import com.rayoai.core.ResultWrapper
 import com.rayoai.domain.model.ChatMessage
 import com.rayoai.domain.repository.VisionRepository
@@ -23,10 +24,10 @@ class ContinueChatUseCase @Inject constructor(
     operator fun invoke(
         apiKey: String,
         prompt: String,
-        history: List<ChatMessage>
+        history: List<ChatMessage>,
+        image: Bitmap? // Añadir el parámetro de la imagen
     ): Flow<ResultWrapper<String>> {
-        // Para continuar el chat, no se envía una nueva imagen, solo el texto y el historial.
-        // Se pasa `null` para la imagen, indicando que es una interacción de solo texto.
-        return visionRepository.generateContent(apiKey, prompt, null, history) 
+        // Para continuar el chat, se envía la imagen junto con el texto y el historial.
+        return visionRepository.generateContent(apiKey, prompt, image, history)
     }
 }

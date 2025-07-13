@@ -48,7 +48,8 @@ import com.google.accompanist.permissions.rememberPermissionState
 fun CameraView(
     modifier: Modifier = Modifier,
     onImageCaptured: (Bitmap) -> Unit,
-    onError: (String) -> Unit
+    onError: (String) -> Unit,
+    isCapturing: Boolean
 ) {
     val context = LocalContext.current
     val lifecycleOwner = LocalLifecycleOwner.current
@@ -77,6 +78,7 @@ fun CameraView(
                 onClick = {
                     captureImage(cameraController, context, onImageCaptured, onError)
                 },
+                enabled = !isCapturing,
                 modifier = Modifier
                     .align(Alignment.BottomCenter) // Alinear en la parte inferior central.
                     .padding(16.dp)

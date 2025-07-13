@@ -60,13 +60,34 @@ import kotlinx.coroutines.launch
 @Composable
 fun HomeScreen(
     viewModel: HomeViewModel = hiltViewModel(),
-    navController: NavController
+    navController: NavController,
+    imageUri: Uri? = null
 ) {
     val uiState by viewModel.uiState.collectAsState()
     val context = LocalContext.current
     val scope = rememberCoroutineScope()
 
     val snackbarHostState = remember { SnackbarHostState() }
+
+    // Procesar la imagen compartida si se recibe una URI.
+    LaunchedEffect(imageUri) {
+        imageUri?.let {
+            val bitmap = try {
+                if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.P) {
+                    val source = ImageDecoder.createSource(context.contentResolver, it)
+                    ImageDecoder.decodeBitmap(source)
+                } else {
+                    MediaStore.Images.Media.getBitmap(context.contentResolver, it)
+                }
+            } catch (e: Exception) {
+                viewModel.setError("Error al cargar la imagen compartida.")
+                null
+            }
+            bitmap?.let { img -> viewModel.describeImage(img) }
+        }
+    }
+
+
     LaunchedEffect(uiState.error) {
         uiState.error?.let {
             snackbarHostState.showSnackbar(message = "Error: $it")
@@ -204,7 +225,8 @@ Scaffold(
                                 },
                                 onError = { errorMessage ->
                                     viewModel.setError(errorMessage)
-                                }
+                                },
+                                isCapturing = uiState.isLoading
                             )
                         } else {
                             Spacer(modifier = Modifier.height(16.dp))
@@ -290,23 +312,7 @@ Scaffold(
                                 Icon(Icons.Default.Save, contentDescription = "Guardar imagen")
                             }
 
-                            // Compartir imagen
-                            IconButton(
-                                onClick = {
-                                    imageUri?.let { uri ->
-                                        val shareIntent: Intent = Intent().apply {
-                                            action = Intent.ACTION_SEND
-                                            putExtra(Intent.EXTRA_STREAM, uri)
-                                            type = "image/*"
-                                            addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION)
-                                        }
-                                        context.startActivity(Intent.createChooser(shareIntent, "Compartir imagen"))
-                                    } ?: viewModel.setError("No hay imagen para compartir.")
-                                },
-                                enabled = imageUri != null
-                            ) {
-                                Icon(Icons.Default.Share, contentDescription = "Compartir imagen")
-                            }
+                            
                         }
 
                         // Zona de Chat

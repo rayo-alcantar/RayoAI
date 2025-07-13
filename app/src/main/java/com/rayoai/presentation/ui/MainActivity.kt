@@ -1,5 +1,7 @@
 package com.rayoai.presentation.ui
 
+import android.content.Intent
+import android.net.Uri
 import android.os.Bundle
 import android.speech.tts.TextToSpeech
 import android.util.Log
@@ -42,6 +44,9 @@ class MainActivity : ComponentActivity() {
             }
         }
 
+        // Obtener la URI de la imagen del Intent, si existe.
+        val imageUri: Uri? = intent?.getParcelableExtra(Intent.EXTRA_STREAM)
+
         setContent {
             // Proporcionar el TextToSpeech a través de un CompositionLocal para que sea accesible en otros Composables.
             val tts = remember { textToSpeech }
@@ -52,7 +57,7 @@ class MainActivity : ComponentActivity() {
                         modifier = Modifier.fillMaxSize(),
                         color = MaterialTheme.colorScheme.background
                     ) {
-                        AppNavigation()
+                        AppNavigation(imageUri = imageUri)
                     }
                 }
             }

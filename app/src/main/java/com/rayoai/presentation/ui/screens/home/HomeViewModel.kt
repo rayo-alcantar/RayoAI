@@ -158,7 +158,7 @@ class HomeViewModel @Inject constructor(
 
         viewModelScope.launch {
             // Llamar al caso de uso para continuar el chat, pasando el historial completo.
-            continueChatUseCase(currentApiKey, message, _uiState.value.chatMessages).collect { result ->
+            continueChatUseCase(currentApiKey, message, _uiState.value.chatMessages, _uiState.value.currentImageBitmap).collect { result ->
                 when (result) {
                     is ResultWrapper.Loading -> {
                         _uiState.update { it.copy(isLoading = true, error = null) }
