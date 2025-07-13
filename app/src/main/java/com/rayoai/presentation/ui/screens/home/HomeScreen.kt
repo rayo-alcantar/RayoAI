@@ -158,9 +158,7 @@ Scaffold(
                     }
                 },
                 actions = {
-                    IconButton(onClick = { navController.navigate(Screen.Settings.route) }) {
-                        Icon(Icons.Default.Settings, contentDescription = "Ajustes")
-                    }
+                    // No hay acciones en la barra superior de la pantalla de inicio.
                 }
             )
         }

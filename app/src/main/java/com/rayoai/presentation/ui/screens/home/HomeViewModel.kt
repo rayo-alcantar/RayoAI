@@ -12,7 +12,11 @@ import com.rayoai.domain.usecase.DescribeImageUseCase
 import com.rayoai.domain.repository.UserPreferencesRepository
 import com.rayoai.domain.usecase.SaveCaptureUseCase
 import dagger.hilt.android.lifecycle.HiltViewModel
-import kotlinx.coroutines.flow.*
+import kotlinx.coroutines.flow.MutableStateFlow
+import kotlinx.coroutines.flow.StateFlow
+import kotlinx.coroutines.flow.asStateFlow
+import kotlinx.coroutines.flow.first
+import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
 import javax.inject.Inject
 
@@ -59,7 +63,7 @@ class HomeViewModel @Inject constructor(
         // Recolectar la clave de API de las preferencias del usuario al iniciar el ViewModel.
         viewModelScope.launch {
             userPreferencesRepository.apiKey.collect { key ->
-                _uiState.update { it.copy(apiKey = key) }
+                _uiState.update { currentState -> currentState.copy(apiKey = key) }
             }
         }
     }
@@ -70,18 +74,17 @@ class HomeViewModel @Inject constructor(
      * @param image El [Bitmap] de la imagen a describir.
      */
     fun describeImage(image: Bitmap) {
-        val currentApiKey = _uiState.value.apiKey
-        // Verificar si la API Key está configurada.
-        if (currentApiKey.isNullOrBlank()) {
-            _uiState.update { it.copy(error = "API Key no configurada. Por favor, ve a Ajustes.") }
-            return
-        }
-
         viewModelScope.launch {
+            val apiKey = userPreferencesRepository.apiKey.first()
+            if (apiKey.isNullOrBlank()) {
+                _uiState.update { currentState -> currentState.copy(error = "API Key no configurada. Por favor, ve a Ajustes.") }
+                return@launch
+            }
+
             // Guardar la imagen capturada localmente y obtener su URI.
             val imageUri = imageStorageManager.saveBitmapAndGetUri(image)
             if (imageUri == null) {
-                _uiState.update { it.copy(error = "Error al guardar la imagen.") }
+                _uiState.update { currentState -> currentState.copy(error = "Error al guardar la imagen.") }
                 return@launch
             }
 
@@ -98,17 +101,17 @@ class HomeViewModel @Inject constructor(
             }
 
             // Llamar al caso de uso para describir la imagen.
-            describeImageUseCase(currentApiKey, image).collect { result ->
+            describeImageUseCase(apiKey, image).collect { result ->
                 when (result) {
                     is ResultWrapper.Loading -> {
-                        _uiState.update { it.copy(isLoading = true, error = null) }
+                        _uiState.update { currentState -> currentState.copy(isLoading = true, error = null) }
                     }
                     is ResultWrapper.Success -> {
                         // Si la descripción es exitosa, añadirla al chat y guardar la captura.
                         val newMessages = _uiState.value.chatMessages +
                                 ChatMessage(content = result.data, isFromUser = false)
-                        _uiState.update {
-                            it.copy(
+                        _uiState.update { currentState ->
+                            currentState.copy(
                                 isLoading = false,
                                 chatMessages = newMessages,
                                 currentImageDescription = result.data,
@@ -119,8 +122,8 @@ class HomeViewModel @Inject constructor(
                     }
                     is ResultWrapper.Error -> {
                         // Si hay un error, actualizar el estado de error de la UI.
-                        _uiState.update {
-                            it.copy(isLoading = false, error = result.message)
+                        _uiState.update { currentState ->
+                            currentState.copy(isLoading = false, error = result.message)
                         }
                     }
                 }
@@ -142,39 +145,38 @@ class HomeViewModel @Inject constructor(
      * @param message El mensaje de texto del usuario.
      */
     fun sendChatMessage(message: String) {
-        val currentApiKey = _uiState.value.apiKey
-        // Verificar si la API Key está configurada.
-        if (currentApiKey.isNullOrBlank()) {
-            _uiState.update { it.copy(error = "API Key no configurada. Por favor, ve a Ajustes.") }
-            return
-        }
-
-        // No enviar mensajes vacíos.
-        if (message.isBlank()) return
-
-        // Añadir el mensaje del usuario al chat.
-        val userMessage = ChatMessage(content = message, isFromUser = true)
-        _uiState.update { it.copy(chatMessages = it.chatMessages + userMessage) }
-
         viewModelScope.launch {
+            val apiKey = userPreferencesRepository.apiKey.first()
+            if (apiKey.isNullOrBlank()) {
+                _uiState.update { currentState -> currentState.copy(error = "API Key no configurada. Por favor, ve a Ajustes.") }
+                return@launch
+            }
+
+            // No enviar mensajes vacíos.
+            if (message.isBlank()) return@launch
+
+            // Añadir el mensaje del usuario al chat.
+            val userMessage = ChatMessage(content = message, isFromUser = true)
+            _uiState.update { currentState -> currentState.copy(chatMessages = currentState.chatMessages + userMessage) }
+
             // Llamar al caso de uso para continuar el chat, pasando el historial completo.
-            continueChatUseCase(currentApiKey, message, _uiState.value.chatMessages, _uiState.value.currentImageBitmap).collect { result ->
+            continueChatUseCase(apiKey, message, _uiState.value.chatMessages, _uiState.value.currentImageBitmap).collect { result ->
                 when (result) {
                     is ResultWrapper.Loading -> {
-                        _uiState.update { it.copy(isLoading = true, error = null) }
+                        _uiState.update { currentState -> currentState.copy(isLoading = true, error = null) }
                     }
                     is ResultWrapper.Success -> {
                         // Si la respuesta es exitosa, añadirla al chat.
                         val newMessages = _uiState.value.chatMessages +
                                 ChatMessage(content = result.data, isFromUser = false)
-                        _uiState.update {
-                            it.copy(isLoading = false, chatMessages = newMessages)
+                        _uiState.update { currentState ->
+                            currentState.copy(isLoading = false, chatMessages = newMessages)
                         }
                     }
                     is ResultWrapper.Error -> {
                         // Si hay un error, actualizar el estado de error de la UI.
-                        _uiState.update {
-                            it.copy(isLoading = false, error = result.message)
+                        _uiState.update { currentState ->
+                            currentState.copy(isLoading = false, error = result.message)
                         }
                     }
                 }
