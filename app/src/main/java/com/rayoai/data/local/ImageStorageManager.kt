@@ -1,9 +1,12 @@
 package com.rayoai.data.local
 
+import android.content.ContentValues
 import android.content.Context
 import android.graphics.Bitmap
 import android.net.Uri
+import android.os.Build
 import android.os.Environment
+import android.provider.MediaStore
 import androidx.core.content.FileProvider
 import dagger.hilt.android.qualifiers.ApplicationContext
 import java.io.File
@@ -52,6 +55,43 @@ class ImageStorageManager @Inject constructor(
             // Registrar el error si la operación de guardado falla.
             e.printStackTrace()
             null
+        }
+    }
+
+    /**
+     * Guarda un [Bitmap] en la galería de imágenes del dispositivo (Pictures/RayoAI).
+     * @param bitmap El [Bitmap] a guardar.
+     * @return La [Uri] de la imagen guardada, o `null` si ocurre un error.
+     */
+    fun saveBitmapToGallery(bitmap: Bitmap): Uri? {
+        val filename = "IMG_${System.currentTimeMillis()}.jpg"
+        val contentValues = ContentValues().apply {
+            put(MediaStore.MediaColumns.DISPLAY_NAME, filename)
+            put(MediaStore.MediaColumns.MIME_TYPE, "image/jpeg")
+            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q) {
+                put(MediaStore.MediaColumns.RELATIVE_PATH, "${Environment.DIRECTORY_PICTURES}/RayoAI")
+                put(MediaStore.MediaColumns.IS_PENDING, 1)
+            }
+        }
+
+        val resolver = context.contentResolver
+        val uri = resolver.insert(MediaStore.Images.Media.EXTERNAL_CONTENT_URI, contentValues)
+
+        return uri?.also {
+            try {
+                resolver.openOutputStream(it)?.use { outputStream ->
+                    bitmap.compress(Bitmap.CompressFormat.JPEG, 90, outputStream)
+                }
+                if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q) {
+                    contentValues.clear()
+                    contentValues.put(MediaStore.MediaColumns.IS_PENDING, 0)
+                    resolver.update(it, contentValues, null, null)
+                }
+            } catch (e: IOException) {
+                e.printStackTrace()
+                resolver.delete(it, null, null)
+                return null
+            }
         }
     }
 }

@@ -266,40 +266,14 @@ Scaffold(
                             horizontalArrangement = Arrangement.SpaceAround,
                             verticalAlignment = Alignment.CenterVertically
                         ) {
-                            // Leer descripción (TTS)
-                            IconButton(
-    onClick = {
-        description?.let {
-            textToSpeech?.speak(it, TextToSpeech.QUEUE_FLUSH, null, null)
-        } ?: viewModel.setError("No hay descripción para leer.")
-    },
-    enabled = !description.isNullOrBlank() && ttsInitialized
-) {
-    Icon(Icons.Default.SpeakerPhone, contentDescription = "Leer descripción")
-}
-
-                            // Copiar descripción
-                            IconButton(
-                                onClick = {
-                                    description?.let {
-                                        ContextCompat.getSystemService(context, ClipboardManager::class.java)?.setPrimaryClip(ClipData.newPlainText("Descripción de imagen", it))
-                                    } ?: viewModel.setError("No hay descripción para copiar.")
-                                },
-                                enabled = !description.isNullOrBlank()
-                            ) {
-                                Icon(Icons.Default.ContentCopy, contentDescription = "Copiar descripción")
-                            }
+                            
 
                             // Guardar imagen
                             IconButton(
                                 onClick = {
                                     capturedImage?.let {
                                         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q || writeStoragePermissionState.status.isGranted) {
-                                            // La imagen ya se guarda en describeImage, esto sería para un guardado explícito si se desea
-                                            // viewModel.saveImageToDevice(it) // Si se implementa una función de guardado explícito
-                                            scope.launch {
-                                                snackbarHostState.showSnackbar(message = "La imagen ya ha sido guardada.")
-                                            }
+                                            viewModel.saveImageToGallery(it)
                                         } else {
                                             writeStoragePermissionState.launchPermissionRequest()
                                         }
@@ -307,7 +281,25 @@ Scaffold(
                                 },
                                 enabled = capturedImage != null
                             ) {
-                                Icon(Icons.Default.Save, contentDescription = "Guardar imagen")
+                                Icon(Icons.Default.Save, contentDescription = "Guardar imagen en la galería")
+                            }
+
+                            // Compartir imagen
+                            IconButton(
+                                onClick = {
+                                    imageUri?.let { uri ->
+                                        val shareIntent: Intent = Intent().apply {
+                                            action = Intent.ACTION_SEND
+                                            putExtra(Intent.EXTRA_STREAM, uri)
+                                            type = "image/*"
+                                            addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION)
+                                        }
+                                        context.startActivity(Intent.createChooser(shareIntent, "Compartir imagen"))
+                                    } ?: viewModel.setError("No hay imagen para compartir.")
+                                },
+                                enabled = imageUri != null
+                            ) {
+                                Icon(Icons.Default.Share, contentDescription = "Compartir imagen")
                             }
 
                             

@@ -6,6 +6,7 @@ import android.graphics.Bitmap
 import android.graphics.Matrix
 import android.util.Log
 import android.view.ViewGroup.LayoutParams.MATCH_PARENT
+import androidx.compose.runtime.LaunchedEffect
 import android.widget.LinearLayout
 import androidx.camera.core.ImageCapture
 import androidx.camera.core.ImageCaptureException
@@ -55,6 +56,9 @@ fun CameraView(
     val lifecycleOwner = LocalLifecycleOwner.current
     // Controlador de la cámara que gestiona el ciclo de vida y las operaciones de la cámara.
     val cameraController = remember { LifecycleCameraController(context) }
+    LaunchedEffect(cameraController) {
+        cameraController.imageCaptureFlashMode = ImageCapture.FLASH_MODE_AUTO
+    }
     // Estado del permiso de la cámara utilizando Accompanist Permissions.
     val permissionState = rememberPermissionState(permission = Manifest.permission.CAMERA)
 

@@ -217,5 +217,16 @@ class HomeViewModel @Inject constructor(
         }
     }
 
+    fun saveImageToGallery(bitmap: Bitmap) {
+        viewModelScope.launch {
+            val uri = imageStorageManager.saveBitmapToGallery(bitmap)
+            if (uri != null) {
+                _uiState.update { it.copy(error = "Imagen guardada en la galería.", currentImageUri = uri) }
+            } else {
+                _uiState.update { it.copy(error = "Error al guardar la imagen.") }
+            }
+        }
+    }
+
     
 }

@@ -69,10 +69,7 @@ fun ChatBubble(message: com.rayoai.domain.model.ChatMessage) {
                 IconButton(onClick = { copyTextToClipboard(context, message.content) }) {
                     Icon(Icons.Default.ContentCopy, contentDescription = "Copiar descripción")
                 }
-                // Botón para compartir el texto con otras aplicaciones.
-                IconButton(onClick = { shareText(context, message.content) }) {
-                    Icon(Icons.Default.Share, contentDescription = "Compartir descripción")
-                }
+                
             }
         }
     }
