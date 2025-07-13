@@ -1,6 +1,7 @@
 package com.rayoai.presentation.ui.screens.home
 
 import android.graphics.Bitmap
+import android.net.Uri
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.rayoai.core.ResultWrapper
@@ -20,11 +21,25 @@ import javax.inject.Inject
  * Gestiona el estado de la UI, la interacción con los casos de uso y la lógica de negocio
  * relacionada con la descripción de imágenes y el chat conversacional.
  */
+
+sealed class HomeScreenState {
+    object Initial : HomeScreenState()
+    data class ImageCaptured(
+        val imageBitmap: Bitmap,
+        val description: String?,
+        val imageUri: Uri?
+    ) : HomeScreenState()
+}
+
 data class HomeUiState(
+    val screenState: HomeScreenState = HomeScreenState.Initial,
     val isLoading: Boolean = false, // Indica si una operación de carga está en curso.
     val chatMessages: List<ChatMessage> = emptyList(), // Lista de mensajes en el chat.
     val error: String? = null, // Mensaje de error a mostrar, si lo hay.
-    val apiKey: String? = null // La clave de API de Gemini, obtenida de las preferencias del usuario.
+    val apiKey: String? = null, // La clave de API de Gemini, obtenida de las preferencias del usuario.
+    val currentImageBitmap: Bitmap? = null, // Bitmap de la imagen actual (capturada o de galería)
+    val currentImageDescription: String? = null, // Descripción de la imagen actual
+    val currentImageUri: Uri? = null // URI de la imagen actual guardada
 )
 
 @HiltViewModel
@@ -64,7 +79,7 @@ class HomeViewModel @Inject constructor(
 
         viewModelScope.launch {
             // Guardar la imagen capturada localmente y obtener su URI.
-            val imageUri = imageStorageManager.saveBitmapAndGetUri(image)?.toString()
+            val imageUri = imageStorageManager.saveBitmapAndGetUri(image)
             if (imageUri == null) {
                 _uiState.update { it.copy(error = "Error al guardar la imagen.") }
                 return@launch
@@ -72,7 +87,15 @@ class HomeViewModel @Inject constructor(
 
             // Añadir un mensaje inicial al chat indicando que se ha capturado una imagen.
             val initialPromptMessage = ChatMessage(content = "Imagen capturada.", isFromUser = true)
-            _uiState.update { it.copy(chatMessages = it.chatMessages + initialPromptMessage) }
+            _uiState.update {
+                it.copy(
+                    isLoading = true,
+                    error = null,
+                    currentImageBitmap = image,
+                    currentImageUri = imageUri,
+                    chatMessages = listOf(initialPromptMessage) // Reiniciar mensajes para la nueva imagen
+                )
+            }
 
             // Llamar al caso de uso para describir la imagen.
             describeImageUseCase(currentApiKey, image).collect { result ->
@@ -85,9 +108,14 @@ class HomeViewModel @Inject constructor(
                         val newMessages = _uiState.value.chatMessages +
                                 ChatMessage(content = result.data, isFromUser = false)
                         _uiState.update {
-                            it.copy(isLoading = false, chatMessages = newMessages)
+                            it.copy(
+                                isLoading = false,
+                                chatMessages = newMessages,
+                                currentImageDescription = result.data,
+                                screenState = HomeScreenState.ImageCaptured(image, result.data, imageUri)
+                            )
                         }
-                        saveCaptureUseCase(imageUri, result.data) // Guardar en la base de datos.
+                        saveCaptureUseCase(imageUri.toString(), result.data) // Guardar en la base de datos.
                     }
                     is ResultWrapper.Error -> {
                         // Si hay un error, actualizar el estado de error de la UI.
@@ -168,4 +196,24 @@ class HomeViewModel @Inject constructor(
     fun clearError() {
         _uiState.update { it.copy(error = null) }
     }
+
+    /**
+     * Restablece el estado de la pantalla de inicio a su estado inicial,
+     * eliminando la imagen capturada y los mensajes de chat.
+     */
+    fun resetHomeScreenState() {
+        _uiState.update {
+            it.copy(
+                screenState = HomeScreenState.Initial,
+                chatMessages = emptyList(),
+                currentImageBitmap = null,
+                currentImageDescription = null,
+                currentImageUri = null,
+                isLoading = false,
+                error = null
+            )
+        }
+    }
+
+    
 }
