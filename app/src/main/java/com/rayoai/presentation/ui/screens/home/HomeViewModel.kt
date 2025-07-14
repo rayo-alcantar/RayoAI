@@ -21,6 +21,8 @@ import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.delay
+import android.util.Log
 import androidx.lifecycle.SavedStateHandle
 import com.rayoai.data.local.db.CaptureDao
 import javax.inject.Inject
@@ -49,7 +51,10 @@ data class HomeUiState(
     val currentImageBitmap: Bitmap? = null, // Bitmap de la imagen actual (capturada o de galería)
     val currentImageDescription: String? = null, // Descripción de la imagen actual
     val currentImageUri: Uri? = null,
-    val currentCameraSelector: CameraSelector = CameraSelector.DEFAULT_BACK_CAMERA // Default to back camera
+    val currentCameraSelector: CameraSelector = CameraSelector.DEFAULT_BACK_CAMERA, // Default to back camera
+    val isTimerEnabled: Boolean = false,
+    val timerSeconds: Int = 0,
+    val isCountingDown: Boolean = false
 )
 
 @HiltViewModel
@@ -68,6 +73,8 @@ class HomeViewModel @Inject constructor(
     val uiState: StateFlow<HomeUiState> = _uiState.asStateFlow()
     private val _playCaptureSound = MutableSharedFlow<Unit>()
     val playCaptureSound: SharedFlow<Unit> = _playCaptureSound
+    private val _countdownTrigger = MutableSharedFlow<Int>()
+    val countdownTrigger: SharedFlow<Int> = _countdownTrigger
 
     init {
         // Recolectar la clave de API de las preferencias del usuario al iniciar el ViewModel.
@@ -88,7 +95,37 @@ class HomeViewModel @Inject constructor(
      * Guarda la imagen localmente, la envía al modelo Gemini y actualiza el chat.
      * @param image El [Bitmap] de la imagen a describir.
      */
+    fun setTimerEnabled(enabled: Boolean) {
+        _uiState.update { it.copy(isTimerEnabled = enabled) }
+    }
+
+    fun setTimerSeconds(seconds: Int) {
+        _uiState.update { it.copy(timerSeconds = seconds) }
+    }
+
+    fun triggerImageCapture() {
+        Log.d("HomeViewModel", "triggerImageCapture called")
+        viewModelScope.launch {
+            if (_uiState.value.isTimerEnabled && _uiState.value.timerSeconds > 0) {
+                _uiState.update { it.copy(isCountingDown = true) }
+                for (i in _uiState.value.timerSeconds downTo 1) {
+                    _countdownTrigger.emit(i)
+                    delay(1000L)
+                }
+                _uiState.update { it.copy(isCountingDown = false) }
+            }
+            _uiState.update { it.copy(isLoading = true) }
+            Log.d("HomeViewModel", "isLoading set to true by triggerImageCapture")
+        }
+    }
+
+    /**
+     * Inicia el proceso de descripción de una imagen.
+     * Guarda la imagen localmente, la envía al modelo Gemini y actualiza el chat.
+     * @param image El [Bitmap] de la imagen a describir.
+     */
     fun describeImage(image: Bitmap) {
+        Log.d("HomeViewModel", "describeImage called")
         viewModelScope.launch {
             val apiKey = userPreferencesRepository.apiKey.first()
             if (apiKey.isNullOrBlank()) {
@@ -108,7 +145,6 @@ class HomeViewModel @Inject constructor(
             val initialPromptMessage = ChatMessage(content = "Imagen capturada.", isFromUser = true)
             _uiState.update {
                 it.copy(
-                    isLoading = true,
                     error = null,
                     currentImageBitmap = image,
                     currentImageUri = imageUri,
@@ -120,9 +156,11 @@ class HomeViewModel @Inject constructor(
             describeImageUseCase(apiKey, image).collect { result ->
                 when (result) {
                     is ResultWrapper.Loading -> {
-                        _uiState.update { currentState -> currentState.copy(isLoading = true, error = null) }
+                        Log.d("HomeViewModel", "describeImage: ResultWrapper.Loading")
+                        // isLoading ya está en true por triggerImageCapture o por el envío del mensaje
                     }
                     is ResultWrapper.Success -> {
+                        Log.d("HomeViewModel", "describeImage: ResultWrapper.Success")
                         // Si la descripción es exitosa, añadirla al chat y guardar la captura.
                         val newMessages = _uiState.value.chatMessages +
                                 ChatMessage(content = result.data, isFromUser = false)
@@ -137,6 +175,7 @@ class HomeViewModel @Inject constructor(
                         saveCaptureUseCase(imageUri.toString(), result.data) // Guardar en la base de datos.
                     }
                     is ResultWrapper.Error -> {
+                        Log.d("HomeViewModel", "describeImage: ResultWrapper.Error: ${result.message}")
                         // Si hay un error, actualizar el estado de error de la UI.
                         _uiState.update { currentState ->
                             currentState.copy(isLoading = false, error = result.message)
@@ -179,7 +218,7 @@ class HomeViewModel @Inject constructor(
             continueChatUseCase(apiKey, message, _uiState.value.chatMessages, _uiState.value.currentImageBitmap).collect { result ->
                 when (result) {
                     is ResultWrapper.Loading -> {
-                        _uiState.update { currentState -> currentState.copy(isLoading = true, error = null) }
+                        // isLoading ya está en true por triggerImageCapture o por el envío del mensaje
                     }
                     is ResultWrapper.Success -> {
                         // Si la respuesta es exitosa, añadirla al chat.
@@ -213,6 +252,11 @@ class HomeViewModel @Inject constructor(
      */
     fun clearError() {
         _uiState.update { it.copy(error = null) }
+    }
+
+    fun setLoading(loading: Boolean) {
+        Log.d("HomeViewModel", "setLoading called with: $loading")
+        _uiState.update { it.copy(isLoading = loading) }
     }
 
     /**

@@ -52,6 +52,7 @@ import android.content.ClipboardManager
 import androidx.core.content.ContextCompat
 import java.util.Locale
 import kotlinx.coroutines.launch
+import androidx.activity.compose.BackHandler
 
 /**
  * Composable principal para la pantalla de inicio de la aplicación.
@@ -164,6 +165,9 @@ Scaffold(
                 title = { Text(stringResource(id = R.string.app_name)) },
                 navigationIcon = {
                     if (uiState.screenState is HomeScreenState.ImageCaptured) {
+                        BackHandler {
+                            viewModel.resetHomeScreenState()
+                        }
                         IconButton(onClick = { viewModel.resetHomeScreenState() }) {
                             Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = "Volver")
                         }
@@ -216,6 +220,95 @@ Scaffold(
                         }
                         Spacer(modifier = Modifier.height(16.dp))
 
+                        Row(
+                            modifier = Modifier.fillMaxWidth(),
+                            verticalAlignment = Alignment.CenterVertically,
+                            horizontalArrangement = Arrangement.SpaceBetween
+                        ) {
+                            // Checkbox para habilitar el temporizador
+                            Row(
+                                verticalAlignment = Alignment.CenterVertically,
+                                modifier = Modifier.weight(1f)
+                            ) {
+                                Checkbox(
+                                    checked = uiState.isTimerEnabled,
+                                    onCheckedChange = { viewModel.setTimerEnabled(it) }
+                                )
+                                Text("Temporizador")
+                            }
+
+                            // Dropdown para seleccionar los segundos del temporizador
+                            if (uiState.isTimerEnabled) {
+                                var expanded by remember { mutableStateOf(false) }
+                                val timerOptions = listOf(2, 3, 5, 10, 15)
+                                val selectedOptionText = if (uiState.timerSeconds > 0) "${uiState.timerSeconds}s" else "Seleccionar"
+
+                                ExposedDropdownMenuBox(
+                                    expanded = expanded,
+                                    onExpandedChange = { expanded = !expanded },
+                                    modifier = Modifier.weight(1f)
+                                ) {
+                                    OutlinedTextField(
+                                        value = selectedOptionText,
+                                        onValueChange = { },
+                                        readOnly = true,
+                                        label = { Text("Segundos") },
+                                        trailingIcon = { ExposedDropdownMenuDefaults.TrailingIcon(expanded = expanded) },
+                                        modifier = Modifier
+                                            .menuAnchor()
+                                            .fillMaxWidth()
+                                    )
+
+                                    ExposedDropdownMenu(
+                                        expanded = expanded,
+                                        onDismissRequest = { expanded = false }
+                                    ) {
+                                        timerOptions.forEach { selectionOption ->
+                                            DropdownMenuItem(
+                                                text = { Text(selectionOption.toString()) },
+                                                onClick = {
+                                                    viewModel.setTimerSeconds(selectionOption)
+                                                    expanded = false
+                                                }
+                                            )
+                                        }
+                                    }
+                                }
+                            }
+                        }
+                        Spacer(modifier = Modifier.height(16.dp))
+
+                        // Botón de captura
+                        Button(
+                            onClick = {
+                                if (cameraPermissionState.status.isGranted) {
+                                    viewModel.triggerImageCapture()
+                                } else {
+                                    cameraPermissionState.launchPermissionRequest()
+                                }
+                            },
+                            modifier = Modifier.fillMaxWidth(),
+                            enabled = !uiState.isLoading && !uiState.isCountingDown
+                        ) {
+                            Text("Tomar Foto")
+                        }
+                        Spacer(modifier = Modifier.height(16.dp))
+
+                        // Indicador de cuenta regresiva
+                        if (uiState.isCountingDown) {
+                            var countdownValue by remember { mutableStateOf(uiState.timerSeconds) }
+                            LaunchedEffect(Unit) {
+                                viewModel.countdownTrigger.collect { value ->
+                                    countdownValue = value
+                                }
+                            }
+                            Text(
+                                text = "Capturando en: $countdownValue...",
+                                style = MaterialTheme.typography.headlineMedium,
+                                modifier = Modifier.align(Alignment.CenterHorizontally)
+                            )
+                        }
+
                         // Vista de la cámara (oculta hasta que se tome una foto)
                         if (cameraPermissionState.status.isGranted) {
                             CameraView(
@@ -224,9 +317,11 @@ Scaffold(
                                     .weight(1f),
                                 onImageCaptured = { bitmap ->
                                     viewModel.describeImage(bitmap)
+                                    viewModel.setLoading(false)
                                 },
                                 onError = { errorMessage ->
                                     viewModel.setError(errorMessage)
+                                    viewModel.setLoading(false)
                                 },
                                 isCapturing = uiState.isLoading,
                                 cameraSelector = uiState.currentCameraSelector

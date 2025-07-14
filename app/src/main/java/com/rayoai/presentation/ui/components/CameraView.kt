@@ -65,6 +65,13 @@ fun CameraView(
     // Estado del permiso de la cámara utilizando Accompanist Permissions.
     val permissionState = rememberPermissionState(permission = Manifest.permission.CAMERA)
 
+    LaunchedEffect(isCapturing) {
+        Log.d("CameraView", "isCapturing changed to: $isCapturing")
+        if (isCapturing) {
+            captureImage(cameraController, context, onImageCaptured, onError)
+        }
+    }
+
     Box(modifier = modifier) {
         // Si el permiso de la cámara está concedido, mostrar la vista previa y el botón de captura.
         if (permissionState.status.isGranted) {
@@ -80,19 +87,6 @@ fun CameraView(
                     }
                 }
             )
-            // Botón para capturar la imagen.
-            IconButton(
-                onClick = {
-                    captureImage(cameraController, context, onImageCaptured, onError)
-                },
-                enabled = !isCapturing,
-                modifier = Modifier
-                    .align(Alignment.BottomCenter) // Alinear en la parte inferior central.
-                    .padding(16.dp)
-                    .semantics { contentDescription = "Tomar foto" } // contentDescription en el IconButton via semantics
-            ) {
-                Icon(Icons.Default.Camera, contentDescription = null) // contentDescription nulo en el Icon
-            }
         } else {
             // Si el permiso no está concedido, mostrar un botón para solicitarlo.
             Button(
@@ -118,10 +112,12 @@ private fun captureImage(
     onImageCaptured: (Bitmap) -> Unit,
     onError: (String) -> Unit
 ) {
+    Log.d("CameraView", "captureImage called")
     cameraController.takePicture(
         ContextCompat.getMainExecutor(context),
         object : ImageCapture.OnImageCapturedCallback() {
             override fun onCaptureSuccess(image: ImageProxy) {
+                Log.d("CameraView", "onCaptureSuccess: Image captured")
                 // Convertir ImageProxy a Bitmap.
                 val bitmap = image.toBitmap()
                 // Obtener la rotación de la imagen y rotar el Bitmap si es necesario.
