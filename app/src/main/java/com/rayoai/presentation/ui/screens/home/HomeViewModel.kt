@@ -12,7 +12,10 @@ import com.rayoai.domain.usecase.DescribeImageUseCase
 import com.rayoai.domain.repository.UserPreferencesRepository
 import com.rayoai.domain.usecase.SaveCaptureUseCase
 import dagger.hilt.android.lifecycle.HiltViewModel
+import androidx.camera.core.CameraSelector
+import kotlinx.coroutines.flow.MutableSharedFlow
 import kotlinx.coroutines.flow.MutableStateFlow
+import kotlinx.coroutines.flow.SharedFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.first
@@ -43,7 +46,8 @@ data class HomeUiState(
     val apiKey: String? = null, // La clave de API de Gemini, obtenida de las preferencias del usuario.
     val currentImageBitmap: Bitmap? = null, // Bitmap de la imagen actual (capturada o de galería)
     val currentImageDescription: String? = null, // Descripción de la imagen actual
-    val currentImageUri: Uri? = null // URI de la imagen actual guardada
+    val currentImageUri: Uri? = null,
+    val currentCameraSelector: CameraSelector = CameraSelector.DEFAULT_BACK_CAMERA // Default to back camera
 )
 
 @HiltViewModel
@@ -58,6 +62,8 @@ class HomeViewModel @Inject constructor(
     // Estado mutable de la UI, expuesto como un StateFlow inmutable para la UI.
     private val _uiState = MutableStateFlow(HomeUiState())
     val uiState: StateFlow<HomeUiState> = _uiState.asStateFlow()
+    private val _playCaptureSound = MutableSharedFlow<Unit>()
+    val playCaptureSound: SharedFlow<Unit> = _playCaptureSound
 
     init {
         // Recolectar la clave de API de las preferencias del usuario al iniciar el ViewModel.
@@ -87,6 +93,7 @@ class HomeViewModel @Inject constructor(
                 _uiState.update { currentState -> currentState.copy(error = "Error al guardar la imagen.") }
                 return@launch
             }
+            _playCaptureSound.emit(Unit)
 
             // Añadir un mensaje inicial al chat indicando que se ha capturado una imagen.
             val initialPromptMessage = ChatMessage(content = "Imagen capturada.", isFromUser = true)
@@ -228,5 +235,14 @@ class HomeViewModel @Inject constructor(
         }
     }
 
-    
+    fun toggleCamera() {
+        _uiState.update { currentState ->
+            val newSelector = if (currentState.currentCameraSelector == CameraSelector.DEFAULT_BACK_CAMERA) {
+                CameraSelector.DEFAULT_FRONT_CAMERA
+            } else {
+                CameraSelector.DEFAULT_BACK_CAMERA
+            }
+            currentState.copy(currentCameraSelector = newSelector)
+        }
+    }
 }

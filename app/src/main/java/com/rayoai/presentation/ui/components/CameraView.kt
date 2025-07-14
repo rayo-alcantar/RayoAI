@@ -12,6 +12,7 @@ import androidx.camera.core.ImageCapture
 import androidx.camera.core.ImageCaptureException
 import androidx.camera.core.ImageProxy
 import androidx.camera.view.LifecycleCameraController
+import androidx.camera.core.CameraSelector
 import androidx.camera.view.PreviewView
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.fillMaxSize
@@ -50,13 +51,15 @@ fun CameraView(
     modifier: Modifier = Modifier,
     onImageCaptured: (Bitmap) -> Unit,
     onError: (String) -> Unit,
-    isCapturing: Boolean
+    isCapturing: Boolean,
+    cameraSelector: CameraSelector
 ) {
     val context = LocalContext.current
     val lifecycleOwner = LocalLifecycleOwner.current
     // Controlador de la cámara que gestiona el ciclo de vida y las operaciones de la cámara.
     val cameraController = remember { LifecycleCameraController(context) }
-    LaunchedEffect(cameraController) {
+    LaunchedEffect(cameraController, cameraSelector) {
+        cameraController.cameraSelector = cameraSelector
         cameraController.imageCaptureFlashMode = ImageCapture.FLASH_MODE_AUTO
     }
     // Estado del permiso de la cámara utilizando Accompanist Permissions.

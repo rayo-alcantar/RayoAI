@@ -47,14 +47,14 @@ fun AboutScreen() {
         )
         Spacer(modifier = Modifier.height(24.dp))
         Button(onClick = {
-            val intent = Intent(Intent.ACTION_VIEW, Uri.parse("https://github.com/Aj-Alcantara"))
+            val intent = Intent(Intent.ACTION_VIEW, Uri.parse("https://rayoscompany.com/"))
             context.startActivity(intent)
         }) {
             Text("Visitar Sitio Web")
         }
         Spacer(modifier = Modifier.height(8.dp))
         Button(onClick = {
-            val intent = Intent(Intent.ACTION_VIEW, Uri.parse("https://www.paypal.com/donate/?business=KUK3S2B8R8M22&no_recurring=0&item_name=Tu+donaci%C3%B3n+me+ayuda+a+seguir+creando+apps+%C3%BAtiles+y+accesibles+para+todos.+%C2%A1Gracias%21&currency_code=MXN"))
+            val intent = Intent(Intent.ACTION_VIEW, Uri.parse("https://paypal.me/rayoalcantar?country.x=MX&locale.x=es_XC"))
             context.startActivity(intent)
         }) {
             Text("Donar vía PayPal")

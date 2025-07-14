@@ -45,6 +45,8 @@ import com.rayoai.R
 import com.rayoai.presentation.ui.components.CameraView
 import com.rayoai.presentation.ui.components.ChatBubble
 import com.rayoai.presentation.ui.navigation.Screen
+import android.media.MediaPlayer
+import androidx.camera.core.CameraSelector
 import android.content.ClipData
 import android.content.ClipboardManager
 import androidx.core.content.ContextCompat
@@ -118,6 +120,22 @@ fun HomeScreen(
         }
     }
 
+    LaunchedEffect(Unit) {
+        viewModel.playCaptureSound.collect {
+            val mediaPlayer = MediaPlayer.create(context, R.raw.send)
+            mediaPlayer.start()
+            mediaPlayer.setOnCompletionListener { mp -> mp.release() }
+        }
+    }
+
+    LaunchedEffect(Unit) {
+        viewModel.playCaptureSound.collect {
+            val mediaPlayer = MediaPlayer.create(context, R.raw.send)
+            mediaPlayer.start()
+            mediaPlayer.setOnCompletionListener { mp -> mp.release() }
+        }
+    }
+
     
 
     var textToSpeech: TextToSpeech? = null
@@ -180,7 +198,36 @@ Scaffold(
                     ) {
                         
 
-                        // Botón para cargar de la galería
+                        Button(
+                            onClick = {
+                                viewModel.toggleCamera()
+                            },
+                            modifier = Modifier.fillMaxWidth()
+                        ) {
+                            Text(if (uiState.currentCameraSelector == CameraSelector.DEFAULT_BACK_CAMERA) "Cambiar a cámara frontal" else "Cambiar a cámara trasera")
+                        }
+                        Spacer(modifier = Modifier.height(16.dp))
+
+                        Button(
+                            onClick = {
+                                viewModel.toggleCamera()
+                            },
+                            modifier = Modifier.fillMaxWidth()
+                        ) {
+                            Text(if (uiState.currentCameraSelector == CameraSelector.DEFAULT_BACK_CAMERA) "Cambiar a cámara frontal" else "Cambiar a cámara trasera")
+                        }
+                        Spacer(modifier = Modifier.height(16.dp))
+
+                        Button(
+                            onClick = {
+                                viewModel.toggleCamera()
+                            },
+                            modifier = Modifier.fillMaxWidth()
+                        ) {
+                            Text(if (uiState.currentCameraSelector == CameraSelector.DEFAULT_BACK_CAMERA) "Cambiar a cámara frontal" else "Cambiar a cámara trasera")
+                        }
+                        Spacer(modifier = Modifier.height(16.dp))
+
                         Button(
                             onClick = {
                                 if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU || readStoragePermissionState.status.isGranted) {
@@ -195,23 +242,6 @@ Scaffold(
                         }
                         Spacer(modifier = Modifier.height(16.dp))
 
-                        // Botón para solicitar permisos (solo si no están concedidos)
-                        if (!cameraPermissionState.status.isGranted || !(Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU || readStoragePermissionState.status.isGranted)) {
-                            Button(
-                                onClick = {
-                                    if (!cameraPermissionState.status.isGranted) {
-                                        cameraPermissionState.launchPermissionRequest()
-                                    }
-                                    if (!(Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU || readStoragePermissionState.status.isGranted)) {
-                                        readStoragePermissionState.launchPermissionRequest()
-                                    }
-                                },
-                                modifier = Modifier.fillMaxWidth()
-                            ) {
-                                Text("Solicitar Permisos")
-                            }
-                        }
-
                         // Vista de la cámara (oculta hasta que se tome una foto)
                         if (cameraPermissionState.status.isGranted) {
                             CameraView(
@@ -224,7 +254,8 @@ Scaffold(
                                 onError = { errorMessage ->
                                     viewModel.setError(errorMessage)
                                 },
-                                isCapturing = uiState.isLoading
+                                isCapturing = uiState.isLoading,
+                                cameraSelector = uiState.currentCameraSelector
                             )
                         } else {
                             Spacer(modifier = Modifier.height(16.dp))
