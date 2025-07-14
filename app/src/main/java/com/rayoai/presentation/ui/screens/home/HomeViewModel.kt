@@ -21,6 +21,8 @@ import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
+import androidx.lifecycle.SavedStateHandle
+import com.rayoai.data.local.db.CaptureDao
 import javax.inject.Inject
 
 /**
@@ -56,7 +58,9 @@ class HomeViewModel @Inject constructor(
     private val continueChatUseCase: ContinueChatUseCase, // Caso de uso para continuar el chat.
     private val userPreferencesRepository: UserPreferencesRepository, // Repositorio para las preferencias del usuario.
     private val saveCaptureUseCase: SaveCaptureUseCase, // Caso de uso para guardar las capturas en la DB.
-    private val imageStorageManager: ImageStorageManager // Gestor para guardar imágenes en el almacenamiento local.
+    private val imageStorageManager: ImageStorageManager, // Gestor para guardar imágenes en el almacenamiento local.
+    private val captureDao: CaptureDao, // DAO para acceder a las capturas guardadas.
+    private val savedStateHandle: SavedStateHandle // Handle para acceder a los argumentos de navegación.
 ) : ViewModel() {
 
     // Estado mutable de la UI, expuesto como un StateFlow inmutable para la UI.
@@ -71,6 +75,11 @@ class HomeViewModel @Inject constructor(
             userPreferencesRepository.apiKey.collect { key ->
                 _uiState.update { currentState -> currentState.copy(apiKey = key) }
             }
+        }
+
+        // Comprobar si se ha pasado un ID de captura para restaurar un chat.
+        savedStateHandle.get<String>("captureId")?.toLongOrNull()?.let {
+            restoreChatFromHistory(it)
         }
     }
 
@@ -243,6 +252,36 @@ class HomeViewModel @Inject constructor(
                 CameraSelector.DEFAULT_BACK_CAMERA
             }
             currentState.copy(currentCameraSelector = newSelector)
+        }
+    }
+
+    private fun restoreChatFromHistory(captureId: Long) {
+        viewModelScope.launch {
+            val capture = captureDao.getCaptureById(captureId)
+            if (capture != null) {
+                val imageUri = Uri.parse(capture.imageUri)
+                val bitmap = imageStorageManager.getBitmapFromUri(imageUri)
+
+                if (bitmap != null) {
+                    val chatMessages = listOf(
+                        ChatMessage(content = "Imagen restaurada.", isFromUser = true),
+                        ChatMessage(content = capture.description, isFromUser = false)
+                    )
+                    _uiState.update {
+                        it.copy(
+                            screenState = HomeScreenState.ImageCaptured(bitmap, capture.description, imageUri),
+                            currentImageBitmap = bitmap,
+                            currentImageDescription = capture.description,
+                            currentImageUri = imageUri,
+                            chatMessages = chatMessages
+                        )
+                    }
+                } else {
+                    setError("No se pudo cargar la imagen del historial.")
+                }
+            } else {
+                setError("No se pudo encontrar la captura en el historial.")
+            }
         }
     }
 }

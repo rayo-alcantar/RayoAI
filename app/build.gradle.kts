@@ -79,7 +79,7 @@ dependencies {
     implementation("androidx.hilt:hilt-navigation-compose:1.2.0")
 
     // Gemini AI
-    implementation("com.google.ai.client.generativeai:generativeai:0.5.0")
+    implementation("com.google.ai.client.generativeai:generativeai:0.9.0")
 
     // CameraX
     val cameraxVersion = "1.3.3"
@@ -100,6 +100,9 @@ dependencies {
 
     // Accompanist Permissions
     implementation("com.google.accompanist:accompanist-permissions:0.34.0")
+
+    // Coil (Image Loading)
+    implementation("io.coil-kt:coil-compose:2.6.0")
 
     // Testing
     testImplementation("junit:junit:4.13.2")

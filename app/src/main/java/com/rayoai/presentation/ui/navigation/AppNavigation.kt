@@ -29,8 +29,13 @@ import com.rayoai.presentation.ui.screens.history.HistoryScreen
 import com.rayoai.presentation.ui.screens.home.HomeScreen
 import com.rayoai.presentation.ui.screens.settings.SettingsScreen
 
+import androidx.navigation.NavType
+import androidx.navigation.navArgument
+
 sealed class Screen(val route: String, val label: String, val icon: ImageVector) {
-    object Home : Screen("home", "Inicio", Icons.Default.Home)
+    object Home : Screen("home?captureId={captureId}", "Inicio", Icons.Default.Home) {
+        fun createRoute(captureId: Long?) = if (captureId != null) "home?captureId=$captureId" else "home"
+    }
     object History : Screen("history", "Historial", Icons.Default.History)
     object About : Screen("about", "Acerca de", Icons.Default.Info)
     object Settings : Screen("settings", "Ajustes", Icons.Default.Settings)
@@ -53,7 +58,7 @@ fun AppNavigation(imageUri: Uri?) {
                 val currentDestination = navBackStackEntry?.destination
                 items.forEach { screen ->
                     NavigationBarItem(
-                        icon = { Icon(screen.icon, contentDescription = null) }, // contentDescription nulo en el Icon
+                        icon = { Icon(screen.icon, contentDescription = null) },
                         label = { Text(screen.label) },
                         selected = currentDestination?.hierarchy?.any { it.route == screen.route } == true,
                         onClick = {
@@ -65,7 +70,7 @@ fun AppNavigation(imageUri: Uri?) {
                                 restoreState = true
                             }
                         },
-                        modifier = Modifier.semantics { contentDescription = screen.label } // contentDescription en el NavigationBarItem
+                        modifier = Modifier.semantics { contentDescription = screen.label }
                     )
                 }
             }
@@ -76,10 +81,29 @@ fun AppNavigation(imageUri: Uri?) {
             startDestination = Screen.Home.route,
             modifier = Modifier.padding(innerPadding)
         ) {
-            composable(Screen.Home.route) { HomeScreen(navController = navController, imageUri = imageUri) }
-            composable(Screen.History.route) { HistoryScreen() }
-            composable(Screen.About.route) { AboutScreen() }
-            composable(Screen.Settings.route) { SettingsScreen() }
+            composable(
+                route = Screen.Home.route,
+                arguments = listOf(navArgument("captureId") {
+                    type = NavType.StringType
+                    nullable = true
+                })
+            ) { backStackEntry ->
+                val captureId = backStackEntry.arguments?.getString("captureId")?.toLongOrNull()
+                HomeScreen(
+                    navController = navController,
+                    imageUri = imageUri,
+                    captureId = captureId
+                )
+            }
+            composable(Screen.History.route) {
+                HistoryScreen(navController = navController)
+            }
+            composable(Screen.About.route) {
+                AboutScreen()
+            }
+            composable(Screen.Settings.route) {
+                SettingsScreen()
+            }
         }
     }
 }

@@ -15,6 +15,8 @@ import java.io.IOException
 import javax.inject.Inject
 import javax.inject.Singleton
 
+import android.graphics.ImageDecoder
+
 /**
  * Clase para gestionar el almacenamiento de imágenes en el almacenamiento interno de la aplicación.
  * Utiliza [FileProvider] para generar URIs seguras para las imágenes guardadas.
@@ -92,6 +94,41 @@ class ImageStorageManager @Inject constructor(
                 resolver.delete(it, null, null)
                 return null
             }
+        }
+    }
+
+    fun getBitmapFromUri(uri: Uri): Bitmap? {
+        return try {
+            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.P) {
+                ImageDecoder.decodeBitmap(ImageDecoder.createSource(context.contentResolver, uri))
+            } else {
+                MediaStore.Images.Media.getBitmap(context.contentResolver, uri)
+            }
+        } catch (e: IOException) {
+            e.printStackTrace()
+            null
+        }
+    }
+
+    /**
+     * Elimina un archivo de imagen del almacenamiento interno de la aplicación.
+     * @param uriString La representación en String de la URI del archivo a eliminar.
+     * @return `true` si el archivo se eliminó con éxito, `false` en caso contrario.
+     */
+    fun deleteImage(uriString: String): Boolean {
+        return try {
+            val uri = Uri.parse(uriString)
+            val file = File(context.filesDir.parent, uri.path)
+            if (file.exists()) {
+                file.delete()
+            } else {
+                // Si el archivo no se encuentra en la ruta directa, intenta resolverlo a través del ContentResolver.
+                // Esto es importante para URIs de FileProvider.
+                context.contentResolver.delete(uri, null, null) > 0
+            }
+        } catch (e: Exception) {
+            e.printStackTrace()
+            false
         }
     }
 }

@@ -17,4 +17,13 @@ interface CaptureDao {
 
     @Query("DELETE FROM captures WHERE id = :captureId")
     suspend fun deleteCapture(captureId: Long)
+
+    @Query("DELETE FROM captures")
+    suspend fun deleteAllCaptures()
+
+    @Query("SELECT * FROM captures WHERE id = :captureId")
+    suspend fun getCaptureById(captureId: Long): CaptureEntity?
+
+    @Query("SELECT * FROM captures")
+    suspend fun getAllCapturesList(): List<CaptureEntity>
 }

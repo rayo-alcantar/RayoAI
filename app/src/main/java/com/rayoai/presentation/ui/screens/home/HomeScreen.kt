@@ -63,7 +63,8 @@ import kotlinx.coroutines.launch
 fun HomeScreen(
     viewModel: HomeViewModel = hiltViewModel(),
     navController: NavController,
-    imageUri: Uri? = null
+    imageUri: Uri? = null,
+    captureId: Long? = null
 ) {
     val uiState by viewModel.uiState.collectAsState()
     val context = LocalContext.current
@@ -120,14 +121,7 @@ fun HomeScreen(
         }
     }
 
-    LaunchedEffect(Unit) {
-        viewModel.playCaptureSound.collect {
-            val mediaPlayer = MediaPlayer.create(context, R.raw.send)
-            mediaPlayer.start()
-            mediaPlayer.setOnCompletionListener { mp -> mp.release() }
-        }
-    }
-
+    
     LaunchedEffect(Unit) {
         viewModel.playCaptureSound.collect {
             val mediaPlayer = MediaPlayer.create(context, R.raw.send)
