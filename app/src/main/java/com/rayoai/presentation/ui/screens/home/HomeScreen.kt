@@ -210,26 +210,6 @@ Scaffold(
 
                         Button(
                             onClick = {
-                                viewModel.toggleCamera()
-                            },
-                            modifier = Modifier.fillMaxWidth()
-                        ) {
-                            Text(if (uiState.currentCameraSelector == CameraSelector.DEFAULT_BACK_CAMERA) "Cambiar a cámara frontal" else "Cambiar a cámara trasera")
-                        }
-                        Spacer(modifier = Modifier.height(16.dp))
-
-                        Button(
-                            onClick = {
-                                viewModel.toggleCamera()
-                            },
-                            modifier = Modifier.fillMaxWidth()
-                        ) {
-                            Text(if (uiState.currentCameraSelector == CameraSelector.DEFAULT_BACK_CAMERA) "Cambiar a cámara frontal" else "Cambiar a cámara trasera")
-                        }
-                        Spacer(modifier = Modifier.height(16.dp))
-
-                        Button(
-                            onClick = {
                                 if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU || readStoragePermissionState.status.isGranted) {
                                     galleryLauncher.launch("image/*")
                                 } else {
