@@ -1,0 +1,92 @@
+
+Manual de Usuario de RayoAI
+
+Bienvenido a RayoAI, tu asistente visual accesible. Esta aplicación está diseñada para ayudarte a comprender tu entorno a través de descripciones de imágenes generadas por inteligencia artificial.
+
+---
+
+1.  Primer Inicio y Configuración de la API Key
+
+    Al iniciar RayoAI por primera vez, la aplicación te guiará a la pantalla de bienvenida. Si no tienes una API Key de Google Gemini configurada, la aplicación te lo indicará.
+
+       ¿Qué es una API Key?
+        Es una clave única que permite a la aplicación comunicarse con los servicios de inteligencia artificial de Google (Google Gemini) para procesar tus imágenes. Es esencial para el funcionamiento de la aplicación.
+
+       Cómo obtener una API Key:
+        1.  Visita Google AI Studio en tu navegador web.
+        2.  Inicia sesión con tu cuenta de Google.
+        3.  Sigue las instrucciones para crear una nueva API Key o selecciona una existente.
+        4.  Copia la API Key generada al portapapeles.
+
+       Cómo configurar la API Key en RayoAI:
+        1.  Desde la pantalla de bienvenida, puedes pulsar "No sé cómo tener una clave API" para ir a una pantalla con instrucciones y un botón directo a Google AI Studio.
+        2.  Una vez que tengas tu API Key copiada, ve a la sección de "Ajustes" de la aplicación (accesible desde la barra de navegación inferior).
+        3.  En el campo "Gemini API Key", pega tu clave.
+        4.  Pulsa el botón "Guardar API Key". La clave se almacenará de forma segura en tu dispositivo.
+
+---
+
+2.  Funciones Principales de la Aplicación
+
+    RayoAI ofrece dos modos principales de interacción: la captura de imágenes para descripción y un chat conversacional.
+
+       Pantalla de Inicio (Cámara)
+        Esta es la pantalla principal donde puedes capturar imágenes.
+
+           Cambiar Cámara: Pulsa el botón "Cambiar a cámara frontal" o "Cambiar a cámara trasera" para alternar entre la cámara frontal y trasera de tu dispositivo.
+           Temporizador:
+               Activa la casilla "Temporizador" para habilitar una cuenta regresiva antes de tomar la foto.
+               Una vez activado, aparecerá un menú desplegable donde puedes seleccionar el número de segundos (2, 3, 5, 10, 15) para el temporizador.
+               Cuando pulses "Tomar Foto" con el temporizador activado, verás una cuenta regresiva en pantalla.
+           Tomar Foto: Pulsa el botón "Tomar Foto" para capturar una imagen. Si el temporizador está activado, la foto se tomará después de la cuenta regresiva.
+           Cargar de la Galería: Pulsa el botón "Cargar de la galería" para seleccionar una imagen existente de tu dispositivo.
+Así como también podrás compartirle una imagen desde otras aplicaciones.
+
+       Descripción de Imágenes y Chat Conversacional
+        Después de capturar o seleccionar una imagen, RayoAI la enviará a Google Gemini para obtener una descripción.
+
+           Descripción Inicial: La primera respuesta que recibirás será una descripción detallada de la imagen.
+           Chat: Debajo de la descripción, verás un campo de texto. Puedes escribir preguntas o comentarios sobre la imagen para continuar la conversación con la IA. Por ejemplo: "Describe la persona de la izquierda", "Qué colores predominan?", "Hay algún texto en la imagen?".
+           Acciones del Mensaje (para respuestas de la IA):
+               Escuchar descripción (icono de altavoz): Pulsa este icono para que la aplicación lea en voz alta la descripción o la respuesta de la IA.
+               Copiar descripción (icono de dos hojas): Pulsa este icono para copiar el texto de la descripción o respuesta al portapapeles de tu dispositivo.
+               Compartir imagen (icono de compartir): Pulsa este icono para compartir la imagen capturada con otras aplicaciones.
+               Guardar imagen (icono de disquete): Pulsa este icono para guardar la imagen capturada en la galería de tu dispositivo.
+
+       Historial
+        La pantalla de "Historial" (accesible desde la barra de navegación inferior) muestra todas las imágenes que has descrito previamente, junto con su descripción inicial.
+
+           Ver Descripción: Pulsa sobre cualquier imagen en el historial para volver a ver su descripción y continuar el chat sobre ella.
+           Eliminar una Captura: Pulsa el icono de la papelera en la esquina superior derecha de cada elemento del historial para eliminar esa captura específica y su imagen asociada.
+           Eliminar Todo el Historial: Pulsa el icono de la papelera en la barra superior de la pantalla de Historial para borrar todas las capturas y sus imágenes del historial. Se te pedirá confirmación.
+
+       Acerca de
+        La pantalla "Acerca de" (accesible desde la barra de navegación inferior) proporciona información sobre la aplicación y sus creadores. Aquí encontrarás opciones para contactar al desarrollador, visitar el sitio web y realizar donaciones.
+
+       Ajustes
+        La pantalla de "Ajustes" (accesible desde la barra de navegación inferior) te permite personalizar la aplicación:
+
+           API Key: Configura o actualiza tu API Key de Gemini aquí.
+           Tema: Elige el tema visual de la aplicación:
+               SYSTEM: Utiliza el tema (claro/oscuro) configurado en tu dispositivo.
+               LIGHT: Fuerza el tema claro.
+               DARK: Fuerza el tema oscuro.
+               HIGH_CONTRAST: (Próximamente) Un tema diseñado para mayor contraste.
+           Tamaño de Texto: Ajusta el tamaño del texto en la aplicación utilizando el deslizador. Esto es útil para personas con baja visión.
+           Auto-describir al compartir: (Funcionalidad futura/avanzada) Permite que la aplicación describa automáticamente una imagen cuando se comparte con RayoAI desde otra aplicación.
+
+---
+
+3.  Accesibilidad
+
+    RayoAI ha sido diseñada con la accesibilidad en mente, siguiendo las directrices WCAG 2.2 AA.
+
+       Compatibilidad con TalkBack: Todos los elementos interactivos y el contenido importante están etiquetados para ser leídos correctamente por el lector de pantalla TalkBack.
+No así por lectores externos como jieshuo.
+       Contraste de Color: Los temas de la aplicación están diseñados para cumplir con los requisitos mínimos de contraste.
+       Escalado de Texto: La interfaz se adapta al tamaño de fuente preferido por el usuario, configurable tanto en los ajustes de la aplicación como en los ajustes de accesibilidad del sistema Android.
+
+---
+
+Esperamos que RayoAI te sea de gran utilidad. ¡Gracias por usarla!
+Si tu economía lo permite, podrías considerar hacer una donación para agradecer mi trabajo.
