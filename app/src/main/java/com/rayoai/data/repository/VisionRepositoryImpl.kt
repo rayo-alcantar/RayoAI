@@ -13,7 +13,7 @@ import javax.inject.Inject
 
 /**
  * Implementación concreta de [VisionRepository] que interactúa con la API de Google Gemini.
- * Utiliza el modelo 'gemini-1.5-flash' para generar contenido (descripciones de imágenes o respuestas de chat).
+ * Utiliza el modelo 'gemini-2.0-flash' para generar contenido (descripciones de imágenes o respuestas de chat).
  */
 class VisionRepositoryImpl @Inject constructor() : VisionRepository {
 
@@ -35,7 +35,7 @@ class VisionRepositoryImpl @Inject constructor() : VisionRepository {
         try {
             // Inicializar el modelo generativo con la clave de API proporcionada.
             val generativeModel = GenerativeModel(
-                modelName = "gemini-1.5-flash",
+                modelName = "gemini-2.0-flash",
                 apiKey = apiKey
             )
 
