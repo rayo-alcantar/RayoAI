@@ -15,10 +15,8 @@ import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
-import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
-import com.rayoai.R
 
 @Composable
 fun AboutScreen() {
@@ -45,7 +43,35 @@ fun AboutScreen() {
             style = MaterialTheme.typography.bodyLarge,
             textAlign = TextAlign.Center
         )
+        Spacer(modifier = Modifier.height(8.dp))
+        Text(
+            text = "Tester Alpha, Diseñadora y Creativa:",
+            style = MaterialTheme.typography.bodyLarge
+        )
+        Text(
+            text = "Jessica Herrera",
+            style = MaterialTheme.typography.bodyLarge,
+            textAlign = TextAlign.Center
+        )
         Spacer(modifier = Modifier.height(24.dp))
+        Text(
+            text = "Este software fue hecho sin fines de lucro, pero siempre es bienvenida una donación para continuar su desarrollo.",
+            style = MaterialTheme.typography.bodyMedium,
+            textAlign = TextAlign.Center
+        )
+        Spacer(modifier = Modifier.height(24.dp))
+        // Botón para contactar con el desarrollador (correo)
+        Button(onClick = {
+            val emailIntent = Intent(Intent.ACTION_SENDTO).apply {
+                data = Uri.parse("mailto:contacto@rayoscompany.com")
+                putExtra(Intent.EXTRA_SUBJECT, "Contacto desde RayoAI")
+            }
+            context.startActivity(emailIntent)
+        }) {
+            Text("Contactar con el desarrollador")
+        }
+        Spacer(modifier = Modifier.height(8.dp))
+        // Botón de sitio web
         Button(onClick = {
             val intent = Intent(Intent.ACTION_VIEW, Uri.parse("https://rayoscompany.com/"))
             context.startActivity(intent)

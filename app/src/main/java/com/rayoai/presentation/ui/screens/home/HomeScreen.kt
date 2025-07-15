@@ -35,6 +35,7 @@ import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.semantics.*
+import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.hilt.navigation.compose.hiltViewModel
 import androidx.navigation.NavController
@@ -185,136 +186,19 @@ Scaffold(
                 .fillMaxSize()
         ) {
             when (uiState.screenState) {
-                HomeScreenState.Initial -> {
-                    // UI para la selección de cámara/galería y permisos
+                                HomeScreenState.Initial -> {
                     Column(
                         modifier = Modifier
                             .fillMaxSize()
-                            .padding(16.dp),
-                        horizontalAlignment = Alignment.CenterHorizontally,
-                        verticalArrangement = Arrangement.Center
+                            .padding(horizontal = 16.dp), // Apply horizontal padding to the main column
+                        horizontalAlignment = Alignment.CenterHorizontally
                     ) {
-                        
-
-                        Button(
-                            onClick = {
-                                viewModel.toggleCamera()
-                            },
-                            modifier = Modifier.fillMaxWidth()
-                        ) {
-                            Text(if (uiState.currentCameraSelector == CameraSelector.DEFAULT_BACK_CAMERA) "Cambiar a cámara frontal" else "Cambiar a cámara trasera")
-                        }
-                        Spacer(modifier = Modifier.height(16.dp))
-
-                        Button(
-                            onClick = {
-                                if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU || readStoragePermissionState.status.isGranted) {
-                                    galleryLauncher.launch("image/*")
-                                } else {
-                                    readStoragePermissionState.launchPermissionRequest()
-                                }
-                            },
-                            modifier = Modifier.fillMaxWidth()
-                        ) {
-                            Text("Cargar de la galería")
-                        }
-                        Spacer(modifier = Modifier.height(16.dp))
-
-                        Row(
-                            modifier = Modifier.fillMaxWidth(),
-                            verticalAlignment = Alignment.CenterVertically,
-                            horizontalArrangement = Arrangement.SpaceBetween
-                        ) {
-                            // Checkbox para habilitar el temporizador
-                            Row(
-                                verticalAlignment = Alignment.CenterVertically,
-                                modifier = Modifier.weight(1f)
-                            ) {
-                                Checkbox(
-                                    checked = uiState.isTimerEnabled,
-                                    onCheckedChange = { viewModel.setTimerEnabled(it) }
-                                )
-                                Text("Temporizador")
-                            }
-
-                            // Dropdown para seleccionar los segundos del temporizador
-                            if (uiState.isTimerEnabled) {
-                                var expanded by remember { mutableStateOf(false) }
-                                val timerOptions = listOf(2, 3, 5, 10, 15)
-                                val selectedOptionText = if (uiState.timerSeconds > 0) "${uiState.timerSeconds}s" else "Seleccionar"
-
-                                ExposedDropdownMenuBox(
-                                    expanded = expanded,
-                                    onExpandedChange = { expanded = !expanded },
-                                    modifier = Modifier.weight(1f)
-                                ) {
-                                    OutlinedTextField(
-                                        value = selectedOptionText,
-                                        onValueChange = { },
-                                        readOnly = true,
-                                        label = { Text("Segundos") },
-                                        trailingIcon = { ExposedDropdownMenuDefaults.TrailingIcon(expanded = expanded) },
-                                        modifier = Modifier
-                                            .menuAnchor()
-                                            .fillMaxWidth()
-                                    )
-
-                                    ExposedDropdownMenu(
-                                        expanded = expanded,
-                                        onDismissRequest = { expanded = false }
-                                    ) {
-                                        timerOptions.forEach { selectionOption ->
-                                            DropdownMenuItem(
-                                                text = { Text(selectionOption.toString()) },
-                                                onClick = {
-                                                    viewModel.setTimerSeconds(selectionOption)
-                                                    expanded = false
-                                                }
-                                            )
-                                        }
-                                    }
-                                }
-                            }
-                        }
-                        Spacer(modifier = Modifier.height(16.dp))
-
-                        // Botón de captura
-                        Button(
-                            onClick = {
-                                if (cameraPermissionState.status.isGranted) {
-                                    viewModel.triggerImageCapture()
-                                } else {
-                                    cameraPermissionState.launchPermissionRequest()
-                                }
-                            },
-                            modifier = Modifier.fillMaxWidth(),
-                            enabled = !uiState.isLoading && !uiState.isCountingDown
-                        ) {
-                            Text("Tomar Foto")
-                        }
-                        Spacer(modifier = Modifier.height(16.dp))
-
-                        // Indicador de cuenta regresiva
-                        if (uiState.isCountingDown) {
-                            var countdownValue by remember { mutableStateOf(uiState.timerSeconds) }
-                            LaunchedEffect(Unit) {
-                                viewModel.countdownTrigger.collect { value ->
-                                    countdownValue = value
-                                }
-                            }
-                            Text(
-                                text = "Capturando en: $countdownValue...",
-                                style = MaterialTheme.typography.headlineMedium,
-                                modifier = Modifier.align(Alignment.CenterHorizontally)
-                            )
-                        }
-
-                        // Vista de la cámara (oculta hasta que se tome una foto)
+                        // Camera View or Permission Text (takes up remaining space)
                         if (cameraPermissionState.status.isGranted) {
                             CameraView(
                                 modifier = Modifier
                                     .fillMaxWidth()
-                                    .weight(1f),
+                                    .weight(1f), // Occupy remaining space
                                 onImageCaptured = { bitmap ->
                                     viewModel.describeImage(bitmap)
                                     viewModel.setLoading(false)
@@ -327,12 +211,144 @@ Scaffold(
                                 cameraSelector = uiState.currentCameraSelector
                             )
                         } else {
-                            Spacer(modifier = Modifier.height(16.dp))
-                            Text(
-                                text = "Se requiere permiso de cámara para tomar fotografías.",
-                                style = MaterialTheme.typography.bodyMedium,
-                                modifier = Modifier.align(Alignment.CenterHorizontally)
-                            )
+                            Column(
+                                modifier = Modifier
+                                    .fillMaxWidth()
+                                    .weight(1f) // Occupy remaining space
+                                    .padding(vertical = 16.dp), // Add vertical padding
+                                horizontalAlignment = Alignment.CenterHorizontally,
+                                verticalArrangement = Arrangement.Center
+                            ) {
+                                Text(
+                                    text = "Se requiere permiso de cámara para tomar fotografías.",
+                                    style = MaterialTheme.typography.bodyMedium,
+                                    textAlign = TextAlign.Center
+                                )
+                            }
+                        }
+
+                        // Camera Controls and Timer at the bottom
+                        Column(
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .padding(top = 16.dp, bottom = 16.dp), // Add padding around the controls
+                            horizontalAlignment = Alignment.CenterHorizontally,
+                            verticalArrangement = Arrangement.spacedBy(8.dp) // Space between buttons
+                        ) {
+                            Button(
+                                onClick = {
+                                    viewModel.toggleCamera()
+                                },
+                                modifier = Modifier.fillMaxWidth().height(56.dp)
+                            ) {
+                                Text(if (uiState.currentCameraSelector == CameraSelector.DEFAULT_BACK_CAMERA) "Cambiar a cámara frontal" else "Cambiar a cámara trasera", style = MaterialTheme.typography.titleMedium)
+                            }
+
+                            Button(
+                                onClick = {
+                                    if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU || readStoragePermissionState.status.isGranted) {
+                                        galleryLauncher.launch("image/*")
+                                    } else {
+                                        readStoragePermissionState.launchPermissionRequest()
+                                    }
+                                },
+                                modifier = Modifier.fillMaxWidth().height(56.dp)
+                            ) {
+                                Text("Cargar de la galería", style = MaterialTheme.typography.titleMedium)
+                            }
+
+                            Row(
+                                modifier = Modifier.fillMaxWidth(),
+                                verticalAlignment = Alignment.CenterVertically,
+                                horizontalArrangement = Arrangement.SpaceBetween
+                            ) {
+                                // Checkbox para habilitar el temporizador
+                                Row(
+                                    verticalAlignment = Alignment.CenterVertically,
+                                    modifier = Modifier.weight(1f)
+                                ) {
+                                    Checkbox(
+                                        checked = uiState.isTimerEnabled,
+                                        onCheckedChange = { viewModel.setTimerEnabled(it) }
+                                    )
+                                    Text("Temporizador", style = MaterialTheme.typography.titleMedium)
+                                }
+
+                                // Dropdown para seleccionar los segundos del temporizador
+                                if (uiState.isTimerEnabled) {
+                                    var expanded by remember { mutableStateOf(false) }
+                                    val timerOptions = listOf(2, 3, 5, 10, 15)
+                                    val selectedOptionText = if (uiState.timerSeconds > 0) "${uiState.timerSeconds}s" else "Seleccionar"
+
+                                    ExposedDropdownMenuBox(
+                                        expanded = expanded,
+                                        onExpandedChange = { expanded = !expanded },
+                                        modifier = Modifier.weight(1f)
+                                    ) {
+                                        OutlinedTextField(
+                                            value = selectedOptionText,
+                                            onValueChange = { },
+                                            readOnly = true,
+                                            label = { Text("Segundos") },
+                                            trailingIcon = { ExposedDropdownMenuDefaults.TrailingIcon(expanded = expanded) },
+                                            modifier = Modifier
+                                                .menuAnchor()
+                                                .fillMaxWidth()
+                                        )
+
+                                        ExposedDropdownMenu(
+                                            expanded = expanded,
+                                            onDismissRequest = { expanded = false }
+                                        ) {
+                                            timerOptions.forEach { selectionOption ->
+                                                DropdownMenuItem(
+                                                    text = { Text(selectionOption.toString()) },
+                                                    onClick = {
+                                                        viewModel.setTimerSeconds(selectionOption)
+                                                        expanded = false
+                                                    }
+                                                )
+                                            }
+                                        }
+                                    }
+                                }
+                            }
+
+                            // Indicador de cuenta regresiva
+                            if (uiState.isCountingDown) {
+                                var countdownValue by remember { mutableStateOf(uiState.timerSeconds) }
+                                LaunchedEffect(uiState.isCountingDown) {
+                                    if (uiState.isCountingDown) {
+                                        textToSpeech?.let { tts ->
+                                            viewModel.countdownTrigger.collect { value ->
+                                                countdownValue = value
+                                                tts.speak(value.toString(), TextToSpeech.QUEUE_FLUSH, null, null)
+                                            }
+                                        }
+                                    } else if (ttsInitialized && countdownValue == 0) {
+                                        textToSpeech?.speak("foto", TextToSpeech.QUEUE_FLUSH, null, null)
+                                    }
+                                }
+                                Text(
+                                    text = "Capturando en: $countdownValue...",
+                                    style = MaterialTheme.typography.headlineMedium,
+                                    modifier = Modifier.align(Alignment.CenterHorizontally)
+                                )
+                            }
+
+                            Button(
+                                onClick = {
+                                    if (cameraPermissionState.status.isGranted) {
+                                        viewModel.triggerImageCapture()
+                                    } else {
+                                        cameraPermissionState.launchPermissionRequest()
+                                    }
+                                },
+                                modifier = Modifier.fillMaxWidth().height(56.dp),
+                                enabled = !uiState.isLoading && !uiState.isCountingDown
+                            ) {
+                                Text("Tomar Foto", style = MaterialTheme.typography.titleMedium)
+                            }
                         }
                     }
                 }
