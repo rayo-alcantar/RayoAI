@@ -32,42 +32,54 @@ class VisionRepositoryImpl @Inject constructor() : VisionRepository {
         history: List<ChatMessage>
     ): Flow<ResultWrapper<String>> = flow {
         emit(ResultWrapper.Loading) // Emitir estado de carga al inicio de la operación.
+
+        val contents = mutableListOf<Content>()
+
+        // Añadir el historial de chat previo para mantener el contexto.
+        // Se mapea el ChatMessage de dominio a Content del SDK de Gemini.
+        history.forEach { chatMessage ->
+            val participant = if (chatMessage.isFromUser) "user" else "model"
+            contents.add(content(participant) { text(chatMessage.content) })
+        }
+
+        // Añadir el contenido actual (imagen y/o texto).
+        val currentContent = content {
+            image?.let { image(it) } // Si hay imagen, añadirla al contenido.
+            text(prompt) // Añadir el prompt de texto.
+        }
+        contents.add(currentContent)
+
         try {
-            // Inicializar el modelo generativo con la clave de API proporcionada.
-            val generativeModel = GenerativeModel(
+            // Intento 1: gemini-2.0-flash
+            val generativeModelFlash = GenerativeModel(
                 modelName = "gemini-2.0-flash",
                 apiKey = apiKey
             )
-
-            // Construir la lista de contenido para enviar al modelo.
-            // Esto incluye el historial de chat y el prompt/imagen actual.
-            val contents = mutableListOf<Content>()
-
-            // Añadir el historial de chat previo para mantener el contexto.
-            // Se mapea el ChatMessage de dominio a Content del SDK de Gemini.
-            history.forEach { chatMessage ->
-                val participant = if (chatMessage.isFromUser) "user" else "model"
-                contents.add(content(participant) { text(chatMessage.content) })
+            val responseFlash = generativeModelFlash.generateContent(*contents.toTypedArray())
+            responseFlash.text?.let {
+                emit(ResultWrapper.Success(it))
+                return@flow // Salir si tiene éxito
             }
-
-            // Añadir el contenido actual (imagen y/o texto).
-            val currentContent = content {
-                image?.let { image(it) } // Si hay imagen, añadirla al contenido.
-                text(prompt) // Añadir el prompt de texto.
-            }
-            contents.add(currentContent)
-
-            // Generar contenido utilizando el modelo Gemini.
-            val response = generativeModel.generateContent(*contents.toTypedArray())
-
-            // Procesar la respuesta del modelo.
-            response.text?.let {
-                emit(ResultWrapper.Success(it)) // Si la respuesta es exitosa, emitir el resultado.
-            } ?: emit(ResultWrapper.Error("Empty response from API.")) // Si la respuesta es vacía, emitir un error.
-
         } catch (e: Exception) {
-            // Capturar cualquier excepción durante la llamada a la API y emitir un error.
-            emit(ResultWrapper.Error(e.localizedMessage ?: "An unknown error occurred"))
+            // Log del error del primer intento, pero no emitir aún.
+            // Puedes añadir un Log.e aquí si lo deseas para depuración.
+            // Log.e("VisionRepositoryImpl", "Error with gemini-2.0-flash: ${e.localizedMessage}")
+        }
+
+        try {
+            // Intento 2: gemini-1.5-flash (fallback)
+            val generativeModel1_5Flash = GenerativeModel(
+                modelName = "gemini-1.5-flash",
+                apiKey = apiKey
+            )
+            val response1_5Flash = generativeModel1_5Flash.generateContent(*contents.toTypedArray())
+            response1_5Flash.text?.let {
+                emit(ResultWrapper.Success(it))
+                return@flow // Salir si tiene éxito
+            } ?: emit(ResultWrapper.Error("Empty response from both APIs."))
+        } catch (e: Exception) {
+            // Si ambos fallan, emitir el error del segundo intento.
+            emit(ResultWrapper.Error(e.localizedMessage ?: "An unknown error occurred after multiple attempts"))
         }
     }
 }
