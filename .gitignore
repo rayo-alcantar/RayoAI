@@ -48,3 +48,5 @@ captures/
 
 # Archivos de memoria del agente (si aplica)
 .gemini_memory
+/keystore.properties
+/rayoai-release.jks

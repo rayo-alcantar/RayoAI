@@ -1,9 +1,19 @@
+import java.util.Properties
+
 plugins {
     id("com.android.application")
     id("org.jetbrains.kotlin.android")
     id("kotlin-kapt") // Para Hilt (procesador de anotaciones)
     id("com.google.dagger.hilt.android")
     id("com.google.devtools.ksp") // Para Room (procesador de anotaciones)
+}
+
+// 🔐 Cargar configuración de firma
+val keystoreProperties = Properties().apply {
+    val keystoreFile = rootProject.file("keystore.properties")
+    if (keystoreFile.exists()) {
+        load(keystoreFile.inputStream())
+    }
 }
 
 android {
@@ -22,10 +32,20 @@ android {
         }
     }
 
+    signingConfigs {
+        create("release") {
+            storeFile = file(keystoreProperties["storeFile"] as String)
+            storePassword = keystoreProperties["storePassword"] as String
+            keyAlias = keystoreProperties["keyAlias"] as String
+            keyPassword = keystoreProperties["keyPassword"] as String
+        }
+    }
+
     buildTypes {
         release {
             isMinifyEnabled = true
             isShrinkResources = true
+            signingConfig = signingConfigs.getByName("release")
             proguardFiles(getDefaultProguardFile("proguard-android-optimize.txt"), "proguard-rules.pro")
         }
     }
@@ -112,7 +132,5 @@ dependencies {
     debugImplementation("androidx.compose.ui:ui-test-manifest")
     androidTestImplementation("app.cash.turbine:turbine:1.1.0")
     androidTestImplementation("org.jetbrains.kotlinx:kotlinx-coroutines-test:1.8.0")
-
-    // ✅ CORRECCIÓN: Para que `kotlin.test.assertEquals` funcione
     androidTestImplementation("org.jetbrains.kotlin:kotlin-test:1.9.23")
 }
