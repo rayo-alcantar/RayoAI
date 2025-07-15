@@ -20,19 +20,22 @@ import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.semantics.semantics
 import androidx.navigation.NavDestination.Companion.hierarchy
 import androidx.navigation.NavGraph.Companion.findStartDestination
+import androidx.navigation.NavType
 import androidx.navigation.compose.NavHost
 import androidx.navigation.compose.composable
 import androidx.navigation.compose.currentBackStackEntryAsState
 import androidx.navigation.compose.rememberNavController
+import androidx.navigation.navArgument
 import com.rayoai.presentation.ui.screens.about.AboutScreen
+import com.rayoai.presentation.ui.screens.api_instructions.ApiInstructionsScreen
 import com.rayoai.presentation.ui.screens.history.HistoryScreen
 import com.rayoai.presentation.ui.screens.home.HomeScreen
 import com.rayoai.presentation.ui.screens.settings.SettingsScreen
+import com.rayoai.presentation.ui.screens.welcome.WelcomeScreen
 
-import androidx.navigation.NavType
-import androidx.navigation.navArgument
-
-sealed class Screen(val route: String, val label: String, val icon: ImageVector) {
+sealed class Screen(val route: String, val label: String? = null, val icon: ImageVector? = null) {
+    object Welcome : Screen("welcome")
+    object ApiInstructions : Screen("api_instructions")
     object Home : Screen("home?captureId={captureId}", "Inicio", Icons.Default.Home) {
         fun createRoute(captureId: Long?) = if (captureId != null) "home?captureId=$captureId" else "home"
     }
@@ -49,36 +52,39 @@ val items = listOf(
 )
 
 @Composable
-fun AppNavigation(imageUri: Uri?) {
+fun AppNavigation(imageUri: Uri?, startDestination: String) {
     val navController = rememberNavController()
     Scaffold(
         bottomBar = {
-            NavigationBar {
-                val navBackStackEntry by navController.currentBackStackEntryAsState()
-                val currentDestination = navBackStackEntry?.destination
-                items.forEach { screen ->
-                    NavigationBarItem(
-                        icon = { Icon(screen.icon, contentDescription = null) },
-                        label = { Text(screen.label) },
-                        selected = currentDestination?.hierarchy?.any { it.route == screen.route } == true,
-                        onClick = {
-                            navController.navigate(screen.route) {
-                                popUpTo(navController.graph.findStartDestination().id) {
-                                    saveState = true
+            val navBackStackEntry by navController.currentBackStackEntryAsState()
+            val currentDestination = navBackStackEntry?.destination
+            val showBottomBar = items.any { it.route == currentDestination?.route }
+            if (showBottomBar) {
+                NavigationBar {
+                    items.forEach { screen ->
+                        NavigationBarItem(
+                            icon = { screen.icon?.let { Icon(it, contentDescription = null) } },
+                            label = { screen.label?.let { Text(it) } },
+                            selected = currentDestination?.hierarchy?.any { it.route == screen.route } == true,
+                            onClick = {
+                                navController.navigate(screen.route) {
+                                    popUpTo(navController.graph.findStartDestination().id) {
+                                        saveState = true
+                                    }
+                                    launchSingleTop = true
+                                    restoreState = true
                                 }
-                                launchSingleTop = true
-                                restoreState = true
-                            }
-                        },
-                        modifier = Modifier.semantics { contentDescription = screen.label }
-                    )
+                            },
+                            modifier = Modifier.semantics { contentDescription = screen.label ?: "" }
+                        )
+                    }
                 }
             }
         }
     ) { innerPadding ->
         NavHost(
             navController = navController,
-            startDestination = Screen.Home.route,
+            startDestination = startDestination,
             modifier = Modifier.padding(innerPadding)
         ) {
             composable(
@@ -103,6 +109,12 @@ fun AppNavigation(imageUri: Uri?) {
             }
             composable(Screen.Settings.route) {
                 SettingsScreen()
+            }
+            composable(Screen.Welcome.route) {
+                WelcomeScreen(navController = navController)
+            }
+            composable(Screen.ApiInstructions.route) {
+                ApiInstructionsScreen(navController = navController)
             }
         }
     }

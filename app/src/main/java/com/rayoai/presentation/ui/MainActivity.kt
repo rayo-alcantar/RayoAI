@@ -14,28 +14,30 @@ import androidx.compose.runtime.CompositionLocalProvider
 import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.remember
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.platform.LocalContext
+import com.rayoai.domain.repository.UserPreferencesRepository
 import com.rayoai.presentation.ui.navigation.AppNavigation
+import com.rayoai.presentation.ui.navigation.Screen
 import com.rayoai.presentation.ui.theme.RayoAITheme
 import dagger.hilt.android.AndroidEntryPoint
+import kotlinx.coroutines.flow.first
+import kotlinx.coroutines.runBlocking
 import java.util.Locale
+import javax.inject.Inject
 
-/**
- * Actividad principal de la aplicación RayoAI.
- * Configura el tema, la navegación y el motor de Text-to-Speech (TTS).
- */
 @AndroidEntryPoint
 class MainActivity : ComponentActivity() {
+
+    @Inject
+    lateinit var userPreferencesRepository: UserPreferencesRepository
 
     private var textToSpeech: TextToSpeech? = null
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
 
-        // Inicializar el motor de Text-to-Speech.
         textToSpeech = TextToSpeech(this) {
             if (it == TextToSpeech.SUCCESS) {
-                val result = textToSpeech?.setLanguage(Locale("es", "ES")) // Configurar idioma a español.
+                val result = textToSpeech?.setLanguage(Locale("es", "ES"))
                 if (result == TextToSpeech.LANG_MISSING_DATA || result == TextToSpeech.LANG_NOT_SUPPORTED) {
                     Log.e("TTS", "El idioma español no está soportado o faltan datos.")
                 }
@@ -44,25 +46,28 @@ class MainActivity : ComponentActivity() {
             }
         }
 
-        // Obtener la URI de la imagen del Intent, si existe.
         val imageUri: Uri? = intent?.getParcelableExtra(Intent.EXTRA_STREAM)
 
         setContent {
-            // Proporcionar el TextToSpeech a través de un CompositionLocal para que sea accesible en otros Composables.
             val tts = remember { textToSpeech }
             CompositionLocalProvider(LocalTextToSpeech provides tts) {
                 RayoAITheme {
-                    // Superficie principal de la aplicación con el color de fondo del tema.
                     Surface(
                         modifier = Modifier.fillMaxSize(),
                         color = MaterialTheme.colorScheme.background
                     ) {
-                        AppNavigation(imageUri = imageUri)
+                        val isFirstRun = runBlocking { userPreferencesRepository.isFirstRun.first() }
+                        val apiKey = runBlocking { userPreferencesRepository.apiKey.first() }
+                        val startDestination = if (isFirstRun || apiKey.isNullOrEmpty()) {
+                            Screen.Welcome.route
+                        } else {
+                            Screen.Home.route
+                        }
+                        AppNavigation(imageUri = imageUri, startDestination = startDestination)
                     }
                 }
             }
 
-            // Limpiar el motor de TTS cuando el Composable se destruye.
             DisposableEffect(Unit) {
                 onDispose {
                     textToSpeech?.stop()
