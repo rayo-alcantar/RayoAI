@@ -55,6 +55,16 @@ fun AboutScreen() {
         )
         Spacer(modifier = Modifier.height(24.dp))
         Text(
+            text = "Asesor legal",
+            style = MaterialTheme.typography.bodyLarge
+        )
+        Text(
+            text = "Eddie Cortes",
+            style = MaterialTheme.typography.bodyLarge,
+            textAlign = TextAlign.Center
+        )
+
+        Text(
             text = "Este software fue hecho sin fines de lucro, pero siempre es bienvenida una donación para continuar su desarrollo.",
             style = MaterialTheme.typography.bodyMedium,
             textAlign = TextAlign.Center
