@@ -55,7 +55,7 @@ fun ApiInstructionsScreen(navController: NavController) {
             )
             Spacer(modifier = Modifier.height(16.dp))
             Text(
-                text = "Iniciar sesión con google, pulsar en crear api key o get api key y pulsar en copiar al portapapeles.",
+                text = "Iniciar sesión con google, pulsar en crear api key o get api key y pulsar en copiar al portapapeles. ¡Cuidado! si tu cuenta es de menor de edad (menor de 18 años) o no está tu país en la lista de países permitidos, te dará erorr al entrar a AIStudio.",
                 style = MaterialTheme.typography.bodyMedium,
                 textAlign = TextAlign.Center
             )
