@@ -91,7 +91,7 @@ Para que el proyecto funcione correctamente, sigue estos pasos:
 
 1.  **Clonar el Repositorio:**
     ```bash
-    git clone https://github.com/tu-usuario/RayoAI.git
+    git clone https://github.com/rayo-alcantar/RayoAI.git
     cd RayoAI
     ```
 2.  **Abrir en Android Studio:**
