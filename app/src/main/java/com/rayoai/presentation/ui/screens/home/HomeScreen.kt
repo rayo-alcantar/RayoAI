@@ -375,7 +375,7 @@ fun HomeScreen(
                     val focusRequester = remember { FocusRequester() }
 
 
-                    // Mover el foco según el último mensaje
+                    // Mover el foco y leer el mensaje según corresponda
                     LaunchedEffect(chatMessages) {
                         val lastMessage = chatMessages.lastOrNull()
                         val lastIndex = chatMessages.size - 1
@@ -384,8 +384,16 @@ fun HomeScreen(
                             val shouldFocus = when {
                                 // Enfocar la pregunta del usuario
                                 lastMessage.isFromUser -> true
-                                // Enfocar la descripción inicial de la IA (asumiendo que es el segundo mensaje)
-                                !lastMessage.isFromUser && chatMessages.size == 2 -> true
+                                // Enfocar y leer la descripción inicial de la IA
+                                !lastMessage.isFromUser && chatMessages.size == 2 -> {
+                                    textToSpeech?.speak(lastMessage.content, TextToSpeech.QUEUE_FLUSH, null, null)
+                                    true
+                                }
+                                // Leer las respuestas posteriores de la IA
+                                !lastMessage.isFromUser -> {
+                                    textToSpeech?.speak(lastMessage.content, TextToSpeech.QUEUE_FLUSH, null, null)
+                                    true // También enfocar para mantener la posición visual
+                                }
                                 else -> false
                             }
 
@@ -497,14 +505,16 @@ fun HomeScreen(
 
                         // Indicador de "escribiendo"
                         if (uiState.isAiTyping) {
-                            Text(
-                                text = "RayoAI está escribiendo...",
-                                style = MaterialTheme.typography.bodySmall,
-                                modifier = Modifier
-                                    .fillMaxWidth()
-                                    .padding(horizontal = 16.dp, vertical = 4.dp),
-                                textAlign = TextAlign.Center
-                            )
+                            Box(modifier = Modifier.semantics { liveRegion = LiveRegionMode.Assertive }) {
+                                Text(
+                                    text = "RayoAI está escribiendo...",
+                                    style = MaterialTheme.typography.bodySmall,
+                                    modifier = Modifier
+                                        .fillMaxWidth()
+                                        .padding(horizontal = 16.dp, vertical = 4.dp),
+                                    textAlign = TextAlign.Center
+                                )
+                            }
                         }
 
                         // Campo de entrada de chat
