@@ -45,6 +45,7 @@ sealed class HomeScreenState {
 data class HomeUiState(
     val screenState: HomeScreenState = HomeScreenState.Initial,
     val isLoading: Boolean = false, // Indica si una operación de carga está en curso.
+    val isAiTyping: Boolean = false, // Indica si la IA está "escribiendo" una respuesta.
     val chatMessages: List<ChatMessage> = emptyList(), // Lista de mensajes en el chat.
     val error: String? = null, // Mensaje de error a mostrar, si lo hay.
     val apiKey: String? = null, // La clave de API de Gemini, obtenida de las preferencias del usuario.
@@ -210,28 +211,41 @@ class HomeViewModel @Inject constructor(
             // No enviar mensajes vacíos.
             if (message.isBlank()) return@launch
 
-            // Añadir el mensaje del usuario al chat.
+            // Añadir el mensaje del usuario al chat y activar el indicador de escritura.
             val userMessage = ChatMessage(content = message, isFromUser = true)
-            _uiState.update { currentState -> currentState.copy(chatMessages = currentState.chatMessages + userMessage) }
+            _uiState.update { currentState ->
+                currentState.copy(
+                    chatMessages = currentState.chatMessages + userMessage,
+                    isAiTyping = true // Indicar que la IA está procesando
+                )
+            }
 
             // Llamar al caso de uso para continuar el chat, pasando el historial completo.
             continueChatUseCase(apiKey, message, _uiState.value.chatMessages, _uiState.value.currentImageBitmap).collect { result ->
                 when (result) {
                     is ResultWrapper.Loading -> {
-                        // isLoading ya está en true por triggerImageCapture o por el envío del mensaje
+                        // El estado de carga ya está gestionado por isAiTyping
                     }
                     is ResultWrapper.Success -> {
-                        // Si la respuesta es exitosa, añadirla al chat.
+                        // Si la respuesta es exitosa, añadirla al chat y desactivar el indicador.
                         val newMessages = _uiState.value.chatMessages +
                                 ChatMessage(content = result.data, isFromUser = false)
                         _uiState.update { currentState ->
-                            currentState.copy(isLoading = false, chatMessages = newMessages)
+                            currentState.copy(
+                                isLoading = false,
+                                isAiTyping = false,
+                                chatMessages = newMessages
+                            )
                         }
                     }
                     is ResultWrapper.Error -> {
-                        // Si hay un error, actualizar el estado de error de la UI.
+                        // Si hay un error, actualizar el estado de error y desactivar el indicador.
                         _uiState.update { currentState ->
-                            currentState.copy(isLoading = false, error = result.message)
+                            currentState.copy(
+                                isLoading = false,
+                                isAiTyping = false,
+                                error = result.message
+                            )
                         }
                     }
                 }

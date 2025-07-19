@@ -36,12 +36,12 @@ import com.rayoai.presentation.ui.LocalTextToSpeech
  * @param message El [ChatMessage] a mostrar.
  */
 @Composable
-fun ChatBubble(message: com.rayoai.domain.model.ChatMessage) {
+fun ChatBubble(message: com.rayoai.domain.model.ChatMessage, modifier: Modifier = Modifier) {
     val context = LocalContext.current
     val textToSpeech = LocalTextToSpeech.current
 
     Column(
-        modifier = Modifier.fillMaxWidth(),
+        modifier = modifier.fillMaxWidth(),
         // Alinea la burbuja a la derecha si es un mensaje del usuario, a la izquierda si es de la IA.
         horizontalAlignment = if (message.isFromUser) Alignment.End else Alignment.Start
     ) {

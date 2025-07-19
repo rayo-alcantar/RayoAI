@@ -27,9 +27,11 @@ import androidx.compose.material.icons.filled.Send
 import androidx.compose.material.icons.filled.Settings
 import androidx.compose.material.icons.automirrored.filled.Send
 import androidx.compose.material3.*
-import androidx.compose.runtime.* // Importar todos los composables de runtime
+import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.focus.FocusRequester
+import androidx.compose.ui.focus.focusRequester
 import androidx.compose.ui.graphics.asImageBitmap
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.platform.LocalContext
@@ -50,10 +52,14 @@ import android.media.MediaPlayer
 import androidx.camera.core.CameraSelector
 import android.content.ClipData
 import android.content.ClipboardManager
+import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.core.content.ContextCompat
 import java.util.Locale
 import kotlinx.coroutines.launch
 import androidx.activity.compose.BackHandler
+import com.rayoai.domain.model.ChatMessage
+import kotlinx.coroutines.delay
+import kotlin.math.roundToInt
 
 /**
  * Composable principal para la pantalla de inicio de la aplicación.
@@ -138,27 +144,27 @@ fun HomeScreen(
     var ttsInitialized by remember { mutableStateOf(false) }
 
 
-DisposableEffect(context) {
-    textToSpeech = TextToSpeech(context) { status ->
-        if (status == TextToSpeech.SUCCESS) {
-            val result = textToSpeech?.setLanguage(Locale("es", "ES"))
-            if (result == TextToSpeech.LANG_MISSING_DATA || result == TextToSpeech.LANG_NOT_SUPPORTED) {
-                viewModel.setError("Idioma no soportado para Text-to-Speech.")
+    DisposableEffect(context) {
+        textToSpeech = TextToSpeech(context) { status ->
+            if (status == TextToSpeech.SUCCESS) {
+                val result = textToSpeech?.setLanguage(Locale("es", "ES"))
+                if (result == TextToSpeech.LANG_MISSING_DATA || result == TextToSpeech.LANG_NOT_SUPPORTED) {
+                    viewModel.setError("Idioma no soportado para Text-to-Speech.")
+                } else {
+                    ttsInitialized = true
+                }
             } else {
-                ttsInitialized = true
+                viewModel.setError("Error al inicializar Text-to-Speech.")
             }
-        } else {
-            viewModel.setError("Error al inicializar Text-to-Speech.")
+        }
+
+        onDispose {
+            textToSpeech?.stop()
+            textToSpeech?.shutdown()
         }
     }
 
-    onDispose {
-        textToSpeech?.stop()
-        textToSpeech?.shutdown()
-    }
-}
-
-Scaffold(
+    Scaffold(
         modifier = Modifier.fillMaxSize(),
         snackbarHost = { SnackbarHost(snackbarHostState) },
         topBar = {
@@ -186,7 +192,7 @@ Scaffold(
                 .fillMaxSize()
         ) {
             when (uiState.screenState) {
-                                HomeScreenState.Initial -> {
+                HomeScreenState.Initial -> {
                     Column(
                         modifier = Modifier
                             .fillMaxSize()
@@ -239,7 +245,9 @@ Scaffold(
                                 onClick = {
                                     viewModel.toggleCamera()
                                 },
-                                modifier = Modifier.fillMaxWidth().height(56.dp)
+                                modifier = Modifier
+                                    .fillMaxWidth()
+                                    .height(56.dp)
                             ) {
                                 Text(if (uiState.currentCameraSelector == CameraSelector.DEFAULT_BACK_CAMERA) "Cambiar a cámara frontal" else "Cambiar a cámara trasera", style = MaterialTheme.typography.titleMedium)
                             }
@@ -252,7 +260,9 @@ Scaffold(
                                         readStoragePermissionState.launchPermissionRequest()
                                     }
                                 },
-                                modifier = Modifier.fillMaxWidth().height(56.dp)
+                                modifier = Modifier
+                                    .fillMaxWidth()
+                                    .height(56.dp)
                             ) {
                                 Text("Cargar de la galería", style = MaterialTheme.typography.titleMedium)
                             }
@@ -314,6 +324,7 @@ Scaffold(
                                 }
                             }
 
+
                             // Indicador de cuenta regresiva
                             if (uiState.isCountingDown) {
                                 var countdownValue by remember { mutableStateOf(uiState.timerSeconds) }
@@ -344,7 +355,9 @@ Scaffold(
                                         cameraPermissionState.launchPermissionRequest()
                                     }
                                 },
-                                modifier = Modifier.fillMaxWidth().height(56.dp),
+                                modifier = Modifier
+                                    .fillMaxWidth()
+                                    .height(56.dp),
                                 enabled = !uiState.isLoading && !uiState.isCountingDown
                             ) {
                                 Text("Tomar Foto", style = MaterialTheme.typography.titleMedium)
@@ -357,6 +370,35 @@ Scaffold(
                     val capturedImage = uiState.currentImageBitmap
                     val description = uiState.currentImageDescription
                     val imageUri = uiState.currentImageUri
+                    val chatMessages = uiState.chatMessages
+                    val listState = rememberLazyListState()
+                    val focusRequester = remember { FocusRequester() }
+
+
+                    // Mover el foco según el último mensaje
+                    LaunchedEffect(chatMessages) {
+                        val lastMessage = chatMessages.lastOrNull()
+                        val lastIndex = chatMessages.size - 1
+
+                        if (lastMessage != null && lastIndex >= 0) {
+                            val shouldFocus = when {
+                                // Enfocar la pregunta del usuario
+                                lastMessage.isFromUser -> true
+                                // Enfocar la descripción inicial de la IA (asumiendo que es el segundo mensaje)
+                                !lastMessage.isFromUser && chatMessages.size == 2 -> true
+                                else -> false
+                            }
+
+                            if (shouldFocus) {
+                                scope.launch {
+                                    listState.animateScrollToItem(lastIndex)
+                                    delay(100) // Pequeño retraso para asegurar que la UI se asiente
+                                    focusRequester.requestFocus()
+                                }
+                            }
+                        }
+                    }
+
 
                     Column(
                         modifier = Modifier.fillMaxSize()
@@ -437,14 +479,32 @@ Scaffold(
                             }
 
                             LazyColumn(
+                                state = listState,
                                 modifier = Modifier.fillMaxSize(),
                                 contentPadding = PaddingValues(16.dp),
                                 verticalArrangement = Arrangement.spacedBy(8.dp)
                             ) {
-                                items(uiState.chatMessages) { message ->
-                                    ChatBubble(message = message)
+                                items(chatMessages.size) { index ->
+                                    val message = chatMessages[index]
+                                    val isLastMessage = index == chatMessages.size - 1
+                                    ChatBubble(
+                                        message = message,
+                                        modifier = if (isLastMessage) Modifier.focusRequester(focusRequester) else Modifier
+                                    )
                                 }
                             }
+                        }
+
+                        // Indicador de "escribiendo"
+                        if (uiState.isAiTyping) {
+                            Text(
+                                text = "RayoAI está escribiendo...",
+                                style = MaterialTheme.typography.bodySmall,
+                                modifier = Modifier
+                                    .fillMaxWidth()
+                                    .padding(horizontal = 16.dp, vertical = 4.dp),
+                                textAlign = TextAlign.Center
+                            )
                         }
 
                         // Campo de entrada de chat
@@ -461,25 +521,18 @@ Scaffold(
                                 label = { Text("Pregunta sobre la imagen...") },
                                 modifier = Modifier.weight(1f),
                                 keyboardOptions = androidx.compose.foundation.text.KeyboardOptions(
-                                    keyboardType = androidx.compose.ui.text.input.KeyboardType.Text,
-                                    imeAction = androidx.compose.ui.text.input.ImeAction.Send
+                                    keyboardType = androidx.compose.ui.text.input.KeyboardType.Text
                                 ),
-                                keyboardActions = androidx.compose.foundation.text.KeyboardActions(
-                                    onSend = {
-                                        if (chatInput.isNotBlank()) {
-                                            viewModel.sendChatMessage(chatInput)
-                                            chatInput = ""
-                                        }
-                                    }
-                                ),
-                                maxLines = 5 // Multi-línea
+                                maxLines = 5
                             )
                             Spacer(modifier = Modifier.width(8.dp))
                             IconButton(onClick = {
-                                viewModel.sendChatMessage(chatInput)
-                                chatInput = ""
+                                if (chatInput.isNotBlank()) {
+                                    viewModel.sendChatMessage(chatInput)
+                                    chatInput = ""
+                                }
                             }, enabled = chatInput.isNotBlank()) {
-                                                            Icon(Icons.AutoMirrored.Filled.Send, contentDescription = "Enviar mensaje")
+                                Icon(Icons.AutoMirrored.Filled.Send, contentDescription = "Enviar mensaje")
                             }
                         }
                     }
