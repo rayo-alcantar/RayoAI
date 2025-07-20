@@ -10,7 +10,7 @@ import kotlinx.coroutines.flow.Flow
 @Dao
 interface CaptureDao {
     @Insert(onConflict = OnConflictStrategy.REPLACE)
-    suspend fun insertCapture(capture: CaptureEntity)
+    suspend fun insertCapture(capture: CaptureEntity): Long
 
     @Query("SELECT * FROM captures ORDER BY timestamp DESC")
     fun getAllCaptures(): Flow<List<CaptureEntity>>

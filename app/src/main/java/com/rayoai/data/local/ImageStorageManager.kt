@@ -118,12 +118,14 @@ class ImageStorageManager @Inject constructor(
     fun deleteImage(uriString: String): Boolean {
         return try {
             val uri = Uri.parse(uriString)
-            val file = File(context.filesDir.parent, uri.path)
+            // Para URIs de FileProvider, el path es relativo a la raíz del proveedor.
+            // Necesitamos construir la ruta completa del archivo.
+            val file = File(context.getExternalFilesDir(Environment.DIRECTORY_PICTURES), "RayoAI/${uri.lastPathSegment}")
             if (file.exists()) {
                 file.delete()
             } else {
-                // Si el archivo no se encuentra en la ruta directa, intenta resolverlo a través del ContentResolver.
-                // Esto es importante para URIs de FileProvider.
+                // Si el archivo no se encuentra en la ruta esperada, intenta eliminarlo a través del ContentResolver.
+                // Esto puede funcionar para otros tipos de URIs.
                 context.contentResolver.delete(uri, null, null) > 0
             }
         } catch (e: Exception) {

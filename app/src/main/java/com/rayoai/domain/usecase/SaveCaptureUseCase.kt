@@ -14,18 +14,19 @@ class SaveCaptureUseCase @Inject constructor(
     private val captureDao: CaptureDao
 ) {
     /**
-     * Invoca el guardado de una captura.
+     * Invoca el guardado o la actualización de una captura.
      * @param imageUri La URI de la imagen capturada o seleccionada.
      * @param chatHistory El historial de chat asociado a la imagen.
+     * @param captureId El ID de la captura a actualizar (opcional). Si es nulo, se crea una nueva.
+     * @return El ID de la captura guardada o actualizada.
      */
-    suspend operator fun invoke(imageUri: String, chatHistory: List<ChatMessage>) {
-        // Crea una nueva entidad de captura con la información proporcionada y la marca de tiempo actual.
+    suspend operator fun invoke(imageUri: String, chatHistory: List<ChatMessage>, captureId: Long? = null): Long {
         val capture = CaptureEntity(
+            id = captureId ?: 0,
             imageUri = imageUri,
             chatHistory = chatHistory,
             timestamp = System.currentTimeMillis()
         )
-        // Inserta la captura en la base de datos a través del DAO.
-        captureDao.insertCapture(capture)
+        return captureDao.insertCapture(capture)
     }
 }

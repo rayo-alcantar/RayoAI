@@ -52,6 +52,7 @@ data class HomeUiState(
     val currentImageBitmap: Bitmap? = null, // Bitmap de la imagen actual (capturada o de galería)
     val currentImageDescription: String? = null, // Descripción de la imagen actual
     val currentImageUri: Uri? = null,
+    val currentCaptureId: Long? = null,
     val currentCameraSelector: CameraSelector = CameraSelector.DEFAULT_BACK_CAMERA, // Default to back camera
     val isTimerEnabled: Boolean = false,
     val timerSeconds: Int = 0,
@@ -165,15 +166,16 @@ class HomeViewModel @Inject constructor(
                         // Si la descripción es exitosa, añadirla al chat y guardar la captura.
                         val newMessages = _uiState.value.chatMessages +
                                 ChatMessage(content = result.data, isFromUser = false)
+                        val newCaptureId = saveCaptureUseCase(imageUri.toString(), newMessages)
                         _uiState.update { currentState ->
                             currentState.copy(
                                 isLoading = false,
                                 chatMessages = newMessages,
                                 currentImageDescription = result.data,
-                                screenState = HomeScreenState.ImageCaptured(image, result.data, imageUri)
+                                screenState = HomeScreenState.ImageCaptured(image, result.data, imageUri),
+                                currentCaptureId = newCaptureId
                             )
                         }
-                        saveCaptureUseCase(imageUri.toString(), newMessages) // Guardar en la base de datos.
                     }
                     is ResultWrapper.Error -> {
                         Log.d("HomeViewModel", "describeImage: ResultWrapper.Error: ${result.message}")
@@ -238,7 +240,7 @@ class HomeViewModel @Inject constructor(
                             )
                         }
                         _uiState.value.currentImageUri?.let { uri ->
-                            saveCaptureUseCase(uri.toString(), newMessages)
+                            saveCaptureUseCase(uri.toString(), newMessages, _uiState.value.currentCaptureId)
                         }
                     }
                     is ResultWrapper.Error -> {
@@ -319,6 +321,8 @@ class HomeViewModel @Inject constructor(
     private fun restoreChatFromHistory(captureId: Long) {
         viewModelScope.launch {
             val capture = captureDao.getCaptureById(captureId)
+            Log.d("HomeViewModel", "restoreChatFromHistory: Loaded capture for ID: $captureId")
+            Log.d("HomeViewModel", "restoreChatFromHistory: Chat history: ${capture?.chatHistory}")
             if (capture != null) {
                 val imageUri = Uri.parse(capture.imageUri)
                 val bitmap = imageStorageManager.getBitmapFromUri(imageUri)
@@ -330,7 +334,8 @@ class HomeViewModel @Inject constructor(
                             currentImageBitmap = bitmap,
                             currentImageDescription = capture.chatHistory.lastOrNull()?.content,
                             currentImageUri = imageUri,
-                            chatMessages = capture.chatHistory
+                            chatMessages = capture.chatHistory,
+                            currentCaptureId = capture.id
                         )
                     }
                 } else {
