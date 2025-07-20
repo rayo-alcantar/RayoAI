@@ -29,10 +29,16 @@ class HistoryViewModel @Inject constructor(
      */
     fun deleteCapture(capture: CaptureEntity) {
         viewModelScope.launch {
-            // Eliminar la imagen del almacenamiento físico.
-            imageStorageManager.deleteImage(capture.imageUri)
-            // Eliminar la entrada de la base de datos.
-            captureDao.deleteCapture(capture.id)
+            try {
+                // Eliminar la imagen del almacenamiento físico.
+                imageStorageManager.deleteImage(capture.imageUri)
+                // Eliminar la entrada de la base de datos.
+                captureDao.deleteCapture(capture.id)
+            } catch (e: Exception) {
+                // Log the exception or handle it appropriately
+                // For now, we'll just print the stack trace
+                e.printStackTrace()
+            }
         }
     }
 
@@ -42,13 +48,19 @@ class HistoryViewModel @Inject constructor(
      */
     fun deleteAllCaptures() {
         viewModelScope.launch {
-            // Obtener la lista actual de capturas para poder eliminar los archivos.
-            val allCaptures = captureDao.getAllCapturesList()
-            allCaptures.forEach { capture ->
-                imageStorageManager.deleteImage(capture.imageUri)
+            try {
+                // Obtener la lista actual de capturas para poder eliminar los archivos.
+                val allCaptures = captureDao.getAllCapturesList()
+                allCaptures.forEach { capture ->
+                    imageStorageManager.deleteImage(capture.imageUri)
+                }
+                // Eliminar todas las entradas de la base de datos.
+                captureDao.deleteAllCaptures()
+            } catch (e: Exception) {
+                // Log the exception or handle it appropriately
+                // For now, we'll just print the stack trace
+                e.printStackTrace()
             }
-            // Eliminar todas las entradas de la base de datos.
-            captureDao.deleteAllCaptures()
         }
     }
 }

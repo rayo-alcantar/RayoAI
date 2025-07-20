@@ -27,6 +27,7 @@ import com.rayoai.presentation.ui.navigation.Screen
 
 import androidx.compose.foundation.background
 import androidx.compose.foundation.shape.CircleShape
+import android.util.Log
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -120,15 +121,28 @@ fun HistoryItem(
             }
     ) {
         Box(modifier = Modifier.fillMaxSize()) {
-            AsyncImage(
-                model = ImageRequest.Builder(LocalContext.current)
-                    .data(capture.imageUri)
-                    .crossfade(true)
-                    .build(),
-                contentDescription = null, // La descripción está en el Card
-                contentScale = ContentScale.Crop,
-                modifier = Modifier.fillMaxSize()
-            )
+            if (capture.imageUri.isNotEmpty()) {
+                AsyncImage(
+                    model = ImageRequest.Builder(LocalContext.current)
+                        .data(capture.imageUri)
+                        .crossfade(true)
+                        .build(),
+                    contentDescription = null, // La descripción está en el Card
+                    contentScale = ContentScale.Crop,
+                    modifier = Modifier.fillMaxSize()
+                )
+            } else {
+                Log.d("HistoryScreen", "Image URI is empty for capture ID: ${capture.id}")
+                // Optionally, display a placeholder or error image
+                Box(
+                    modifier = Modifier
+                        .fillMaxSize()
+                        .background(MaterialTheme.colorScheme.surfaceVariant),
+                    contentAlignment = Alignment.Center
+                ) {
+                    Text("No image", color = MaterialTheme.colorScheme.onSurfaceVariant)
+                }
+            }
             IconButton(
                 onClick = { onDelete(capture) },
                 modifier = Modifier
