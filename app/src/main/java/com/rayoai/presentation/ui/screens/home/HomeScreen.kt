@@ -59,7 +59,7 @@ import kotlinx.coroutines.launch
 import androidx.activity.compose.BackHandler
 import com.rayoai.domain.model.ChatMessage
 import kotlinx.coroutines.delay
-import kotlin.math.roundToInt
+
 
 /**
  * Composable principal para la pantalla de inicio de la aplicación.
@@ -366,186 +366,28 @@ fun HomeScreen(
                     }
                 }
                 is HomeScreenState.ImageCaptured -> {
-                    // UI para la imagen capturada y el chat
-                    val capturedImage = uiState.currentImageBitmap
-                    val description = uiState.currentImageDescription
-                    val imageUri = uiState.currentImageUri
-                    val chatMessages = uiState.chatMessages
-                    val listState = rememberLazyListState()
-                    val focusRequester = remember { FocusRequester() }
-
-
-                    // Mover el foco y leer el mensaje según corresponda
-                    LaunchedEffect(chatMessages) {
-                        val lastMessage = chatMessages.lastOrNull()
-                        val lastIndex = chatMessages.size - 1
-
-                        if (lastMessage != null && lastIndex >= 0) {
-                            val shouldFocus = when {
-                                // Enfocar la pregunta del usuario
-                                lastMessage.isFromUser -> true
-                                // Enfocar y leer la descripción inicial de la IA
-                                !lastMessage.isFromUser && chatMessages.size == 2 -> {
-                                    textToSpeech?.speak(lastMessage.content, TextToSpeech.QUEUE_FLUSH, null, null)
-                                    true
-                                }
-                                // Leer las respuestas posteriores de la IA
-                                !lastMessage.isFromUser -> {
-                                    textToSpeech?.speak(lastMessage.content, TextToSpeech.QUEUE_FLUSH, null, null)
-                                    true // También enfocar para mantener la posición visual
-                                }
-                                else -> false
+                    ChatSection(
+                        capturedImage = uiState.currentImageBitmap,
+                        imageUri = uiState.currentImageUri,
+                        chatMessages = uiState.chatMessages,
+                        isAiTyping = uiState.isAiTyping,
+                        isLoading = uiState.isLoading,
+                        onSaveImage = { bitmap -> viewModel.saveImageToGallery(bitmap) },
+                        onShareImage = { uri ->
+                            val shareIntent: Intent = Intent().apply {
+                                action = Intent.ACTION_SEND
+                                putExtra(Intent.EXTRA_STREAM, uri)
+                                type = "image/*"
+                                addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION)
                             }
-
-                            if (shouldFocus) {
-                                scope.launch {
-                                    listState.animateScrollToItem(lastIndex)
-                                    delay(100) // Pequeño retraso para asegurar que la UI se asiente
-                                    focusRequester.requestFocus()
-                                }
-                            }
-                        }
-                    }
-
-
-                    Column(
-                        modifier = Modifier.fillMaxSize()
-                    ) {
-                        // Imagen capturada
-                        capturedImage?.let { bitmap ->
-                            Image(
-                                bitmap = bitmap.asImageBitmap(),
-                                contentDescription = "Imagen capturada",
-                                modifier = Modifier
-                                    .fillMaxWidth()
-                                    .height(200.dp),
-                                contentScale = ContentScale.Crop
-                            )
-                        }
-                        Spacer(modifier = Modifier.height(8.dp))
-
-                        // Opciones de la imagen
-                        Row(
-                            modifier = Modifier
-                                .fillMaxWidth()
-                                .padding(horizontal = 8.dp),
-                            horizontalArrangement = Arrangement.SpaceAround,
-                            verticalAlignment = Alignment.CenterVertically
-                        ) {
-                            
-
-                            // Guardar imagen
-                            IconButton(
-                                onClick = {
-                                    capturedImage?.let {
-                                        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q || writeStoragePermissionState.status.isGranted) {
-                                            viewModel.saveImageToGallery(it)
-                                        } else {
-                                            writeStoragePermissionState.launchPermissionRequest()
-                                        }
-                                    } ?: viewModel.setError("No hay imagen para guardar.")
-                                },
-                                enabled = capturedImage != null
-                            ) {
-                                Icon(Icons.Default.Save, contentDescription = "Guardar imagen en la galería")
-                            }
-
-                            // Compartir imagen
-                            IconButton(
-                                onClick = {
-                                    imageUri?.let { uri ->
-                                        val shareIntent: Intent = Intent().apply {
-                                            action = Intent.ACTION_SEND
-                                            putExtra(Intent.EXTRA_STREAM, uri)
-                                            type = "image/*"
-                                            addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION)
-                                        }
-                                        context.startActivity(Intent.createChooser(shareIntent, "Compartir imagen"))
-                                    } ?: viewModel.setError("No hay imagen para compartir.")
-                                },
-                                enabled = imageUri != null
-                            ) {
-                                Icon(Icons.Default.Share, contentDescription = "Compartir imagen")
-                            }
-
-                            
-                        }
-
-                        // Zona de Chat
-                        Box(
-                            modifier = Modifier
-                                .fillMaxWidth()
-                                .weight(1f),
-                            contentAlignment = Alignment.Center
-                        ) {
-                            if (uiState.isLoading) {
-                                CircularProgressIndicator(
-                                    modifier = Modifier.semantics {
-                                        contentDescription = "Analizando imagen. Por favor, espere."
-                                    }
-                                )
-                            }
-
-                            LazyColumn(
-                                state = listState,
-                                modifier = Modifier.fillMaxSize(),
-                                contentPadding = PaddingValues(16.dp),
-                                verticalArrangement = Arrangement.spacedBy(8.dp)
-                            ) {
-                                items(chatMessages.size) { index ->
-                                    val message = chatMessages[index]
-                                    val isLastMessage = index == chatMessages.size - 1
-                                    ChatBubble(
-                                        message = message,
-                                        modifier = if (isLastMessage) Modifier.focusRequester(focusRequester) else Modifier
-                                    )
-                                }
-                            }
-                        }
-
-                        // Indicador de "escribiendo"
-                        if (uiState.isAiTyping) {
-                            Box(modifier = Modifier.semantics { liveRegion = LiveRegionMode.Assertive }) {
-                                Text(
-                                    text = "RayoAI está escribiendo...",
-                                    style = MaterialTheme.typography.bodySmall,
-                                    modifier = Modifier
-                                        .fillMaxWidth()
-                                        .padding(horizontal = 16.dp, vertical = 4.dp),
-                                    textAlign = TextAlign.Center
-                                )
-                            }
-                        }
-
-                        // Campo de entrada de chat
-                        var chatInput by remember { mutableStateOf("") }
-                        Row(
-                            modifier = Modifier
-                                .fillMaxWidth()
-                                .padding(8.dp),
-                            verticalAlignment = Alignment.CenterVertically
-                        ) {
-                            OutlinedTextField(
-                                value = chatInput,
-                                onValueChange = { chatInput = it },
-                                label = { Text("Pregunta sobre la imagen...") },
-                                modifier = Modifier.weight(1f),
-                                keyboardOptions = androidx.compose.foundation.text.KeyboardOptions(
-                                    keyboardType = androidx.compose.ui.text.input.KeyboardType.Text
-                                ),
-                                maxLines = 5
-                            )
-                            Spacer(modifier = Modifier.width(8.dp))
-                            IconButton(onClick = {
-                                if (chatInput.isNotBlank()) {
-                                    viewModel.sendChatMessage(chatInput)
-                                    chatInput = ""
-                                }
-                            }, enabled = chatInput.isNotBlank()) {
-                                Icon(Icons.AutoMirrored.Filled.Send, contentDescription = "Enviar mensaje")
-                            }
-                        }
-                    }
+                            context.startActivity(Intent.createChooser(shareIntent, "Compartir imagen"))
+                        },
+                        onSendMessage = { message -> viewModel.sendChatMessage(message) },
+                        textToSpeech = textToSpeech,
+                        ttsInitialized = ttsInitialized,
+                        writeStoragePermissionState = writeStoragePermissionState,
+                        onError = { message -> viewModel.setError(message) }
+                    )
                 }
             }
         }

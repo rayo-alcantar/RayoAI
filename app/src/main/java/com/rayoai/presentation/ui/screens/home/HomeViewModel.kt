@@ -173,7 +173,7 @@ class HomeViewModel @Inject constructor(
                                 screenState = HomeScreenState.ImageCaptured(image, result.data, imageUri)
                             )
                         }
-                        saveCaptureUseCase(imageUri.toString(), result.data) // Guardar en la base de datos.
+                        saveCaptureUseCase(imageUri.toString(), newMessages) // Guardar en la base de datos.
                     }
                     is ResultWrapper.Error -> {
                         Log.d("HomeViewModel", "describeImage: ResultWrapper.Error: ${result.message}")
@@ -236,6 +236,9 @@ class HomeViewModel @Inject constructor(
                                 isAiTyping = false,
                                 chatMessages = newMessages
                             )
+                        }
+                        _uiState.value.currentImageUri?.let { uri ->
+                            saveCaptureUseCase(uri.toString(), newMessages)
                         }
                     }
                     is ResultWrapper.Error -> {
@@ -321,17 +324,13 @@ class HomeViewModel @Inject constructor(
                 val bitmap = imageStorageManager.getBitmapFromUri(imageUri)
 
                 if (bitmap != null) {
-                    val chatMessages = listOf(
-                        ChatMessage(content = "Imagen restaurada.", isFromUser = true),
-                        ChatMessage(content = capture.description, isFromUser = false)
-                    )
                     _uiState.update {
                         it.copy(
-                            screenState = HomeScreenState.ImageCaptured(bitmap, capture.description, imageUri),
+                            screenState = HomeScreenState.ImageCaptured(bitmap, capture.chatHistory.lastOrNull()?.content, imageUri),
                             currentImageBitmap = bitmap,
-                            currentImageDescription = capture.description,
+                            currentImageDescription = capture.chatHistory.lastOrNull()?.content,
                             currentImageUri = imageUri,
-                            chatMessages = chatMessages
+                            chatMessages = capture.chatHistory
                         )
                     }
                 } else {

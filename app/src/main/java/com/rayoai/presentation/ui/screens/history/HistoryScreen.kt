@@ -116,7 +116,7 @@ fun HistoryItem(
             .aspectRatio(1f)
             .clickable { onClick(capture) }
             .semantics(mergeDescendants = true) {
-                contentDescription = capture.description
+                contentDescription = capture.chatHistory.lastOrNull()?.content ?: ""
             }
     ) {
         Box(modifier = Modifier.fillMaxSize()) {
