@@ -23,6 +23,7 @@ import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.delay
 import android.util.Log
+import java.util.Locale
 import androidx.lifecycle.SavedStateHandle
 import com.rayoai.data.local.db.CaptureDao
 import javax.inject.Inject
@@ -155,7 +156,8 @@ class HomeViewModel @Inject constructor(
             }
 
             // Llamar al caso de uso para describir la imagen.
-            describeImageUseCase(apiKey, image).collect { result ->
+            val languageCode = Locale.getDefault().language
+            describeImageUseCase(apiKey, image, languageCode = languageCode).collect { result ->
                 when (result) {
                     is ResultWrapper.Loading -> {
                         Log.d("HomeViewModel", "describeImage: ResultWrapper.Loading")

@@ -70,3 +70,5 @@ Este archivo contiene información relevante para el agente Gemini CLI para oper
 *   **Manejo de Errores:** Las operaciones asíncronas utilizan `ResultWrapper` para manejar los estados de `Loading`, `Success` y `Error` de manera consistente.
 *   **Corrección de Chat:** Se ha corregido un problema donde las respuestas del modelo Gemini no se mostraban ni se guardaban en el historial debido a un análisis incorrecto de la respuesta de la API. Ahora, el chat funciona correctamente y las respuestas se procesan y almacenan adecuadamente.
 *   **Contexto de Archivos:** Al modificar archivos, siempre es recomendable leer el contexto circundante para mantener la coherencia del código y el estilo.
+A demás de que siempre que vayas a añadir texto que el usuario verá, asegúrate de no harcodearlo en el código, si no que añadir las referencias en strings.xml y en values-en/strings.xml.
+la aplicación inicialmente está en español.
