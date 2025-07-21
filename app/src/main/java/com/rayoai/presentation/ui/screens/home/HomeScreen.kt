@@ -358,7 +358,7 @@ fun HomeScreen(
                                 modifier = Modifier
                                     .fillMaxWidth()
                                     .height(56.dp),
-                                enabled = !uiState.isLoading && !uiState.isCountingDown
+                                enabled = !uiState.isLoading
                             ) {
                                 Text("Tomar Foto", style = MaterialTheme.typography.titleMedium)
                             }

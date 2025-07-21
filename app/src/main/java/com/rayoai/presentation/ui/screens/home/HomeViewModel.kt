@@ -108,6 +108,8 @@ class HomeViewModel @Inject constructor(
     fun triggerImageCapture() {
         Log.d("HomeViewModel", "triggerImageCapture called")
         viewModelScope.launch {
+            _uiState.update { it.copy(isLoading = true) }
+            Log.d("HomeViewModel", "isLoading set to true by triggerImageCapture")
             if (_uiState.value.isTimerEnabled && _uiState.value.timerSeconds > 0) {
                 _uiState.update { it.copy(isCountingDown = true) }
                 for (i in _uiState.value.timerSeconds downTo 1) {
@@ -116,8 +118,6 @@ class HomeViewModel @Inject constructor(
                 }
                 _uiState.update { it.copy(isCountingDown = false) }
             }
-            _uiState.update { it.copy(isLoading = true) }
-            Log.d("HomeViewModel", "isLoading set to true by triggerImageCapture")
         }
     }
 

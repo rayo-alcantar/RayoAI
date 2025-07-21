@@ -68,4 +68,5 @@ Este archivo contiene información relevante para el agente Gemini CLI para oper
 *   **API Key de Gemini:** La aplicación requiere una API Key de Google Gemini para funcionar. Esta se configura dentro de la aplicación en la pantalla de Ajustes y se almacena de forma segura.
 *   **Accesibilidad:** La aplicación está diseñada con un fuerte enfoque en la accesibilidad (WCAG 2.2 AA). Al realizar cambios en la UI, es crucial considerar `contentDescription` y `Modifier.semantics` para TalkBack.
 *   **Manejo de Errores:** Las operaciones asíncronas utilizan `ResultWrapper` para manejar los estados de `Loading`, `Success` y `Error` de manera consistente.
+*   **Corrección de Chat:** Se ha corregido un problema donde las respuestas del modelo Gemini no se mostraban ni se guardaban en el historial debido a un análisis incorrecto de la respuesta de la API. Ahora, el chat funciona correctamente y las respuestas se procesan y almacenan adecuadamente.
 *   **Contexto de Archivos:** Al modificar archivos, siempre es recomendable leer el contexto circundante para mantener la coherencia del código y el estilo.
