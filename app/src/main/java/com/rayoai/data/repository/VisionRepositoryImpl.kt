@@ -56,7 +56,15 @@ class VisionRepositoryImpl @Inject constructor() : VisionRepository {
                 apiKey = apiKey
             )
             val responseFlash = generativeModelFlash.generateContent(*contents.toTypedArray())
-            responseFlash.text?.let {
+            val responseTextFlash = responseFlash.candidates.firstOrNull()
+                ?.content?.parts?.firstOrNull()
+                ?.let { part ->
+                    when (part) {
+                        is com.google.ai.client.generativeai.type.TextPart -> part.text
+                        else -> null
+                    }
+                }
+            responseTextFlash?.let {
                 emit(ResultWrapper.Success(it))
                 return@flow // Salir si tiene éxito
             }
@@ -73,7 +81,15 @@ class VisionRepositoryImpl @Inject constructor() : VisionRepository {
                 apiKey = apiKey
             )
             val response1_5Flash = generativeModel1_5Flash.generateContent(*contents.toTypedArray())
-            response1_5Flash.text?.let {
+            val responseText1_5Flash = response1_5Flash.candidates.firstOrNull()
+                ?.content?.parts?.firstOrNull()
+                ?.let { part ->
+                    when (part) {
+                        is com.google.ai.client.generativeai.type.TextPart -> part.text
+                        else -> null
+                    }
+                }
+            responseText1_5Flash?.let {
                 emit(ResultWrapper.Success(it))
                 return@flow // Salir si tiene éxito
             } ?: emit(ResultWrapper.Error("Empty response from both APIs."))
