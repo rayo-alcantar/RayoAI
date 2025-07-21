@@ -1,4 +1,3 @@
-
 package com.rayoai.presentation.ui.screens.api_instructions
 
 import android.content.Intent
@@ -24,7 +23,7 @@ fun ApiInstructionsScreen(navController: NavController) {
     Scaffold(
         topBar = {
             TopAppBar(
-                title = { Text("Obtener Clave API") }
+                title = { Text(stringResource(R.string.api_instructions_title)) }
             )
         }
     ) { paddingValues ->
@@ -37,37 +36,38 @@ fun ApiInstructionsScreen(navController: NavController) {
             horizontalAlignment = Alignment.CenterHorizontally
         ) {
             Text(
-                text = "Una clave api es un identificador único para la cuenta de google y permitirte acceder a los modelos de gemini.",
+                text = stringResource(R.string.api_instructions_description),
                 style = MaterialTheme.typography.bodyLarge,
                 textAlign = TextAlign.Center
             )
             Spacer(modifier = Modifier.height(16.dp))
             Text(
-                text = "Para tener una, solo debes entrar a",
+                text = stringResource(R.string.api_instructions_step_1),
                 style = MaterialTheme.typography.bodyMedium,
                 textAlign = TextAlign.Center
             )
             Text(
-                text = "https://aistudio.google.com/apikey",
+                text = stringResource(R.string.api_instructions_link),
                 style = MaterialTheme.typography.bodyMedium,
                 color = MaterialTheme.colorScheme.primary,
                 textAlign = TextAlign.Center
             )
             Spacer(modifier = Modifier.height(16.dp))
             Text(
-                text = "Iniciar sesión con google, pulsar en crear api key o get api key y pulsar en copiar al portapapeles. ¡Cuidado! si tu cuenta es de menor de edad (menor de 18 años) o no está tu país en la lista de países permitidos, te dará erorr al entrar a AIStudio.",
+                text = stringResource(R.string.api_instructions_warning),
                 style = MaterialTheme.typography.bodyMedium,
                 textAlign = TextAlign.Center
             )
             Spacer(modifier = Modifier.height(32.dp))
             Button(
                 onClick = {
-                    val intent = Intent(Intent.ACTION_VIEW, Uri.parse("https://aistudio.google.com/apikey"))
+                    // 👇 Cambiado a context.getString
+                    val intent = Intent(Intent.ACTION_VIEW, Uri.parse(context.getString(R.string.api_instructions_link)))
                     context.startActivity(intent)
                 },
                 modifier = Modifier.fillMaxWidth()
             ) {
-                Text("Ir a Google AI Studio")
+                Text(stringResource(R.string.api_instructions_go_to_google))
             }
             Spacer(modifier = Modifier.height(16.dp))
             OutlinedButton(
@@ -78,7 +78,7 @@ fun ApiInstructionsScreen(navController: NavController) {
                 },
                 modifier = Modifier.fillMaxWidth()
             ) {
-                Text("Hecho")
+                Text(stringResource(R.string.api_instructions_done))
             }
         }
     }

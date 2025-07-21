@@ -24,7 +24,6 @@ import coil.request.ImageRequest
 import com.rayoai.R
 import com.rayoai.data.local.model.CaptureEntity
 import com.rayoai.presentation.ui.navigation.Screen
-
 import androidx.compose.foundation.background
 import androidx.compose.foundation.shape.CircleShape
 import android.util.Log
@@ -41,8 +40,8 @@ fun HistoryScreen(
     if (showDeleteAllDialog) {
         AlertDialog(
             onDismissRequest = { showDeleteAllDialog = false },
-            title = { Text("Confirmar eliminación") },
-            text = { Text("¿Estás seguro de que quieres borrar todo el historial? Esta acción no se puede deshacer.") },
+            title = { Text(stringResource(R.string.history_confirm_delete_title)) },
+            text = { Text(stringResource(R.string.history_confirm_delete_message)) },
             confirmButton = {
                 Button(
                     onClick = {
@@ -50,12 +49,12 @@ fun HistoryScreen(
                         showDeleteAllDialog = false
                     }
                 ) {
-                    Text("Eliminar")
+                    Text(stringResource(R.string.delete))
                 }
             },
             dismissButton = {
                 Button(onClick = { showDeleteAllDialog = false }) {
-                    Text("Cancelar")
+                    Text(stringResource(R.string.cancel))
                 }
             }
         )
@@ -67,7 +66,7 @@ fun HistoryScreen(
                 title = { Text(stringResource(id = R.string.history_title)) },
                 actions = {
                     IconButton(onClick = { showDeleteAllDialog = true }) {
-                        Icon(Icons.Default.Delete, contentDescription = "Eliminar todo el historial")
+                        Icon(Icons.Default.Delete, contentDescription = stringResource(R.string.history_delete_all))
                     }
                 }
             )
@@ -80,7 +79,7 @@ fun HistoryScreen(
                     .padding(paddingValues),
                 contentAlignment = Alignment.Center
             ) {
-                Text("No hay capturas en el historial.")
+                Text(stringResource(R.string.history_empty))
             }
         } else {
             LazyVerticalGrid(
@@ -127,20 +126,19 @@ fun HistoryItem(
                         .data(capture.imageUri)
                         .crossfade(true)
                         .build(),
-                    contentDescription = null, // La descripción está en el Card
+                    contentDescription = null,
                     contentScale = ContentScale.Crop,
                     modifier = Modifier.fillMaxSize()
                 )
             } else {
                 Log.d("HistoryScreen", "Image URI is empty for capture ID: ${capture.id}")
-                // Optionally, display a placeholder or error image
                 Box(
                     modifier = Modifier
                         .fillMaxSize()
                         .background(MaterialTheme.colorScheme.surfaceVariant),
                     contentAlignment = Alignment.Center
                 ) {
-                    Text("No image", color = MaterialTheme.colorScheme.onSurfaceVariant)
+                    Text(stringResource(R.string.no_image), color = MaterialTheme.colorScheme.onSurfaceVariant)
                 }
             }
             IconButton(
@@ -150,7 +148,7 @@ fun HistoryItem(
                     .padding(4.dp)
                     .background(MaterialTheme.colorScheme.surface.copy(alpha = 0.5f), shape = CircleShape)
             ) {
-                Icon(Icons.Default.Delete, contentDescription = "Eliminar esta captura", tint = MaterialTheme.colorScheme.onSurface)
+                Icon(Icons.Default.Delete, contentDescription = stringResource(R.string.delete_capture), tint = MaterialTheme.colorScheme.onSurface)
             }
         }
     }

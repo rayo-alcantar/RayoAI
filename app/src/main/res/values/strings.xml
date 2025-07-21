@@ -5,4 +5,75 @@
     <string name="channel_name">Descripciones de RayoAI</string>
     <string name="channel_description">Notificaciones de descripciones de imágenes generadas por RayoAI</string>
     <string name="history_title">Historial</string>
+    <string name="api_instructions_title">Obtener Clave API</string>
+    <string name="api_instructions_description">Una clave api es un identificador único para la cuenta de Google y permite acceder a los modelos de Gemini.</string>
+    <string name="api_instructions_step_1">Para tener una, solo debes entrar a</string>
+    <string name="api_instructions_link">https://aistudio.google.com/apikey</string>
+    <string name="api_instructions_warning">Iniciar sesión con Google, pulsar en “Crear API key” o “Get API key” y pulsar en “Copiar al portapapeles”. ¡Cuidado! Si tu cuenta es de menor de edad (menor de 18 años) o no está tu país en la lista de países permitidos, te dará error al entrar a AIStudio.</string>
+    <string name="api_instructions_go_to_google">Ir a Google AI Studio</string>
+    <string name="api_instructions_done">Hecho</string>
+    <string name="history_empty">No hay capturas en el historial.</string>
+    <string name="history_delete_all">Eliminar todo el historial</string>
+    <string name="history_confirm_delete_title">Confirmar eliminación</string>
+    <string name="history_confirm_delete_message">¿Estás seguro de que quieres borrar todo el historial? Esta acción no se puede deshacer.</string>
+    <string name="delete">Eliminar</string>
+    <string name="cancel">Cancelar</string>
+    <string name="no_image">Sin imagen</string>
+    <string name="delete_capture">Eliminar este chat</string>
+    <string name="welcome_title">Bienvenido a RayoAI</string>
+    <string name="welcome_first_time_message">Se detectó que es la primera vez que instalas RayoAI en este dispositivo y no tienes configurada una clave API de Google Studio.</string>
+    <string name="welcome_instruction_message">Si tienes tu clave API, oprime el botón Aceptar a continuación y, luego, entra a los ajustes para configurarla.</string>
+    <string name="accept">Aceptar</string>
+    <string name="no_api_key_help">No sé cómo tener una clave API</string>
+    <!-- Ajustes: API Key -->
+    <string name="settings_api_key_label">API Key</string>
+    <string name="settings_api_key_hint">Gemini API Key</string>
+    <string name="settings_api_key_save">Guardar API Key</string>
+    <string name="settings_api_key_saved_message">¡API Key guardada con éxito!</string>
+    <!-- Ajustes: Tema -->
+    <string name="settings_theme_label">Tema</string>
+    <!-- Ajustes: Tamaño de texto -->
+    <string name="settings_text_size_label">Tamaño de Texto</string>
+    <string name="settings_text_scale">Escala actual: %1$.1fx</string>
+    <!-- Ajustes: Auto describir -->
+    <string name="settings_autodescribe_label">Auto-describir al compartir</string>
+    <string name="about_app_name">RayoAI</string>
+    <string name="about_developed_by">Desarrollado por:</string>
+    <string name="about_developer_name">Ángel De Jesús Alcántar Garza</string>
+    <string name="about_tester_label">Tester Alpha, Diseñadora y Creativa:</string>
+    <string name="about_tester_name">Jessica Herrera</string>
+    <string name="about_legal_label">Asesor legal</string>
+    <string name="about_legal_name">Eddie Cortes</string>
+    <string name="about_donation_message">Este software fue hecho sin fines de lucro, pero siempre es bienvenida una donación para continuar su desarrollo.</string>
+    <string name="about_contact_developer">Contactar con el desarrollador</string>
+    <string name="about_visit_website">Visitar Sitio Web</string>
+    <string name="about_donate_paypal">Donar vía PayPal</string>
+    <string name="about_email_subject">Contacto desde RayoAI</string>
+    <string name="about_website_url">https://rayoscompany.com/</string>
+    <string name="about_paypal_url">https://paypal.me/rayoalcantar?country.x=MX&amp;locale.x=es_XC</string>
+    <string name="about_email">contacto@rayoscompany.com</string>
+    <string name="captured_image_description">Imagen capturada</string>
+    <string name="save_image">Guardar imagen en la galería</string>
+    <string name="share_image">Compartir imagen</string>
+    <string name="no_image_to_save">No hay imagen para guardar.</string>
+    <string name="no_image_to_share">No hay imagen para compartir.</string>
+    <string name="share_image_chooser">Compartir imagen</string>
+    <string name="analyzing_image">Analizando imagen. Por favor, espere.</string>
+    <string name="ai_typing">RayoAI está escribiendo...</string>
+    <string name="ask_about_image_label">Pregunta sobre la imagen...</string>
+    <string name="send_message">Enviar mensaje</string>
+    <string name="back">Volver</string>
+    <string name="camera_permission_required">Se requiere permiso de cámara para tomar fotografías.</string>
+    <string name="switch_to_front_camera">Cambiar a cámara frontal</string>
+    <string name="switch_to_back_camera">Cambiar a cámara trasera</string>
+    <string name="load_from_gallery">Cargar de la galería</string>
+    <string name="timer">Temporizador</string>
+    <string name="select">Seleccionar</string>
+    <string name="seconds">Segundos</string>
+    <string name="capturing_in">Capturando en: %1$d...</string>
+    <string name="take_photo">Tomar Foto</string>
+    <string name="error_loading_shared_image">Error al cargar la imagen compartida.</string>
+    <string name="error_loading_gallery_image">Error al cargar la imagen de la galería.</string>
+    <string name="tts_lang_not_supported">Idioma no soportado para Text-to-Speech.</string>
+    <string name="tts_init_error">Error al inicializar Text-to-Speech.</string>
 </resources>

@@ -2,12 +2,7 @@ package com.rayoai.presentation.ui.screens.about
 
 import android.content.Intent
 import android.net.Uri
-import androidx.compose.foundation.layout.Arrangement
-import androidx.compose.foundation.layout.Column
-import androidx.compose.foundation.layout.Spacer
-import androidx.compose.foundation.layout.fillMaxSize
-import androidx.compose.foundation.layout.height
-import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.*
 import androidx.compose.material3.Button
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
@@ -15,8 +10,10 @@ import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
+import com.rayoai.R
 
 @Composable
 fun AboutScreen() {
@@ -30,42 +27,41 @@ fun AboutScreen() {
         verticalArrangement = Arrangement.Center
     ) {
         Text(
-            text = "RayoAI",
+            text = stringResource(R.string.about_app_name),
             style = MaterialTheme.typography.headlineLarge
         )
         Spacer(modifier = Modifier.height(8.dp))
         Text(
-            text = "Desarrollado por:",
+            text = stringResource(R.string.about_developed_by),
             style = MaterialTheme.typography.bodyLarge
         )
         Text(
-            text = "Ángel De Jesús Alcántar Garza",
+            text = stringResource(R.string.about_developer_name),
             style = MaterialTheme.typography.bodyLarge,
             textAlign = TextAlign.Center
         )
         Spacer(modifier = Modifier.height(8.dp))
         Text(
-            text = "Tester Alpha, Diseñadora y Creativa:",
+            text = stringResource(R.string.about_tester_label),
             style = MaterialTheme.typography.bodyLarge
         )
         Text(
-            text = "Jessica Herrera",
+            text = stringResource(R.string.about_tester_name),
             style = MaterialTheme.typography.bodyLarge,
             textAlign = TextAlign.Center
         )
         Spacer(modifier = Modifier.height(24.dp))
         Text(
-            text = "Asesor legal",
+            text = stringResource(R.string.about_legal_label),
             style = MaterialTheme.typography.bodyLarge
         )
         Text(
-            text = "Eddie Cortes",
+            text = stringResource(R.string.about_legal_name),
             style = MaterialTheme.typography.bodyLarge,
             textAlign = TextAlign.Center
         )
-
         Text(
-            text = "Este software fue hecho sin fines de lucro, pero siempre es bienvenida una donación para continuar su desarrollo.",
+            text = stringResource(R.string.about_donation_message),
             style = MaterialTheme.typography.bodyMedium,
             textAlign = TextAlign.Center
         )
@@ -73,27 +69,30 @@ fun AboutScreen() {
         // Botón para contactar con el desarrollador (correo)
         Button(onClick = {
             val emailIntent = Intent(Intent.ACTION_SENDTO).apply {
-                data = Uri.parse("mailto:contacto@rayoscompany.com")
-                putExtra(Intent.EXTRA_SUBJECT, "Contacto desde RayoAI")
+                data = Uri.parse("mailto:${context.getString(R.string.about_email)}")
+                putExtra(Intent.EXTRA_SUBJECT, context.getString(R.string.about_email_subject))
             }
             context.startActivity(emailIntent)
         }) {
-            Text("Contactar con el desarrollador")
+            Text(stringResource(R.string.about_contact_developer))
         }
         Spacer(modifier = Modifier.height(8.dp))
         // Botón de sitio web
         Button(onClick = {
-            val intent = Intent(Intent.ACTION_VIEW, Uri.parse("https://rayoscompany.com/"))
+            val websiteUrl = context.getString(R.string.about_website_url)
+            val intent = Intent(Intent.ACTION_VIEW, Uri.parse(websiteUrl))
             context.startActivity(intent)
         }) {
-            Text("Visitar Sitio Web")
+            Text(stringResource(R.string.about_visit_website))
         }
         Spacer(modifier = Modifier.height(8.dp))
+        // Botón PayPal
         Button(onClick = {
-            val intent = Intent(Intent.ACTION_VIEW, Uri.parse("https://paypal.me/rayoalcantar?country.x=MX&locale.x=es_XC"))
+            val paypalUrl = context.getString(R.string.about_paypal_url)
+            val intent = Intent(Intent.ACTION_VIEW, Uri.parse(paypalUrl))
             context.startActivity(intent)
         }) {
-            Text("Donar vía PayPal")
+            Text(stringResource(R.string.about_donate_paypal))
         }
     }
 }

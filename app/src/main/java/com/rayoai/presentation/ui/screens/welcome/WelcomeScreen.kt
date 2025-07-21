@@ -5,10 +5,12 @@ import androidx.compose.material3.*
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.hilt.navigation.compose.hiltViewModel
 import androidx.navigation.NavController
+import com.rayoai.R
 import com.rayoai.presentation.ui.navigation.Screen
 
 @OptIn(ExperimentalMaterial3Api::class)
@@ -17,7 +19,7 @@ fun WelcomeScreen(navController: NavController, viewModel: WelcomeViewModel = hi
     Scaffold(
         topBar = {
             TopAppBar(
-                title = { Text("Bienvenido a RayoAI") }
+                title = { Text(stringResource(R.string.welcome_title)) }
             )
         }
     ) { paddingValues ->
@@ -30,13 +32,13 @@ fun WelcomeScreen(navController: NavController, viewModel: WelcomeViewModel = hi
             horizontalAlignment = Alignment.CenterHorizontally
         ) {
             Text(
-                text = "Se detectó que es la primera vez que instalas RayoAI en este dispositivo y no tienes configurado una clave api de google studio!",
+                text = stringResource(R.string.welcome_first_time_message),
                 style = MaterialTheme.typography.bodyLarge,
                 textAlign = TextAlign.Center
             )
             Spacer(modifier = Modifier.height(16.dp))
             Text(
-                text = "Si tienes tu clave api, oprime el botón aceptar acontinuación y, luego, entra a los ajustes para configurarla.",
+                text = stringResource(R.string.welcome_instruction_message),
                 style = MaterialTheme.typography.bodyMedium,
                 textAlign = TextAlign.Center
             )
@@ -50,7 +52,7 @@ fun WelcomeScreen(navController: NavController, viewModel: WelcomeViewModel = hi
                 },
                 modifier = Modifier.fillMaxWidth()
             ) {
-                Text("Aceptar")
+                Text(stringResource(R.string.accept))
             }
             Spacer(modifier = Modifier.height(16.dp))
             OutlinedButton(
@@ -59,7 +61,7 @@ fun WelcomeScreen(navController: NavController, viewModel: WelcomeViewModel = hi
                 },
                 modifier = Modifier.fillMaxWidth()
             ) {
-                Text("No se como tener una clave api")
+                Text(stringResource(R.string.no_api_key_help))
             }
         }
     }

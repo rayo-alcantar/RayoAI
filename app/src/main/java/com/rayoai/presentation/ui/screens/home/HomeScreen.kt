@@ -60,12 +60,6 @@ import androidx.activity.compose.BackHandler
 import com.rayoai.domain.model.ChatMessage
 import kotlinx.coroutines.delay
 
-
-/**
- * Composable principal para la pantalla de inicio de la aplicación.
- * Muestra la vista de la cámara, el historial de chat y el campo de entrada para el chat.
- * También maneja la navegación a la pantalla de ajustes y la selección de imágenes de la galería.
- */
 @OptIn(ExperimentalMaterial3Api::class, ExperimentalPermissionsApi::class)
 @Composable
 fun HomeScreen(
@@ -91,13 +85,12 @@ fun HomeScreen(
                     MediaStore.Images.Media.getBitmap(context.contentResolver, it)
                 }
             } catch (e: Exception) {
-                viewModel.setError("Error al cargar la imagen compartida.")
+                viewModel.setError(context.getString(R.string.error_loading_shared_image))
                 null
             }
             bitmap?.let { img -> viewModel.describeImage(img) }
         }
     }
-
 
     LaunchedEffect(uiState.error) {
         uiState.error?.let {
@@ -122,14 +115,13 @@ fun HomeScreen(
                     MediaStore.Images.Media.getBitmap(context.contentResolver, it)
                 }
             } catch (e: Exception) {
-                viewModel.setError("Error al cargar la imagen de la galería.")
+                viewModel.setError(context.getString(R.string.error_loading_gallery_image))
                 null
             }
             bitmap?.let { img -> viewModel.processGalleryImage(img) }
         }
     }
 
-    
     LaunchedEffect(Unit) {
         viewModel.playCaptureSound.collect {
             val mediaPlayer = MediaPlayer.create(context, R.raw.send)
@@ -138,23 +130,20 @@ fun HomeScreen(
         }
     }
 
-    
-
     var textToSpeech: TextToSpeech? = null
     var ttsInitialized by remember { mutableStateOf(false) }
-
 
     DisposableEffect(context) {
         textToSpeech = TextToSpeech(context) { status ->
             if (status == TextToSpeech.SUCCESS) {
                 val result = textToSpeech?.setLanguage(Locale("es", "ES"))
                 if (result == TextToSpeech.LANG_MISSING_DATA || result == TextToSpeech.LANG_NOT_SUPPORTED) {
-                    viewModel.setError("Idioma no soportado para Text-to-Speech.")
+                    viewModel.setError(context.getString(R.string.tts_lang_not_supported))
                 } else {
                     ttsInitialized = true
                 }
             } else {
-                viewModel.setError("Error al inicializar Text-to-Speech.")
+                viewModel.setError(context.getString(R.string.tts_init_error))
             }
         }
 
@@ -176,7 +165,7 @@ fun HomeScreen(
                             viewModel.resetHomeScreenState()
                         }
                         IconButton(onClick = { viewModel.resetHomeScreenState() }) {
-                            Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = "Volver")
+                            Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = stringResource(R.string.back))
                         }
                     }
                 },
@@ -196,15 +185,14 @@ fun HomeScreen(
                     Column(
                         modifier = Modifier
                             .fillMaxSize()
-                            .padding(horizontal = 16.dp), // Apply horizontal padding to the main column
+                            .padding(horizontal = 16.dp),
                         horizontalAlignment = Alignment.CenterHorizontally
                     ) {
-                        // Camera View or Permission Text (takes up remaining space)
                         if (cameraPermissionState.status.isGranted) {
                             CameraView(
                                 modifier = Modifier
                                     .fillMaxWidth()
-                                    .weight(1f), // Occupy remaining space
+                                    .weight(1f),
                                 onImageCaptured = { bitmap ->
                                     viewModel.describeImage(bitmap)
                                     viewModel.setLoading(false)
@@ -220,26 +208,25 @@ fun HomeScreen(
                             Column(
                                 modifier = Modifier
                                     .fillMaxWidth()
-                                    .weight(1f) // Occupy remaining space
-                                    .padding(vertical = 16.dp), // Add vertical padding
+                                    .weight(1f)
+                                    .padding(vertical = 16.dp),
                                 horizontalAlignment = Alignment.CenterHorizontally,
                                 verticalArrangement = Arrangement.Center
                             ) {
                                 Text(
-                                    text = "Se requiere permiso de cámara para tomar fotografías.",
+                                    text = stringResource(R.string.camera_permission_required),
                                     style = MaterialTheme.typography.bodyMedium,
                                     textAlign = TextAlign.Center
                                 )
                             }
                         }
 
-                        // Camera Controls and Timer at the bottom
                         Column(
                             modifier = Modifier
                                 .fillMaxWidth()
-                                .padding(top = 16.dp, bottom = 16.dp), // Add padding around the controls
+                                .padding(top = 16.dp, bottom = 16.dp),
                             horizontalAlignment = Alignment.CenterHorizontally,
-                            verticalArrangement = Arrangement.spacedBy(8.dp) // Space between buttons
+                            verticalArrangement = Arrangement.spacedBy(8.dp)
                         ) {
                             Button(
                                 onClick = {
@@ -249,7 +236,13 @@ fun HomeScreen(
                                     .fillMaxWidth()
                                     .height(56.dp)
                             ) {
-                                Text(if (uiState.currentCameraSelector == CameraSelector.DEFAULT_BACK_CAMERA) "Cambiar a cámara frontal" else "Cambiar a cámara trasera", style = MaterialTheme.typography.titleMedium)
+                                Text(
+                                    if (uiState.currentCameraSelector == CameraSelector.DEFAULT_BACK_CAMERA)
+                                        stringResource(R.string.switch_to_front_camera)
+                                    else
+                                        stringResource(R.string.switch_to_back_camera),
+                                    style = MaterialTheme.typography.titleMedium
+                                )
                             }
 
                             Button(
@@ -264,7 +257,7 @@ fun HomeScreen(
                                     .fillMaxWidth()
                                     .height(56.dp)
                             ) {
-                                Text("Cargar de la galería", style = MaterialTheme.typography.titleMedium)
+                                Text(stringResource(R.string.load_from_gallery), style = MaterialTheme.typography.titleMedium)
                             }
 
                             Row(
@@ -272,7 +265,6 @@ fun HomeScreen(
                                 verticalAlignment = Alignment.CenterVertically,
                                 horizontalArrangement = Arrangement.SpaceBetween
                             ) {
-                                // Checkbox para habilitar el temporizador
                                 Row(
                                     verticalAlignment = Alignment.CenterVertically,
                                     modifier = Modifier.weight(1f)
@@ -281,14 +273,13 @@ fun HomeScreen(
                                         checked = uiState.isTimerEnabled,
                                         onCheckedChange = { viewModel.setTimerEnabled(it) }
                                     )
-                                    Text("Temporizador", style = MaterialTheme.typography.titleMedium)
+                                    Text(stringResource(R.string.timer), style = MaterialTheme.typography.titleMedium)
                                 }
 
-                                // Dropdown para seleccionar los segundos del temporizador
                                 if (uiState.isTimerEnabled) {
                                     var expanded by remember { mutableStateOf(false) }
                                     val timerOptions = listOf(2, 3, 5, 10, 15)
-                                    val selectedOptionText = if (uiState.timerSeconds > 0) "${uiState.timerSeconds}s" else "Seleccionar"
+                                    val selectedOptionText = if (uiState.timerSeconds > 0) "${uiState.timerSeconds}s" else stringResource(R.string.select)
 
                                     ExposedDropdownMenuBox(
                                         expanded = expanded,
@@ -299,7 +290,7 @@ fun HomeScreen(
                                             value = selectedOptionText,
                                             onValueChange = { },
                                             readOnly = true,
-                                            label = { Text("Segundos") },
+                                            label = { Text(stringResource(R.string.seconds)) },
                                             trailingIcon = { ExposedDropdownMenuDefaults.TrailingIcon(expanded = expanded) },
                                             modifier = Modifier
                                                 .menuAnchor()
@@ -324,8 +315,6 @@ fun HomeScreen(
                                 }
                             }
 
-
-                            // Indicador de cuenta regresiva
                             if (uiState.isCountingDown) {
                                 var countdownValue by remember { mutableStateOf(uiState.timerSeconds) }
                                 LaunchedEffect(uiState.isCountingDown) {
@@ -341,7 +330,7 @@ fun HomeScreen(
                                     }
                                 }
                                 Text(
-                                    text = "Capturando en: $countdownValue...",
+                                    text = stringResource(R.string.capturing_in, countdownValue),
                                     style = MaterialTheme.typography.headlineMedium,
                                     modifier = Modifier.align(Alignment.CenterHorizontally)
                                 )
@@ -360,7 +349,7 @@ fun HomeScreen(
                                     .height(56.dp),
                                 enabled = !uiState.isLoading
                             ) {
-                                Text("Tomar Foto", style = MaterialTheme.typography.titleMedium)
+                                Text(stringResource(R.string.take_photo), style = MaterialTheme.typography.titleMedium)
                             }
                         }
                     }
@@ -380,7 +369,7 @@ fun HomeScreen(
                                 type = "image/*"
                                 addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION)
                             }
-                            context.startActivity(Intent.createChooser(shareIntent, "Compartir imagen"))
+                            context.startActivity(Intent.createChooser(shareIntent, context.getString(R.string.share_image)))
                         },
                         onSendMessage = { message -> viewModel.sendChatMessage(message) },
                         textToSpeech = textToSpeech,

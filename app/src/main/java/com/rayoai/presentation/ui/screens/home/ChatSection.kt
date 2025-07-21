@@ -21,6 +21,7 @@ import androidx.compose.ui.focus.focusRequester
 import androidx.compose.ui.graphics.asImageBitmap
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.semantics.LiveRegionMode
 import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.semantics.liveRegion
@@ -36,6 +37,7 @@ import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
 import java.util.*
 import android.speech.tts.TextToSpeech
+import com.rayoai.R
 
 @OptIn(ExperimentalPermissionsApi::class)
 @Composable
@@ -57,6 +59,18 @@ fun ChatSection(
     val scope = rememberCoroutineScope()
     val listState = rememberLazyListState()
     val focusRequester = remember { FocusRequester() }
+
+    // Sacamos todos los stringResource que usaremos en modificadores/lambdas
+    val capturedImageDesc = stringResource(R.string.captured_image_description)
+    val saveImageDesc = stringResource(R.string.save_image)
+    val noImageToSave = context.getString(R.string.no_image_to_save)
+    val shareImageDesc = stringResource(R.string.share_image)
+    val noImageToShare = context.getString(R.string.no_image_to_share)
+    val shareImageChooser = stringResource(R.string.share_image_chooser)
+    val analyzingImageDesc = stringResource(R.string.analyzing_image)
+    val aiTypingText = stringResource(R.string.ai_typing)
+    val askAboutImageLabel = stringResource(R.string.ask_about_image_label)
+    val sendMessageDesc = stringResource(R.string.send_message)
 
     LaunchedEffect(chatMessages) {
         val lastMessage = chatMessages.lastOrNull()
@@ -92,7 +106,7 @@ fun ChatSection(
         capturedImage?.let { bitmap ->
             Image(
                 bitmap = bitmap.asImageBitmap(),
-                contentDescription = "Imagen capturada",
+                contentDescription = capturedImageDesc,
                 modifier = Modifier
                     .fillMaxWidth()
                     .height(200.dp),
@@ -116,11 +130,14 @@ fun ChatSection(
                         } else {
                             writeStoragePermissionState.launchPermissionRequest()
                         }
-                    } ?: onError("No hay imagen para guardar.")
+                    } ?: onError(noImageToSave)
                 },
                 enabled = capturedImage != null
             ) {
-                Icon(Icons.Default.Save, contentDescription = "Guardar imagen en la galería")
+                Icon(
+                    Icons.Default.Save,
+                    contentDescription = saveImageDesc
+                )
             }
 
             IconButton(
@@ -132,12 +149,15 @@ fun ChatSection(
                             type = "image/*"
                             addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION)
                         }
-                        context.startActivity(Intent.createChooser(shareIntent, "Compartir imagen"))
-                    } ?: onError("No hay imagen para compartir.")
+                        context.startActivity(Intent.createChooser(shareIntent, shareImageChooser))
+                    } ?: onError(noImageToShare)
                 },
                 enabled = imageUri != null
             ) {
-                Icon(Icons.Default.Share, contentDescription = "Compartir imagen")
+                Icon(
+                    Icons.Default.Share,
+                    contentDescription = shareImageDesc
+                )
             }
         }
 
@@ -150,7 +170,7 @@ fun ChatSection(
             if (isLoading) {
                 CircularProgressIndicator(
                     modifier = Modifier.semantics {
-                        contentDescription = "Analizando imagen. Por favor, espere."
+                        contentDescription = analyzingImageDesc
                     }
                 )
             }
@@ -175,7 +195,7 @@ fun ChatSection(
         if (isAiTyping) {
             Box(modifier = Modifier.semantics { liveRegion = LiveRegionMode.Assertive }) {
                 Text(
-                    text = "RayoAI está escribiendo...",
+                    text = aiTypingText,
                     style = MaterialTheme.typography.bodySmall,
                     modifier = Modifier
                         .fillMaxWidth()
@@ -195,7 +215,7 @@ fun ChatSection(
             OutlinedTextField(
                 value = chatInput,
                 onValueChange = { chatInput = it },
-                label = { Text("Pregunta sobre la imagen...") },
+                label = { Text(askAboutImageLabel) },
                 modifier = Modifier.weight(1f),
                 keyboardOptions = androidx.compose.foundation.text.KeyboardOptions(
                     keyboardType = androidx.compose.ui.text.input.KeyboardType.Text
@@ -209,7 +229,10 @@ fun ChatSection(
                     chatInput = ""
                 }
             }, enabled = chatInput.isNotBlank()) {
-                Icon(Icons.AutoMirrored.Filled.Send, contentDescription = "Enviar mensaje")
+                Icon(
+                    Icons.AutoMirrored.Filled.Send,
+                    contentDescription = sendMessageDesc
+                )
             }
         }
     }
