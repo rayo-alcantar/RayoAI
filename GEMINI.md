@@ -18,6 +18,8 @@ Este archivo contiene información relevante para el agente Gemini CLI para oper
 
 ## 📂 Estructura de Directorios Clave
 
+*   `app/src/main/res/values/strings.xml`: Strings de la interfaz originales (en español).
+*   `app/src/main/res/values/values-en/strings.xml`: Strings de la interfaz (en inglés).
 *   `app/src/main/java/`: Código fuente principal de la aplicación en Kotlin.
     *   `com/rayoai/core/`: Clases utilitarias y genéricas (ej. `ResultWrapper`).
     *   `com/rayoai/data/`: Implementaciones de repositorios, gestión de almacenamiento local (imágenes, DB, DataStore) y lógica de interacción con APIs remotas.

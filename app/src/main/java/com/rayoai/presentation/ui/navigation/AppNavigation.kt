@@ -16,6 +16,7 @@ import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.vector.ImageVector
+import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.semantics.semantics
 import androidx.navigation.NavDestination.Companion.hierarchy
@@ -32,16 +33,17 @@ import com.rayoai.presentation.ui.screens.history.HistoryScreen
 import com.rayoai.presentation.ui.screens.home.HomeScreen
 import com.rayoai.presentation.ui.screens.settings.SettingsScreen
 import com.rayoai.presentation.ui.screens.welcome.WelcomeScreen
+import com.rayoai.R
 
-sealed class Screen(val route: String, val label: String? = null, val icon: ImageVector? = null) {
+sealed class Screen(val route: String, val labelRes: Int? = null, val icon: ImageVector? = null) {
     object Welcome : Screen("welcome")
     object ApiInstructions : Screen("api_instructions")
-    object Home : Screen("home?captureId={captureId}", "Inicio", Icons.Default.Home) {
+    object Home : Screen("home?captureId={captureId}", R.string.tab_home, Icons.Default.Home) {
         fun createRoute(captureId: Long?) = if (captureId != null) "home?captureId=$captureId" else "home"
     }
-    object History : Screen("history", "Historial", Icons.Default.History)
-    object About : Screen("about", "Acerca de", Icons.Default.Info)
-    object Settings : Screen("settings", "Ajustes", Icons.Default.Settings)
+    object History : Screen("history", R.string.tab_history, Icons.Default.History)
+    object About : Screen("about", R.string.tab_about, Icons.Default.Info)
+    object Settings : Screen("settings", R.string.tab_settings, Icons.Default.Settings)
 }
 
 val items = listOf(
@@ -64,7 +66,9 @@ fun AppNavigation(imageUri: Uri?, startDestination: String) {
                     items.forEach { screen ->
                         NavigationBarItem(
                             icon = { screen.icon?.let { Icon(it, contentDescription = null) } },
-                            label = { screen.label?.let { Text(it) } },
+                            label = {
+                                screen.labelRes?.let { Text(stringResource(it)) }
+                            },
                             selected = currentDestination?.hierarchy?.any { it.route == screen.route } == true,
                             onClick = {
                                 navController.navigate(screen.route) {
@@ -75,7 +79,9 @@ fun AppNavigation(imageUri: Uri?, startDestination: String) {
                                     restoreState = true
                                 }
                             },
-                            modifier = Modifier.semantics { contentDescription = screen.label ?: "" }
+                            modifier = Modifier.semantics {
+                                contentDescription = screen.labelRes?.let { stringResource(it) } ?: ""
+                            }
                         )
                     }
                 }

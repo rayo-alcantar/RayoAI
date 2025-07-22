@@ -1,5 +1,9 @@
 <resources>
     <string name="app_name">RayoAI</string>
+    <string name="tab_home">Inicio</string>
+    <string name="tab_history">Historial</string>
+    <string name="tab_about">Acerca de</string>
+    <string name="tab_settings">Ajustes</string>
     <string name="describe_image_label">Describir imagen</string>
     <string name="settings_title">Ajustes</string>
     <string name="channel_name">Descripciones de RayoAI</string>
