@@ -315,31 +315,50 @@ fun HomeScreen(
                                 }
                             }
 
-                            if (uiState.isCountingDown) {
-                                var countdownValue by remember { mutableStateOf(uiState.timerSeconds) }
-                                LaunchedEffect(uiState.isCountingDown) {
-                                    if (uiState.isCountingDown) {
-                                        textToSpeech?.let { tts ->
-                                            viewModel.countdownTrigger.collect { value ->
-                                                countdownValue = value
-                                                tts.speak(value.toString(), TextToSpeech.QUEUE_FLUSH, null, null)
-                                            }
-                                        }
-                                    } else if (ttsInitialized && countdownValue == 0) {
-                                        textToSpeech?.speak("foto", TextToSpeech.QUEUE_FLUSH, null, null)
+                            var isCountingDown by remember { mutableStateOf(false) }
+                            var countdownValue by remember { mutableStateOf(0) }
+
+                            if (isCountingDown) {
+                                val countdownText = stringResource(R.string.capturing_in, countdownValue)
+                                LaunchedEffect(countdownValue) {
+                                    if (countdownValue > 0) {
+                                        textToSpeech?.speak(
+                                            countdownValue.toString(),
+                                            TextToSpeech.QUEUE_FLUSH,
+                                            null,
+                                            null
+                                        )
                                     }
                                 }
                                 Text(
-                                    text = stringResource(R.string.capturing_in, countdownValue),
+                                    text = countdownText,
                                     style = MaterialTheme.typography.headlineMedium,
-                                    modifier = Modifier.align(Alignment.CenterHorizontally)
+                                    modifier = Modifier
+                                        .align(Alignment.CenterHorizontally)
+                                        .semantics {
+                                            liveRegion = LiveRegionMode.Assertive
+                                            this.contentDescription = countdownText
+                                        }
                                 )
                             }
 
                             Button(
                                 onClick = {
                                     if (cameraPermissionState.status.isGranted) {
-                                        viewModel.triggerImageCapture()
+                                        if (uiState.isTimerEnabled && uiState.timerSeconds > 0) {
+                                            scope.launch {
+                                                isCountingDown = true
+                                                for (i in uiState.timerSeconds downTo 1) {
+                                                    countdownValue = i
+                                                    delay(1000)
+                                                }
+                                                isCountingDown = false
+                                                textToSpeech?.speak("foto", TextToSpeech.QUEUE_FLUSH, null, null)
+                                                viewModel.triggerImageCapture()
+                                            }
+                                        } else {
+                                            viewModel.triggerImageCapture()
+                                        }
                                     } else {
                                         cameraPermissionState.launchPermissionRequest()
                                     }
@@ -347,7 +366,7 @@ fun HomeScreen(
                                 modifier = Modifier
                                     .fillMaxWidth()
                                     .height(56.dp),
-                                enabled = !uiState.isLoading
+                                enabled = !uiState.isLoading && !isCountingDown
                             ) {
                                 Text(stringResource(R.string.take_photo), style = MaterialTheme.typography.titleMedium)
                             }
