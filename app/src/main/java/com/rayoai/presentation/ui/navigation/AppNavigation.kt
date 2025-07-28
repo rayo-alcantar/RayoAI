@@ -19,6 +19,7 @@ import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.semantics.semantics
+import androidx.navigation.NavDestination
 import androidx.navigation.NavDestination.Companion.hierarchy
 import androidx.navigation.NavGraph.Companion.findStartDestination
 import androidx.navigation.NavType
@@ -35,15 +36,15 @@ import com.rayoai.presentation.ui.screens.settings.SettingsScreen
 import com.rayoai.presentation.ui.screens.welcome.WelcomeScreen
 import com.rayoai.R
 
-sealed class Screen(val route: String, val labelRes: Int? = null, val icon: ImageVector? = null) {
-    object Welcome : Screen("welcome")
-    object ApiInstructions : Screen("api_instructions")
-    object Home : Screen("home?captureId={captureId}", R.string.tab_home, Icons.Default.Home) {
+sealed class Screen(val route: String, val baseRoute: String, val labelRes: Int? = null, val icon: ImageVector? = null) {
+    object Welcome : Screen("welcome", "welcome")
+    object ApiInstructions : Screen("api_instructions", "api_instructions")
+    object Home : Screen("home?captureId={captureId}", "home", R.string.tab_home, Icons.Default.Home) {
         fun createRoute(captureId: Long?) = if (captureId != null) "home?captureId=$captureId" else "home"
     }
-    object History : Screen("history", R.string.tab_history, Icons.Default.History)
-    object About : Screen("about", R.string.tab_about, Icons.Default.Info)
-    object Settings : Screen("settings", R.string.tab_settings, Icons.Default.Settings)
+    object History : Screen("history", "history", R.string.tab_history, Icons.Default.History)
+    object About : Screen("about", "about", R.string.tab_about, Icons.Default.Info)
+    object Settings : Screen("settings", "settings", R.string.tab_settings, Icons.Default.Settings)
 }
 
 val items = listOf(
@@ -53,6 +54,11 @@ val items = listOf(
     Screen.Settings
 )
 
+private fun NavDestination?.isSameRouteAs(baseRoute: String): Boolean {
+    // Devuelve true si la ruta del destino (o alguna de sus jerarquías) comienza con el baseRoute
+    return this?.hierarchy?.any { dest -> dest.route?.startsWith(baseRoute) == true } == true
+}
+
 @Composable
 fun AppNavigation(imageUri: Uri?, startDestination: String) {
     val navController = rememberNavController()
@@ -60,16 +66,15 @@ fun AppNavigation(imageUri: Uri?, startDestination: String) {
         bottomBar = {
             val navBackStackEntry by navController.currentBackStackEntryAsState()
             val currentDestination = navBackStackEntry?.destination
-            val showBottomBar = items.any { it.route == currentDestination?.route }
+            val showBottomBar = items.any { currentDestination.isSameRouteAs(it.baseRoute) }
             if (showBottomBar) {
                 NavigationBar {
                     items.forEach { screen ->
+                        val contentDesc = screen.labelRes?.let { stringResource(it) } ?: ""
                         NavigationBarItem(
                             icon = { screen.icon?.let { Icon(it, contentDescription = null) } },
-                            label = {
-                                screen.labelRes?.let { Text(stringResource(it)) }
-                            },
-                            selected = currentDestination?.hierarchy?.any { it.route == screen.route } == true,
+                            label = { screen.labelRes?.let { Text(stringResource(it)) } },
+                            selected = currentDestination.isSameRouteAs(screen.baseRoute),
                             onClick = {
                                 navController.navigate(screen.route) {
                                     popUpTo(navController.graph.findStartDestination().id) {
@@ -80,7 +85,7 @@ fun AppNavigation(imageUri: Uri?, startDestination: String) {
                                 }
                             },
                             modifier = Modifier.semantics {
-                                contentDescription = screen.labelRes?.let { stringResource(it) } ?: ""
+                                contentDescription = contentDesc
                             }
                         )
                     }

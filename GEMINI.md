@@ -72,5 +72,13 @@ Este archivo contiene información relevante para el agente Gemini CLI para oper
 *   **Manejo de Errores:** Las operaciones asíncronas utilizan `ResultWrapper` para manejar los estados de `Loading`, `Success` y `Error` de manera consistente.
 *   **Corrección de Chat:** Se ha corregido un problema donde las respuestas del modelo Gemini no se mostraban ni se guardaban en el historial debido a un análisis incorrecto de la respuesta de la API. Ahora, el chat funciona correctamente y las respuestas se procesan y almacenan adecuadamente.
 *   **Contexto de Archivos:** Al modificar archivos, siempre es recomendable leer el contexto circundante para mantener la coherencia del código y el estilo.
-A demás de que siempre que vayas a añadir texto que el usuario verá, asegúrate de no harcodearlo en el código, si no que añadir las referencias en strings.xml y en values-en/strings.xml.
-la aplicación inicialmente está en español.
+Siempre que añadas texto visible para el usuario NO lo escribas directamente (“hardcodeado”) en el código.
+Debes crear o reutilizar una referencia en los archivos de strings:
+* Español: app/src/main/res/values/strings.xml
+* Inglés: app/src/main/res/values-en/strings.xml
+La app está originalmente en español, así que primero agrega el string en español y luego su traducción al inglés con el mismo nombre de key.
+En el código, usa siempre stringResource(R.string.nombre_del_string), nunca el texto directo.
+NO uses stringResource() dentro de lambdas que no sean @Composable (por ejemplo, en Modifier.semantics). Si lo necesitas, primero guarda el valor en una variable dentro del composable y luego pásalo a la lambda.
+Esto evita errores de compilación como
+@Composable invocations can only happen from the context of a @Composable function.
+ 
