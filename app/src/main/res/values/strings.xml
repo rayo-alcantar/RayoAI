@@ -80,4 +80,5 @@
     <string name="error_loading_gallery_image">Error al cargar la imagen de la galería.</string>
     <string name="tts_lang_not_supported">Idioma no soportado para Text-to-Speech.</string>
     <string name="tts_init_error">Error al inicializar Text-to-Speech.</string>
+    <string name="loading_description">Cargando. El botón está desactivado.</string>
 </resources>

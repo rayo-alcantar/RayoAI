@@ -80,4 +80,5 @@
     <string name="error_loading_gallery_image">Error loading gallery image.</string>
     <string name="tts_lang_not_supported">Language not supported for Text-to-Speech.</string>
     <string name="tts_init_error">Error initializing Text-to-Speech.</string>
+    <string name="loading_description">Loading. The button is disabled.</string>
 </resources>

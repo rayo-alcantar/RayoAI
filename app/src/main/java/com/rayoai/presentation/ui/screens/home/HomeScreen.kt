@@ -365,7 +365,12 @@ fun HomeScreen(
                                 },
                                 modifier = Modifier
                                     .fillMaxWidth()
-                                    .height(56.dp),
+                                    .height(56.dp)
+                                    .semantics {
+                                        if (uiState.isLoading) {
+                                            stateDescription = context.getString(R.string.loading_description)
+                                        }
+                                    },
                                 enabled = !uiState.isLoading && !isCountingDown
                             ) {
                                 Text(stringResource(R.string.take_photo), style = MaterialTheme.typography.titleMedium)
