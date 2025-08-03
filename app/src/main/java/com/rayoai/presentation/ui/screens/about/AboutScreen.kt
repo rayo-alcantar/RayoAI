@@ -1,12 +1,22 @@
 package com.rayoai.presentation.ui.screens.about
 
+import android.content.ClipData
+import android.content.ClipboardManager
+import android.content.Context
 import android.content.Intent
 import android.net.Uri
+import android.widget.Toast
 import androidx.compose.foundation.layout.*
+import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Button
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
+import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
@@ -18,6 +28,53 @@ import com.rayoai.R
 @Composable
 fun AboutScreen() {
     val context = LocalContext.current
+    var showDonateDialog by remember { mutableStateOf(false) }
+    var showBbvaDialog by remember { mutableStateOf(false) }
+
+    if (showDonateDialog) {
+        AlertDialog(
+            onDismissRequest = { showDonateDialog = false },
+            title = { Text(stringResource(R.string.donate_dialog_title)) },
+            confirmButton = {
+                TextButton(onClick = {
+                    val paypalUrl = context.getString(R.string.about_paypal_url)
+                    val intent = Intent(Intent.ACTION_VIEW, Uri.parse(paypalUrl))
+                    context.startActivity(intent)
+                    showDonateDialog = false
+                }) {
+                    Text(stringResource(R.string.donate_paypal))
+                }
+            },
+            dismissButton = {
+                TextButton(onClick = {
+                    val clipboard = context.getSystemService(Context.CLIPBOARD_SERVICE) as ClipboardManager
+                    val clip = ClipData.newPlainText(
+                        "BBVA Details",
+                        context.getString(R.string.donate_bbva_details)
+                    )
+                    clipboard.setPrimaryClip(clip)
+                    Toast.makeText(context, context.getString(R.string.donate_bbva_clipboard_message), Toast.LENGTH_SHORT).show()
+                    showDonateDialog = false
+                    showBbvaDialog = true
+                }) {
+                    Text(stringResource(R.string.donate_bbva))
+                }
+            }
+        )
+    }
+
+    if (showBbvaDialog) {
+        AlertDialog(
+            onDismissRequest = { showBbvaDialog = false },
+            title = { Text(stringResource(R.string.donate_bbva_dialog_title)) },
+            text = { Text(stringResource(R.string.donate_bbva_details)) },
+            confirmButton = {
+                TextButton(onClick = { showBbvaDialog = false }) {
+                    Text(stringResource(R.string.accept))
+                }
+            }
+        )
+    }
 
     Column(
         modifier = Modifier
@@ -86,11 +143,9 @@ fun AboutScreen() {
             Text(stringResource(R.string.about_visit_website))
         }
         Spacer(modifier = Modifier.height(8.dp))
-        // Botón PayPal
+        // Botón Donar
         Button(onClick = {
-            val paypalUrl = context.getString(R.string.about_paypal_url)
-            val intent = Intent(Intent.ACTION_VIEW, Uri.parse(paypalUrl))
-            context.startActivity(intent)
+            showDonateDialog = true
         }) {
             Text(stringResource(R.string.about_donate_paypal))
         }

@@ -51,7 +51,15 @@
     <string name="about_donation_message">Este software fue hecho sin fines de lucro, pero siempre es bienvenida una donación para continuar su desarrollo.</string>
     <string name="about_contact_developer">Contactar con el desarrollador</string>
     <string name="about_visit_website">Visitar Sitio Web</string>
-    <string name="about_donate_paypal">Donar vía PayPal</string>
+    <string name="about_donate_paypal">Donar al desarrollador</string>
+    <string name="donate_dialog_title">Elige un método de donación</string>
+    <string name="donate_paypal">PayPal (Internacional)</string>
+    <string name="donate_bbva">Transferencia (México - BBVA)</string>
+    <string name="donate_bbva_dialog_title">Datos para donación</string>
+    <string name="donate_bbva_clipboard_message">Datos bancarios copiados al portapapeles</string>
+    <string name="donate_bbva_details">Banco Destino: BBVA
+Nombre Completo: Angel De Jesús Alcantar Garza
+Tarjeta: 4152314082325278</string>
     <string name="about_email_subject">Contacto desde RayoAI</string>
     <string name="about_website_url">https://rayoscompany.com/</string>
     <string name="about_paypal_url">https://paypal.me/rayoalcantar?country.x=MX&amp;locale.x=es_XC</string>

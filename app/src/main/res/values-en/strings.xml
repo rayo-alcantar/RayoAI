@@ -51,7 +51,13 @@
     <string name="about_donation_message">This software was made for non-profit purposes, but donations are always welcome to continue its development.</string>
     <string name="about_contact_developer">Contact the developer</string>
     <string name="about_visit_website">Visit Website</string>
-    <string name="about_donate_paypal">Donate via PayPal</string>
+    <string name="about_donate_paypal">Donate to the developer</string>
+    <string name="donate_dialog_title">Choose a donation method</string>
+    <string name="donate_paypal">PayPal (International)</string>
+    <string name="donate_bbva">Bank Transfer (Mexico - BBVA)</string>
+    <string name="donate_bbva_dialog_title">Donation Details</string>
+    <string name="donate_bbva_clipboard_message">Bank details copied to clipboard</string>
+    <string name="donate_bbva_details">Destination Bank: BBVA\nFull Name: Angel De Jesús Alcantar Garza\nCard: 4152314082325278</string>
     <string name="about_email_subject">Contact from RayoAI</string>
     <string name="about_website_url">https://rayoscompany.com/</string>
     <string name="about_paypal_url">https://paypal.me/rayoalcantar?country.x=MX&amp;locale.x=es_XC</string>
