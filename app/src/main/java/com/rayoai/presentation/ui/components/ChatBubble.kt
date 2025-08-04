@@ -30,6 +30,10 @@ import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.unit.dp
 import com.rayoai.presentation.ui.LocalTextToSpeech
 
+import androidx.compose.ui.semantics.semantics
+import androidx.compose.ui.semantics.customActions
+import androidx.compose.ui.semantics.CustomAccessibilityAction
+
 /**
  * Composable que representa una burbuja de mensaje en el chat.
  * Muestra el contenido del mensaje y, para las respuestas de la IA, ofrece opciones para copiar, compartir y escuchar.
@@ -45,8 +49,24 @@ fun ChatBubble(message: com.rayoai.domain.model.ChatMessage, modifier: Modifier 
         // Alinea la burbuja a la derecha si es un mensaje del usuario, a la izquierda si es de la IA.
         horizontalAlignment = if (message.isFromUser) Alignment.End else Alignment.Start
     ) {
+        val boxModifier = if (!message.isFromUser) {
+            Modifier
+                .semantics(mergeDescendants = true) {
+                    customActions = listOf(
+                        CustomAccessibilityAction("Escuchar descripción") {
+                            textToSpeech?.speak(message.content, TextToSpeech.QUEUE_FLUSH, null, ""); true
+                        },
+                        CustomAccessibilityAction("Copiar descripción") {
+                            copyTextToClipboard(context, message.content); true
+                        }
+                    )
+                }
+        } else {
+            Modifier
+        }
+
         Box(
-            modifier = Modifier
+            modifier = boxModifier
                 .clip(RoundedCornerShape(12.dp)) // Bordes redondeados para la burbuja.
                 // Color de fondo diferente para mensajes del usuario y de la IA.
                 .background(if (message.isFromUser) MaterialTheme.colorScheme.primaryContainer else MaterialTheme.colorScheme.secondaryContainer)
