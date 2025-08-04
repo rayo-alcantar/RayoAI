@@ -87,4 +87,12 @@
     <string name="tts_lang_not_supported">Language not supported for Text-to-Speech.</string>
     <string name="tts_init_error">Error initializing Text-to-Speech.</string>
     <string name="loading_description">Loading. The button is disabled.</string>
+    <string name="load_more_photos">Load more photos</string>
+    <string name="select_from_gallery">Select from gallery</string>
+    <string name="select_images_limit">You can select up to 3 images.</string>
+    <string name="api_usage_warning_title">Usage Warning</string>
+    <string name="api_usage_warning_message">Warning! Adding multiple photos may lead to excessive consumption of your API key. Use it at your own risk.</string>
+    <string name="ok_understood">OK, I understand</string>
+    <string name="add_image_dialog_title">Add image</string>
+    <string name="load_more_photos_icon_description">Add more photos to the conversation</string>
 </resources>

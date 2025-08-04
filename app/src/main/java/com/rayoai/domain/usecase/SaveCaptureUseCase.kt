@@ -20,10 +20,10 @@ class SaveCaptureUseCase @Inject constructor(
      * @param captureId El ID de la captura a actualizar (opcional). Si es nulo, se crea una nueva.
      * @return El ID de la captura guardada o actualizada.
      */
-    suspend operator fun invoke(imageUri: String, chatHistory: List<ChatMessage>, captureId: Long? = null): Long {
+    suspend operator fun invoke(imageUris: List<String>, chatHistory: List<ChatMessage>, captureId: Long? = null): Long {
         val capture = CaptureEntity(
             id = captureId ?: 0,
-            imageUri = imageUri,
+            imageUris = imageUris,
             chatHistory = chatHistory,
             timestamp = System.currentTimeMillis()
         )

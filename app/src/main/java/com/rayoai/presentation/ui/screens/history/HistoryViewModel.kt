@@ -9,6 +9,7 @@ import dagger.hilt.android.lifecycle.HiltViewModel
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.launch
 import javax.inject.Inject
+import android.net.Uri
 
 /**
  * ViewModel para la pantalla de historial de capturas.
@@ -30,35 +31,23 @@ class HistoryViewModel @Inject constructor(
     fun deleteCapture(capture: CaptureEntity) {
         viewModelScope.launch {
             try {
-                // Eliminar la imagen del almacenamiento físico.
-                imageStorageManager.deleteImage(capture.imageUri)
-                // Eliminar la entrada de la base de datos.
+                imageStorageManager.deleteImages(capture.imageUris.map { Uri.parse(it) })
                 captureDao.deleteCapture(capture.id)
             } catch (e: Exception) {
-                // Log the exception or handle it appropriately
-                // For now, we'll just print the stack trace
                 e.printStackTrace()
             }
         }
     }
 
-    /**
-     * Elimina todas las capturas del historial.
-     * Itera sobre todas las capturas, elimina cada archivo de imagen y luego limpia la base de datos.
-     */
     fun deleteAllCaptures() {
         viewModelScope.launch {
             try {
-                // Obtener la lista actual de capturas para poder eliminar los archivos.
                 val allCaptures = captureDao.getAllCapturesList()
                 allCaptures.forEach { capture ->
-                    imageStorageManager.deleteImage(capture.imageUri)
+                    imageStorageManager.deleteImages(capture.imageUris.map { Uri.parse(it) })
                 }
-                // Eliminar todas las entradas de la base de datos.
                 captureDao.deleteAllCaptures()
             } catch (e: Exception) {
-                // Log the exception or handle it appropriately
-                // For now, we'll just print the stack trace
                 e.printStackTrace()
             }
         }

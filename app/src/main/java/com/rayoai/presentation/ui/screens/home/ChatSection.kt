@@ -38,6 +38,16 @@ import kotlinx.coroutines.launch
 import java.util.*
 import android.speech.tts.TextToSpeech
 import com.rayoai.R
+import androidx.compose.foundation.lazy.items
+import androidx.compose.material.icons.filled.AddAPhoto
+import androidx.compose.material.icons.filled.Close
+import androidx.compose.ui.draw.clip
+import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.res.painterResource
+import coil.compose.rememberAsyncImagePainter
+import androidx.compose.foundation.background
+import androidx.compose.foundation.shape.CircleShape
+import androidx.compose.foundation.lazy.LazyRow
 
 @OptIn(ExperimentalPermissionsApi::class)
 @Composable
@@ -53,14 +63,16 @@ fun ChatSection(
     textToSpeech: TextToSpeech?,
     ttsInitialized: Boolean,
     writeStoragePermissionState: PermissionState,
-    onError: (String) -> Unit
+    onError: (String) -> Unit,
+    selectedImageUris: List<Uri>,
+    onAddImageRequest: () -> Unit,
+    onRemoveSelectedImage: (Uri) -> Unit
 ) {
     val context = LocalContext.current
     val scope = rememberCoroutineScope()
     val listState = rememberLazyListState()
     val focusRequester = remember { FocusRequester() }
 
-    // Sacamos todos los stringResource que usaremos en modificadores/lambdas
     val capturedImageDesc = stringResource(R.string.captured_image_description)
     val saveImageDesc = stringResource(R.string.save_image)
     val noImageToSave = context.getString(R.string.no_image_to_save)
@@ -71,6 +83,7 @@ fun ChatSection(
     val aiTypingText = stringResource(R.string.ai_typing)
     val askAboutImageLabel = stringResource(R.string.ask_about_image_label)
     val sendMessageDesc = stringResource(R.string.send_message)
+    val loadMorePhotosDesc = stringResource(R.string.load_more_photos_icon_description)
 
     LaunchedEffect(chatMessages) {
         val lastMessage = chatMessages.lastOrNull()
@@ -143,13 +156,7 @@ fun ChatSection(
             IconButton(
                 onClick = {
                     imageUri?.let { uri ->
-                        val shareIntent: Intent = Intent().apply {
-                            action = Intent.ACTION_SEND
-                            putExtra(Intent.EXTRA_STREAM, uri)
-                            type = "image/*"
-                            addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION)
-                        }
-                        context.startActivity(Intent.createChooser(shareIntent, shareImageChooser))
+                        onShareImage(uri)
                     } ?: onError(noImageToShare)
                 },
                 enabled = imageUri != null
@@ -181,12 +188,10 @@ fun ChatSection(
                 contentPadding = PaddingValues(16.dp),
                 verticalArrangement = Arrangement.spacedBy(8.dp)
             ) {
-                items(chatMessages.size) { index ->
-                    val message = chatMessages[index]
-                    val isLastMessage = index == chatMessages.size - 1
+                items(chatMessages) { message ->
                     ChatBubble(
                         message = message,
-                        modifier = if (isLastMessage) Modifier.focusRequester(focusRequester) else Modifier
+                        modifier = if (chatMessages.last() == message) Modifier.focusRequester(focusRequester) else Modifier
                     )
                 }
             }
@@ -202,6 +207,36 @@ fun ChatSection(
                         .padding(horizontal = 16.dp, vertical = 4.dp),
                     textAlign = TextAlign.Center
                 )
+            }
+        }
+
+        if (selectedImageUris.isNotEmpty()) {
+            LazyRow(
+                modifier = Modifier.padding(horizontal = 8.dp, vertical = 4.dp),
+                horizontalArrangement = Arrangement.spacedBy(8.dp)
+            ) {
+                items(selectedImageUris) { uri ->
+                    Box {
+                        Image(
+                            painter = rememberAsyncImagePainter(uri),
+                            contentDescription = "Selected image preview",
+                            modifier = Modifier
+                                .size(64.dp)
+                                .clip(MaterialTheme.shapes.small),
+                            contentScale = ContentScale.Crop
+                        )
+                        IconButton(
+                            onClick = { onRemoveSelectedImage(uri) },
+                            modifier = Modifier
+                                .align(Alignment.TopEnd)
+                                .size(24.dp)
+                                .padding(2.dp)
+                                .background(Color.Black.copy(alpha = 0.5f), CircleShape)
+                        ) {
+                            Icon(Icons.Default.Close, contentDescription = "Remove image", tint = Color.White)
+                        }
+                    }
+                }
             }
         }
 
@@ -223,12 +258,21 @@ fun ChatSection(
                 maxLines = 5
             )
             Spacer(modifier = Modifier.width(8.dp))
+            IconButton(
+                onClick = onAddImageRequest,
+                enabled = selectedImageUris.size < 3
+            ) {
+                Icon(
+                    Icons.Default.AddAPhoto,
+                    contentDescription = loadMorePhotosDesc
+                )
+            }
             IconButton(onClick = {
-                if (chatInput.isNotBlank()) {
+                if (chatInput.isNotBlank() || selectedImageUris.isNotEmpty()) {
                     onSendMessage(chatInput)
                     chatInput = ""
                 }
-            }, enabled = chatInput.isNotBlank()) {
+            }, enabled = chatInput.isNotBlank() || selectedImageUris.isNotEmpty()) {
                 Icon(
                     Icons.AutoMirrored.Filled.Send,
                     contentDescription = sendMessageDesc

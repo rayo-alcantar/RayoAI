@@ -18,4 +18,17 @@ class Converters {
         val type = object : TypeToken<List<ChatMessage>>() {}.type
         return gson.fromJson(value, type)
     }
+
+    @TypeConverter
+    fun fromStringList(value: List<String>): String {
+        val gson = Gson()
+        return gson.toJson(value)
+    }
+
+    @TypeConverter
+    fun toStringList(value: String): List<String> {
+        val gson = Gson()
+        val type = object : TypeToken<List<String>>() {}.type
+        return gson.fromJson(value, type)
+    }
 }

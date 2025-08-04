@@ -120,10 +120,10 @@ fun HistoryItem(
             }
     ) {
         Box(modifier = Modifier.fillMaxSize()) {
-            if (capture.imageUri.isNotEmpty()) {
+            if (capture.imageUris.isNotEmpty()) {
                 AsyncImage(
                     model = ImageRequest.Builder(LocalContext.current)
-                        .data(capture.imageUri)
+                        .data(capture.imageUris.firstOrNull())
                         .crossfade(true)
                         .build(),
                     contentDescription = null,
@@ -138,7 +138,7 @@ fun HistoryItem(
                         .background(MaterialTheme.colorScheme.surfaceVariant),
                     contentAlignment = Alignment.Center
                 ) {
-                    Text(stringResource(R.string.no_image), color = MaterialTheme.colorScheme.onSurfaceVariant)
+                    Text("No image", color = MaterialTheme.colorScheme.onSurfaceVariant)
                 }
             }
             IconButton(

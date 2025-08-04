@@ -28,50 +28,46 @@ import androidx.lifecycle.SavedStateHandle
 import com.rayoai.data.local.db.CaptureDao
 import javax.inject.Inject
 
-/**
- * ViewModel para la pantalla de inicio (Home Screen).
- * Gestiona el estado de la UI, la interacción con los casos de uso y la lógica de negocio
- * relacionada con la descripción de imágenes y el chat conversacional.
- */
-
-sealed class HomeScreenState {
+sealed class HomeScreenState { // Forcing re-evaluation
     object Initial : HomeScreenState()
     data class ImageCaptured(
         val imageBitmap: Bitmap,
         val description: String?,
-        val imageUri: Uri?
+        val imageUri: Uri? // Asegurarse de que sea nullable
     ) : HomeScreenState()
 }
 
 data class HomeUiState(
     val screenState: HomeScreenState = HomeScreenState.Initial,
-    val isLoading: Boolean = false, // Indica si una operación de carga está en curso.
-    val isAiTyping: Boolean = false, // Indica si la IA está "escribiendo" una respuesta.
-    val chatMessages: List<ChatMessage> = emptyList(), // Lista de mensajes en el chat.
-    val error: String? = null, // Mensaje de error a mostrar, si lo hay.
-    val apiKey: String? = null, // La clave de API de Gemini, obtenida de las preferencias del usuario.
-    val currentImageBitmap: Bitmap? = null, // Bitmap de la imagen actual (capturada o de galería)
-    val currentImageDescription: String? = null, // Descripción de la imagen actual
+    val isLoading: Boolean = false,
+    val isAiTyping: Boolean = false,
+    val chatMessages: List<ChatMessage> = emptyList(),
+    val error: String? = null,
+    val apiKey: String? = null,
+    val currentImageBitmap: Bitmap? = null,
+    val currentImageDescription: String? = null,
     val currentImageUri: Uri? = null,
     val currentCaptureId: Long? = null,
-    val currentCameraSelector: CameraSelector = CameraSelector.DEFAULT_BACK_CAMERA, // Default to back camera
+    val currentCameraSelector: CameraSelector = CameraSelector.DEFAULT_BACK_CAMERA,
     val isTimerEnabled: Boolean = false,
     val timerSeconds: Int = 0,
-    val isCountingDown: Boolean = false
+    val isCountingDown: Boolean = false,
+    val selectedImageUris: List<Uri> = emptyList(),
+    val showApiUsageWarning: Boolean = false,
+    val showAddImageDialog: Boolean = false
 )
 
 @HiltViewModel
 class HomeViewModel @Inject constructor(
-    private val describeImageUseCase: DescribeImageUseCase, // Caso de uso para la descripción inicial de la imagen.
-    private val continueChatUseCase: ContinueChatUseCase, // Caso de uso para continuar el chat.
-    private val userPreferencesRepository: UserPreferencesRepository, // Repositorio para las preferencias del usuario.
-    private val saveCaptureUseCase: SaveCaptureUseCase, // Caso de uso para guardar las capturas en la DB.
-    private val imageStorageManager: ImageStorageManager, // Gestor para guardar imágenes en el almacenamiento local.
-    private val captureDao: CaptureDao, // DAO para acceder a las capturas guardadas.
-    private val savedStateHandle: SavedStateHandle // Handle para acceder a los argumentos de navegación.
+    private val describeImageUseCase: DescribeImageUseCase,
+    private val continueChatUseCase: ContinueChatUseCase,
+    private val userPreferencesRepository: UserPreferencesRepository,
+    private val saveCaptureUseCase: SaveCaptureUseCase,
+    private val imageStorageManager: ImageStorageManager,
+    private val captureDao: CaptureDao,
+    private val savedStateHandle: SavedStateHandle
 ) : ViewModel() {
 
-    // Estado mutable de la UI, expuesto como un StateFlow inmutable para la UI.
     private val _uiState = MutableStateFlow(HomeUiState())
     val uiState: StateFlow<HomeUiState> = _uiState.asStateFlow()
     private val _playCaptureSound = MutableSharedFlow<Unit>()
@@ -80,24 +76,16 @@ class HomeViewModel @Inject constructor(
     val countdownTrigger: SharedFlow<Int> = _countdownTrigger
 
     init {
-        // Recolectar la clave de API de las preferencias del usuario al iniciar el ViewModel.
         viewModelScope.launch {
             userPreferencesRepository.apiKey.collect { key ->
-                _uiState.update { currentState -> currentState.copy(apiKey = key) }
+                _uiState.update { it.copy(apiKey = key) }
             }
         }
-
-        // Comprobar si se ha pasado un ID de captura para restaurar un chat.
         savedStateHandle.get<String>("captureId")?.toLongOrNull()?.let {
             restoreChatFromHistory(it)
         }
     }
 
-    /**
-     * Inicia el proceso de descripción de una imagen.
-     * Guarda la imagen localmente, la envía al modelo Gemini y actualiza el chat.
-     * @param image El [Bitmap] de la imagen a describir.
-     */
     fun setTimerEnabled(enabled: Boolean) {
         _uiState.update { it.copy(isTimerEnabled = enabled) }
     }
@@ -122,55 +110,47 @@ class HomeViewModel @Inject constructor(
         }
     }
 
-    /**
-     * Inicia el proceso de descripción de una imagen.
-     * Guarda la imagen localmente, la envía al modelo Gemini y actualiza el chat.
-     * @param image El [Bitmap] de la imagen a describir.
-     */
     fun describeImage(image: Bitmap) {
         Log.d("HomeViewModel", "describeImage called")
         viewModelScope.launch {
             val apiKey = userPreferencesRepository.apiKey.first()
             if (apiKey.isNullOrBlank()) {
-                _uiState.update { currentState -> currentState.copy(error = "API Key no configurada. Por favor, ve a Ajustes.") }
+                _uiState.update { it.copy(error = "API Key no configurada. Por favor, ve a Ajustes.") }
                 return@launch
             }
 
-            // Guardar la imagen capturada localmente y obtener su URI.
             val imageUri = imageStorageManager.saveBitmapAndGetUri(image)
             if (imageUri == null) {
-                _uiState.update { currentState -> currentState.copy(error = "Error al guardar la imagen.") }
+                _uiState.update { it.copy(error = "Error al guardar la imagen.") }
                 return@launch
             }
             _playCaptureSound.emit(Unit)
 
-            // Añadir un mensaje inicial al chat indicando que se ha capturado una imagen.
             val initialPromptMessage = ChatMessage(content = "Imagen capturada.", isFromUser = true)
             _uiState.update {
                 it.copy(
                     error = null,
                     currentImageBitmap = image,
                     currentImageUri = imageUri,
-                    chatMessages = listOf(initialPromptMessage) // Reiniciar mensajes para la nueva imagen
+                    chatMessages = listOf(initialPromptMessage),
+                    selectedImageUris = listOf(imageUri) // Add the described image to selectedImageUris
                 )
             }
 
-            // Llamar al caso de uso para describir la imagen.
             val languageCode = Locale.getDefault().language
             describeImageUseCase(apiKey, image, languageCode = languageCode).collect { result ->
                 when (result) {
                     is ResultWrapper.Loading -> {
                         Log.d("HomeViewModel", "describeImage: ResultWrapper.Loading")
-                        // isLoading ya está en true por triggerImageCapture o por el envío del mensaje
                     }
                     is ResultWrapper.Success -> {
                         Log.d("HomeViewModel", "describeImage: ResultWrapper.Success")
-                        // Si la descripción es exitosa, añadirla al chat y guardar la captura.
                         val newMessages = _uiState.value.chatMessages +
                                 ChatMessage(content = result.data, isFromUser = false)
-                        val newCaptureId = saveCaptureUseCase(imageUri.toString(), newMessages)
-                        _uiState.update { currentState ->
-                            currentState.copy(
+                        val finalImageUri: Uri? = imageUri
+                        val newCaptureId = saveCaptureUseCase(_uiState.value.selectedImageUris.map { it.toString() }, newMessages)
+                        _uiState.update { 
+                            it.copy(
                                 isLoading = false,
                                 chatMessages = newMessages,
                                 currentImageDescription = result.data,
@@ -181,74 +161,61 @@ class HomeViewModel @Inject constructor(
                     }
                     is ResultWrapper.Error -> {
                         Log.d("HomeViewModel", "describeImage: ResultWrapper.Error: ${result.message}")
-                        // Si hay un error, actualizar el estado de error de la UI.
-                        _uiState.update { currentState ->
-                            currentState.copy(isLoading = false, error = result.message)
-                        }
+                        _uiState.update { it.copy(isLoading = false, error = result.message) }
                     }
                 }
             }
         }
     }
 
-    /**
-     * Procesa una imagen seleccionada de la galería.
-     * Simplemente delega la descripción de la imagen al método `describeImage`.
-     * @param image El [Bitmap] de la imagen de la galería.
-     */
     fun processGalleryImage(image: Bitmap) {
         describeImage(image)
     }
 
-    /**
-     * Envía un mensaje de texto al modelo Gemini para continuar la conversación.
-     * @param message El mensaje de texto del usuario.
-     */
     fun sendChatMessage(message: String) {
         viewModelScope.launch {
             val apiKey = userPreferencesRepository.apiKey.first()
             if (apiKey.isNullOrBlank()) {
-                _uiState.update { currentState -> currentState.copy(error = "API Key no configurada. Por favor, ve a Ajustes.") }
+                _uiState.update { it.copy(error = "API Key no configurada. Por favor, ve a Ajustes.") }
                 return@launch
             }
 
-            // No enviar mensajes vacíos.
-            if (message.isBlank()) return@launch
+            if (message.isBlank() && _uiState.value.selectedImageUris.isEmpty()) return@launch
 
-            // Añadir el mensaje del usuario al chat y activar el indicador de escritura.
             val userMessage = ChatMessage(content = message, isFromUser = true)
-            _uiState.update { currentState ->
-                currentState.copy(
-                    chatMessages = currentState.chatMessages + userMessage,
-                    isAiTyping = true // Indicar que la IA está procesando
+            _uiState.update { 
+                it.copy(
+                    chatMessages = it.chatMessages + userMessage,
+                    isAiTyping = true
                 )
             }
 
-            // Llamar al caso de uso para continuar el chat, pasando el historial completo.
-            continueChatUseCase(apiKey, message, _uiState.value.chatMessages, _uiState.value.currentImageBitmap).collect { result ->
+            val imageBitmaps = _uiState.value.selectedImageUris.mapNotNull { uri ->
+                imageStorageManager.getBitmapFromUri(uri)
+            }
+
+            continueChatUseCase(apiKey, message, _uiState.value.chatMessages, imageBitmaps).collect { result ->
                 when (result) {
                     is ResultWrapper.Loading -> {
-                        // El estado de carga ya está gestionado por isAiTyping
                     }
                     is ResultWrapper.Success -> {
-                        // Si la respuesta es exitosa, añadirla al chat y desactivar el indicador.
                         val newMessages = _uiState.value.chatMessages +
                                 ChatMessage(content = result.data, isFromUser = false)
-                        _uiState.update { currentState ->
-                            currentState.copy(
+                        val currentImageUris = _uiState.value.selectedImageUris.map { it.toString() }
+                        val newCaptureId = saveCaptureUseCase(currentImageUris, newMessages, _uiState.value.currentCaptureId)
+                        _uiState.update { 
+                            it.copy(
                                 isLoading = false,
                                 isAiTyping = false,
-                                chatMessages = newMessages
+                                chatMessages = newMessages,
+                                selectedImageUris = emptyList(),
+                                currentCaptureId = newCaptureId
                             )
-                        }
-                        _uiState.value.currentImageUri?.let { uri ->
-                            saveCaptureUseCase(uri.toString(), newMessages, _uiState.value.currentCaptureId)
                         }
                     }
                     is ResultWrapper.Error -> {
-                        // Si hay un error, actualizar el estado de error y desactivar el indicador.
-                        _uiState.update { currentState ->
-                            currentState.copy(
+                        _uiState.update { 
+                            it.copy(
                                 isLoading = false,
                                 isAiTyping = false,
                                 error = result.message
@@ -260,17 +227,10 @@ class HomeViewModel @Inject constructor(
         }
     }
 
-    /**
-     * Establece un mensaje de error en el estado de la UI.
-     * @param message El mensaje de error a mostrar.
-     */
     fun setError(message: String) {
         _uiState.update { it.copy(error = message) }
     }
 
-    /**
-     * Limpia el mensaje de error del estado de la UI.
-     */
     fun clearError() {
         _uiState.update { it.copy(error = null) }
     }
@@ -280,10 +240,6 @@ class HomeViewModel @Inject constructor(
         _uiState.update { it.copy(isLoading = loading) }
     }
 
-    /**
-     * Restablece el estado de la pantalla de inicio a su estado inicial,
-     * eliminando la imagen capturada y los mensajes de chat.
-     */
     fun resetHomeScreenState() {
         _uiState.update {
             it.copy(
@@ -293,7 +249,8 @@ class HomeViewModel @Inject constructor(
                 currentImageDescription = null,
                 currentImageUri = null,
                 isLoading = false,
-                error = null
+                error = null,
+                selectedImageUris = emptyList()
             )
         }
     }
@@ -323,21 +280,21 @@ class HomeViewModel @Inject constructor(
     private fun restoreChatFromHistory(captureId: Long) {
         viewModelScope.launch {
             val capture = captureDao.getCaptureById(captureId)
-            Log.d("HomeViewModel", "restoreChatFromHistory: Loaded capture for ID: $captureId")
-            Log.d("HomeViewModel", "restoreChatFromHistory: Chat history: ${capture?.chatHistory}")
             if (capture != null) {
-                val imageUri = Uri.parse(capture.imageUri)
-                val bitmap = imageStorageManager.getBitmapFromUri(imageUri)
+                val imageUris = capture.imageUris.map { Uri.parse(it) }
+                val firstImageUri = imageUris.firstOrNull()
+                val firstImageBitmap = firstImageUri?.let { imageStorageManager.getBitmapFromUri(it) }
 
-                if (bitmap != null) {
+                if (firstImageBitmap != null) {
                     _uiState.update {
                         it.copy(
-                            screenState = HomeScreenState.ImageCaptured(bitmap, capture.chatHistory.lastOrNull()?.content, imageUri),
-                            currentImageBitmap = bitmap,
+                            screenState = HomeScreenState.ImageCaptured(firstImageBitmap, capture.chatHistory.lastOrNull()?.content, imageUris.firstOrNull()),
+                            currentImageBitmap = firstImageBitmap,
                             currentImageDescription = capture.chatHistory.lastOrNull()?.content,
-                            currentImageUri = imageUri,
+                            currentImageUri = imageUris.firstOrNull(),
                             chatMessages = capture.chatHistory,
-                            currentCaptureId = capture.id
+                            currentCaptureId = capture.id,
+                            selectedImageUris = imageUris
                         )
                     }
                 } else {
@@ -347,5 +304,62 @@ class HomeViewModel @Inject constructor(
                 setError("No se pudo encontrar la captura en el historial.")
             }
         }
+    }
+
+    fun deleteChat(captureId: Long) {
+        viewModelScope.launch {
+            val capture = captureDao.getCaptureById(captureId)
+            capture?.let { 
+                imageStorageManager.deleteImages(it.imageUris.map { uriString -> Uri.parse(uriString) })
+                captureDao.deleteCapture(captureId)
+            }
+        }
+    }
+
+    fun deleteAllChats() {
+        viewModelScope.launch {
+            val allCaptures = captureDao.getAllCapturesList()
+            allCaptures.forEach { capture ->
+                imageStorageManager.deleteImages(capture.imageUris.map { uriString -> Uri.parse(uriString) })
+            }
+            captureDao.deleteAllCaptures()
+        }
+    }
+
+    fun onAddImageRequest() {
+        viewModelScope.launch {
+            val hasShownWarning = userPreferencesRepository.hasShownApiUsageWarning.first()
+            if (!hasShownWarning) {
+                _uiState.update { it.copy(showApiUsageWarning = true) }
+            } else {
+                _uiState.update { it.copy(showAddImageDialog = true) }
+            }
+        }
+    }
+
+    fun onApiUsageWarningDismissed() {
+        viewModelScope.launch {
+            userPreferencesRepository.setHasShownApiUsageWarning(true)
+            _uiState.update { it.copy(showApiUsageWarning = false, showAddImageDialog = true) }
+        }
+    }
+
+    fun onAddImageDialogDismissed() {
+        _uiState.update { it.copy(showAddImageDialog = false) }
+    }
+
+    fun onImagesSelected(uris: List<Uri>) {
+        val currentSelectedCount = _uiState.value.selectedImageUris.size
+        val remainingSlots = 3 - currentSelectedCount
+        val newUris = uris.take(remainingSlots)
+        _uiState.update { it.copy(selectedImageUris = it.selectedImageUris + newUris) }
+    }
+
+    fun removeSelectedImage(uri: Uri) {
+        _uiState.update { it.copy(selectedImageUris = it.selectedImageUris - uri) }
+    }
+
+    fun getTmpFileUri(): Uri {
+        return imageStorageManager.getTmpFileUri()
     }
 }

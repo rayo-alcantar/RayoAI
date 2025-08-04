@@ -38,12 +38,12 @@ class ContinueChatUseCase @Inject constructor(
         apiKey: String,
         prompt: String,
         history: List<ChatMessage>,
-        image: Bitmap? // Añadir el parámetro de la imagen
+        images: List<Bitmap> = emptyList() // Añadir el parámetro de la imagen
     ): Flow<ResultWrapper<String>> {
         val fullHistory = listOf(
             ChatMessage(content = SYSTEM_PROMPT, isFromUser = false)
         ) + history
         // Para continuar el chat, se envía la imagen junto con el texto y el historial.
-        return visionRepository.generateContent(apiKey, prompt, image, fullHistory)
+        return visionRepository.generateContent(apiKey, prompt, images, fullHistory)
     }
 }

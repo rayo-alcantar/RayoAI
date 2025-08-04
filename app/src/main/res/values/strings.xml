@@ -89,4 +89,12 @@ Tarjeta: 4152314082325278</string>
     <string name="tts_lang_not_supported">Idioma no soportado para Text-to-Speech.</string>
     <string name="tts_init_error">Error al inicializar Text-to-Speech.</string>
     <string name="loading_description">Cargando. El botón está desactivado.</string>
+    <string name="load_more_photos">Cargar más fotos</string>
+    <string name="select_from_gallery">Cargar de galería</string>
+    <string name="select_images_limit">Puedes seleccionar hasta 3 imágenes.</string>
+    <string name="api_usage_warning_title">Advertencia de Uso</string>
+    <string name="api_usage_warning_message">¡Cuidado! Añadir muchas fotografías podría generar un consumo excesivo de tu clave de API. Úsalo bajo tu responsabilidad.</string>
+    <string name="ok_understood">OK, entendido</string>
+    <string name="add_image_dialog_title">Añadir imagen</string>
+    <string name="load_more_photos_icon_description">Añadir más fotos a la conversación</string>
 </resources>

@@ -59,6 +59,8 @@ import kotlinx.coroutines.launch
 import androidx.activity.compose.BackHandler
 import com.rayoai.domain.model.ChatMessage
 import kotlinx.coroutines.delay
+import androidx.activity.result.PickVisualMediaRequest
+import androidx.activity.result.contract.ActivityResultContracts.PickMultipleVisualMedia
 
 @OptIn(ExperimentalMaterial3Api::class, ExperimentalPermissionsApi::class)
 @Composable
@@ -74,7 +76,6 @@ fun HomeScreen(
 
     val snackbarHostState = remember { SnackbarHostState() }
 
-    // Procesar la imagen compartida si se recibe una URI.
     LaunchedEffect(imageUri) {
         imageUri?.let {
             val bitmap = try {
@@ -121,6 +122,25 @@ fun HomeScreen(
             bitmap?.let { img -> viewModel.processGalleryImage(img) }
         }
     }
+
+    val multipleGalleryLauncher = rememberLauncherForActivityResult(
+        contract = PickMultipleVisualMedia(3)
+    ) { uris: List<Uri> ->
+        if (uris.isNotEmpty()) {
+            viewModel.onImagesSelected(uris)
+        }
+    }
+
+    var tempUri by remember { mutableStateOf<Uri?>(null) }
+
+    val cameraLauncher = rememberLauncherForActivityResult(
+        contract = ActivityResultContracts.TakePicture()
+    ) { success ->
+        if (success) {
+            tempUri?.let { viewModel.onImagesSelected(listOf(it)) }
+        }
+    }
+
 
     LaunchedEffect(Unit) {
         viewModel.playCaptureSound.collect {
@@ -170,7 +190,6 @@ fun HomeScreen(
                     }
                 },
                 actions = {
-                    // No hay acciones en la barra superior de la pantalla de inicio.
                 }
             )
         }
@@ -399,10 +418,52 @@ fun HomeScreen(
                         textToSpeech = textToSpeech,
                         ttsInitialized = ttsInitialized,
                         writeStoragePermissionState = writeStoragePermissionState,
-                        onError = { message -> viewModel.setError(message) }
+                        onError = { message -> viewModel.setError(message) },
+                        selectedImageUris = uiState.selectedImageUris,
+                        onAddImageRequest = { viewModel.onAddImageRequest() },
+                        onRemoveSelectedImage = { uri -> viewModel.removeSelectedImage(uri) }
                     )
                 }
             }
         }
+    }
+
+    if (uiState.showApiUsageWarning) {
+        AlertDialog(
+            onDismissRequest = { viewModel.onApiUsageWarningDismissed() },
+            title = { Text(stringResource(R.string.api_usage_warning_title)) },
+            text = { Text(stringResource(R.string.api_usage_warning_message)) },
+            confirmButton = {
+                Button(onClick = { viewModel.onApiUsageWarningDismissed() }) {
+                    Text(stringResource(R.string.ok_understood))
+                }
+            }
+        )
+    }
+
+    if (uiState.showAddImageDialog) {
+        AlertDialog(
+            onDismissRequest = { viewModel.onAddImageDialogDismissed() },
+            title = { Text(stringResource(R.string.add_image_dialog_title)) },
+            text = { Text(stringResource(R.string.select_images_limit)) },
+            confirmButton = {
+                Button(onClick = { 
+                    multipleGalleryLauncher.launch(PickVisualMediaRequest(ActivityResultContracts.PickVisualMedia.ImageOnly))
+                    viewModel.onAddImageDialogDismissed()
+                }) {
+                    Text(stringResource(R.string.select_from_gallery))
+                }
+            },
+            dismissButton = {
+                Button(onClick = { 
+                    val tmpUri = viewModel.getTmpFileUri()
+                    tempUri = tmpUri
+                    cameraLauncher.launch(tmpUri)
+                    viewModel.onAddImageDialogDismissed()
+                 }) {
+                    Text(stringResource(R.string.take_photo))
+                }
+            }
+        )
     }
 }

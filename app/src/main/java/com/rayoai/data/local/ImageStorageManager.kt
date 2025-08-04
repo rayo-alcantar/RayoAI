@@ -133,4 +133,23 @@ class ImageStorageManager @Inject constructor(
             false
         }
     }
+
+    fun getTmpFileUri(): Uri {
+        val tmpFile = File.createTempFile("tmp_image_file", ".png", context.cacheDir).apply {
+            createNewFile()
+            deleteOnExit()
+        }
+
+        return FileProvider.getUriForFile(context, "${context.packageName}.fileprovider", tmpFile)
+    }
+
+    fun deleteImages(uris: List<Uri>) {
+        uris.forEach { uri ->
+            try {
+                context.contentResolver.delete(uri, null, null)
+            } catch (e: Exception) {
+                e.printStackTrace()
+            }
+        }
+    }
 }

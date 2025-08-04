@@ -9,7 +9,7 @@ interface VisionRepository {
     fun generateContent(
         apiKey: String,
         prompt: String,
-        image: Bitmap? = null, // Make image optional
+        images: List<Bitmap> = emptyList(),
         history: List<ChatMessage>
     ): Flow<ResultWrapper<String>>
 }

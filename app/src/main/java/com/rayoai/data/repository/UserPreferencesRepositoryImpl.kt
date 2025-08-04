@@ -22,6 +22,7 @@ class UserPreferencesRepositoryImpl @Inject constructor(
         val TEXT_SCALE = floatPreferencesKey("text_scale")
         val AUTO_DESCRIBE_ON_SHARE = booleanPreferencesKey("auto_describe_on_share")
         val IS_FIRST_RUN = booleanPreferencesKey("is_first_run")
+        val HAS_SHOWN_API_USAGE_WARNING = booleanPreferencesKey("has_shown_api_usage_warning")
     }
 
     override val apiKey: Flow<String?> = dataStore.data.map {
@@ -42,6 +43,10 @@ class UserPreferencesRepositoryImpl @Inject constructor(
 
     override val isFirstRun: Flow<Boolean> = dataStore.data.map {
         it[PreferencesKeys.IS_FIRST_RUN] ?: true
+    }
+
+    override val hasShownApiUsageWarning: Flow<Boolean> = dataStore.data.map {
+        it[PreferencesKeys.HAS_SHOWN_API_USAGE_WARNING] ?: false
     }
 
     override suspend fun saveApiKey(apiKey: String) {
@@ -71,6 +76,12 @@ class UserPreferencesRepositoryImpl @Inject constructor(
     override suspend fun setFirstRun(isFirstRun: Boolean) {
         dataStore.edit {
             it[PreferencesKeys.IS_FIRST_RUN] = isFirstRun
+        }
+    }
+
+    override suspend fun setHasShownApiUsageWarning(shown: Boolean) {
+        dataStore.edit {
+            it[PreferencesKeys.HAS_SHOWN_API_USAGE_WARNING] = shown
         }
     }
 }
