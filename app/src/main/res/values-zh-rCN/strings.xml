@@ -1,0 +1,195 @@
+<?xml version="1.0" encoding="UTF-8"?><resources>
+      
+  <string name="app_name">拉约艾</string>
+      
+  <string name="tab_home">家</string>
+      
+  <string name="tab_history">历史</string>
+      
+  <string name="tab_about">关于</string>
+      
+  <string name="tab_settings">设置</string>
+      
+  <string name="describe_image_label">描述图像</string>
+      
+  <string name="settings_title">设置</string>
+      
+  <string name="channel_name">RayoAI 描述</string>
+      
+  <string name="channel_description">RayoAI 生成的图像描述的通知</string>
+      
+  <string name="history_title">历史</string>
+      
+  <string name="api_instructions_title">获取 API 密钥</string>
+      
+  <string name="api_instructions_description">API 密钥是您的 Google 帐号的唯一标识符，允许访问 Gemini 模型。</string>
+      
+  <string name="api_instructions_step_1">要获取一个，只需前往</string>
+      
+  <string name="api_instructions_link">https://aistudio.google.com/apikey</string>
+      
+  <string name="api_instructions_warning">使用 Google 登录，点击“创建 API 密钥”或“获取 API 密钥”，然后点击“复制到剪贴板”。警告！如果您的帐号未成年（未满 18 岁）或您所在的国家/地区不在允许列表中，则您在进入 AIStudio 时会遇到错误。</string>
+      
+  <string name="api_instructions_go_to_google">前往 Google AI Studio</string>
+      
+  <string name="api_instructions_done">完毕</string>
+      
+  <string name="history_empty">历史上没有捕获。</string>
+      
+  <string name="history_delete_all">删除所有历史记录</string>
+      
+  <string name="history_confirm_delete_title">确认删除</string>
+      
+  <string name="history_confirm_delete_message">您确定要删除所有历史记录吗？此操作无法撤消。</string>
+      
+  <string name="delete">删除</string>
+      
+  <string name="cancel">取消</string>
+      
+  <string name="no_image">无图像</string>
+      
+  <string name="delete_capture">删除此聊天</string>
+      
+  <string name="welcome_title">欢迎来到 RayoAI</string>
+      
+  <string name="welcome_first_time_message">检测到这是您第一次在此设备上安装 RayoAI，并且您尚未设置 Google Studio API 密钥。</string>
+      
+  <string name="welcome_instruction_message">如果您有 API 密钥，请按下方的“接受”按钮，然后转到设置进行配置。</string>
+      
+  <string name="accept">接受</string>
+      
+  <string name="no_api_key_help">我不知道如何获取 API 密钥</string>
+      
+  <!-- Settings: API Key -->
+      
+  <string name="settings_api_key_label">API 密钥</string>
+      
+  <string name="settings_api_key_hint">Gemini API 密钥</string>
+      
+  <string name="settings_api_key_save">保存 API 密钥</string>
+      
+  <string name="settings_api_key_saved_message">API 密钥保存成功！</string>
+      
+  <!-- Settings: Theme -->
+      
+  <string name="settings_theme_label">主题</string>
+      
+  <!-- Settings: Text size -->
+      
+  <string name="settings_text_size_label">文本大小</string>
+      
+  <string name="settings_text_scale">当前比例：%1$.1fx</string>
+      
+  <!-- Settings: Auto describe -->
+      
+  <string name="settings_autodescribe_label">分享时自动描述</string>
+      
+  <string name="about_app_name">拉约艾</string>
+      
+  <string name="about_developed_by">开发者：</string>
+      
+  <string name="about_developer_name">天使·德·耶稣·阿尔坎塔尔·加尔萨</string>
+      
+  <string name="about_tester_label">Alpha 测试员、设计师和创意人员：</string>
+      
+  <string name="about_tester_name">杰西卡·埃雷拉</string>
+      
+  <string name="about_legal_label">法律顾问</string>
+      
+  <string name="about_legal_name">艾迪·科尔特斯</string>
+      
+  <string name="about_donation_message">该软件是为非盈利目的而制作的，但我们始终欢迎捐赠以继续其开发。</string>
+      
+  <string name="about_contact_developer">联系开发者</string>
+      
+  <string name="about_visit_website">访问网站</string>
+      
+  <string name="about_donate_paypal">向开发者捐款</string>
+      
+  <string name="donate_dialog_title">选择捐赠方式</string>
+      
+  <string name="donate_paypal">PayPal（国际）</string>
+      
+  <string name="donate_bbva">银行转账（墨西哥 - BBVA）</string>
+      
+  <string name="donate_bbva_dialog_title">捐赠详情</string>
+      
+  <string name="donate_bbva_clipboard_message">银行详细信息已复制到剪贴板</string>
+      
+  <string name="donate_bbva_details">目的地银行：BBVA\n全名：Angel De Jesús Alcantar Garza\n银行卡：4152314082325278</string>
+      
+  <string name="about_email_subject">RayoAI 联系方式</string>
+      
+  <string name="about_website_url">https://rayoscompany.com/</string>
+      
+  <string name="about_paypal_url">https://paypal.me/rayoalcantar?country.x=MX&amp;locale.x=es_XC</string>
+      
+  <string name="about_email">contacto\@rayoscompany.com</string>
+      
+  <string name="captured_image_description">拍摄的图像</string>
+      
+  <string name="save_image">将图像保存到图库</string>
+      
+  <string name="share_image">分享图片</string>
+      
+  <string name="no_image_to_save">没有可保存的图像。</string>
+      
+  <string name="no_image_to_share">没有图像可分享。</string>
+      
+  <string name="share_image_chooser">分享图片</string>
+      
+  <string name="analyzing_image">分析图像。请稍等。</string>
+      
+  <string name="ai_typing">RayoAI 正在输入...</string>
+      
+  <string name="ask_about_image_label">询问图像...</string>
+      
+  <string name="send_message">发送消息</string>
+      
+  <string name="back">后退</string>
+      
+  <string name="camera_permission_required">拍照需要获得相机许可。</string>
+      
+  <string name="switch_to_front_camera">切换到前置摄像头</string>
+      
+  <string name="switch_to_back_camera">切换到后置摄像头</string>
+      
+  <string name="load_from_gallery">从图库加载</string>
+      
+  <string name="timer">计时器</string>
+      
+  <string name="select">选择</string>
+      
+  <string name="seconds">秒</string>
+      
+  <string name="capturing_in">正在捕获：%1$d...</string>
+      
+  <string name="take_photo">拍照</string>
+      
+  <string name="error_loading_shared_image">加载共享图像时出错。</string>
+      
+  <string name="error_loading_gallery_image">加载图库图像时出错。</string>
+      
+  <string name="tts_lang_not_supported">文本转语音不支持该语言。</string>
+      
+  <string name="tts_init_error">初始化文本转语音时出错。</string>
+      
+  <string name="loading_description">加载中。该按钮已被禁用。</string>
+      
+  <string name="load_more_photos">加载更多照片</string>
+      
+  <string name="select_from_gallery">从图库中选择</string>
+      
+  <string name="select_images_limit">您最多可以选择 3 张图片。</string>
+      
+  <string name="api_usage_warning_title">使用警告</string>
+      
+  <string name="api_usage_warning_message">警告！添加多张照片可能会导致您的 API 密钥过度消耗。使用它需要您自担风险。</string>
+      
+  <string name="ok_understood">好的，我明白了</string>
+      
+  <string name="add_image_dialog_title">添加图片</string>
+      
+  <string name="load_more_photos_icon_description">在对话中添加更多照片</string>
+  
+</resources>

@@ -1,0 +1,195 @@
+<?xml version="1.0" encoding="UTF-8"?><resources>
+      
+  <string name="app_name">RayoAI</string>
+      
+  <string name="tab_home">Maison</string>
+      
+  <string name="tab_history">Histoire</string>
+      
+  <string name="tab_about">À propos</string>
+      
+  <string name="tab_settings">Paramètres</string>
+      
+  <string name="describe_image_label">Décrire l\'image</string>
+      
+  <string name="settings_title">Paramètres</string>
+      
+  <string name="channel_name">Descriptions de RayoAI</string>
+      
+  <string name="channel_description">Notifications pour les descriptions d\'images générées par RayoAI</string>
+      
+  <string name="history_title">Histoire</string>
+      
+  <string name="api_instructions_title">Obtenir la clé API</string>
+      
+  <string name="api_instructions_description">Une clé API est un identifiant unique pour votre compte Google et permet d\'accéder aux modèles Gemini.</string>
+      
+  <string name="api_instructions_step_1">Pour en obtenir un, rendez-vous simplement sur</string>
+      
+  <string name="api_instructions_link">https://aistudio.google.com/apikey</string>
+      
+  <string name="api_instructions_warning">Connectez-vous avec Google, cliquez sur « Créer une clé API » ou « Obtenir une clé API », puis sur « Copier dans le presse-papiers ». Attention ! Si votre compte est mineur (moins de 18 ans) ou si votre pays ne figure pas sur la liste autorisée, vous recevrez une erreur lors de la saisie d\'AIStudio.</string>
+      
+  <string name="api_instructions_go_to_google">Accéder à Google AI Studio</string>
+      
+  <string name="api_instructions_done">Fait</string>
+      
+  <string name="history_empty">Aucune capture dans l\'histoire.</string>
+      
+  <string name="history_delete_all">Supprimer tout l\'historique</string>
+      
+  <string name="history_confirm_delete_title">Confirmer la suppression</string>
+      
+  <string name="history_confirm_delete_message">Êtes-vous sûr de vouloir supprimer tout l’historique ? Cette action ne peut pas être annulée.</string>
+      
+  <string name="delete">Supprimer</string>
+      
+  <string name="cancel">Annuler</string>
+      
+  <string name="no_image">Aucune image</string>
+      
+  <string name="delete_capture">Supprimer cette discussion</string>
+      
+  <string name="welcome_title">Bienvenue chez RayoAI</string>
+      
+  <string name="welcome_first_time_message">Il a été détecté que c\'est la première fois que vous installez RayoAI sur cet appareil et que vous n\'avez pas configuré de clé API Google Studio.</string>
+      
+  <string name="welcome_instruction_message">Si vous avez votre clé API, appuyez sur le bouton Accepter ci-dessous, puis accédez aux paramètres pour la configurer.</string>
+      
+  <string name="accept">Accepter</string>
+      
+  <string name="no_api_key_help">Je ne sais pas comment obtenir une clé API</string>
+      
+  <!-- Settings: API Key -->
+      
+  <string name="settings_api_key_label">Clé API</string>
+      
+  <string name="settings_api_key_hint">Clé API Gemini</string>
+      
+  <string name="settings_api_key_save">Enregistrer la clé API</string>
+      
+  <string name="settings_api_key_saved_message">Clé API enregistrée avec succès !</string>
+      
+  <!-- Settings: Theme -->
+      
+  <string name="settings_theme_label">Thème</string>
+      
+  <!-- Settings: Text size -->
+      
+  <string name="settings_text_size_label">Taille du texte</string>
+      
+  <string name="settings_text_scale">Échelle actuelle : %1$.1fx</string>
+      
+  <!-- Settings: Auto describe -->
+      
+  <string name="settings_autodescribe_label">Décrire automatiquement lors du partage</string>
+      
+  <string name="about_app_name">RayoAI</string>
+      
+  <string name="about_developed_by">Développé par :</string>
+      
+  <string name="about_developer_name">Ángel De Jesús Alcántar Garza</string>
+      
+  <string name="about_tester_label">Testeur Alpha, Designer et Créatif :</string>
+      
+  <string name="about_tester_name">Jessica Herrera</string>
+      
+  <string name="about_legal_label">Conseiller juridique</string>
+      
+  <string name="about_legal_name">Eddie Cortes</string>
+      
+  <string name="about_donation_message">Ce logiciel a été créé à des fins non lucratives, mais les dons sont toujours les bienvenus pour poursuivre son développement.</string>
+      
+  <string name="about_contact_developer">Contactez le développeur</string>
+      
+  <string name="about_visit_website">Visitez le site Web</string>
+      
+  <string name="about_donate_paypal">Faire un don au développeur</string>
+      
+  <string name="donate_dialog_title">Choisissez une méthode de don</string>
+      
+  <string name="donate_paypal">PayPal (International)</string>
+      
+  <string name="donate_bbva">Virement bancaire (Mexique - BBVA)</string>
+      
+  <string name="donate_bbva_dialog_title">Détails du don</string>
+      
+  <string name="donate_bbva_clipboard_message">Coordonnées bancaires copiées dans le presse-papiers</string>
+      
+  <string name="donate_bbva_details">Banque de destination : BBVA\nNom complet : Angel De Jesús Alcantar Garza\nCarte : 4152314082325278</string>
+      
+  <string name="about_email_subject">Contact de RayoAI</string>
+      
+  <string name="about_website_url">https://rayoscompany.com/</string>
+      
+  <string name="about_paypal_url">https://paypal.me/rayoalcantar?country.x=MX&amp;locale.x=es_XC</string>
+      
+  <string name="about_email">contacto\@rayoscompany.com</string>
+      
+  <string name="captured_image_description">Image capturée</string>
+      
+  <string name="save_image">Enregistrer l\'image dans la galerie</string>
+      
+  <string name="share_image">Partager l\'image</string>
+      
+  <string name="no_image_to_save">Aucune image à enregistrer.</string>
+      
+  <string name="no_image_to_share">Aucune image à partager.</string>
+      
+  <string name="share_image_chooser">Partager l\'image</string>
+      
+  <string name="analyzing_image">Analyse d\'image. S\'il vous plaît, attendez.</string>
+      
+  <string name="ai_typing">RayoAI est en train de taper...</string>
+      
+  <string name="ask_about_image_label">Renseignez-vous sur l\'image...</string>
+      
+  <string name="send_message">Envoyer un message</string>
+      
+  <string name="back">Dos</string>
+      
+  <string name="camera_permission_required">Une autorisation de caméra est requise pour prendre des photos.</string>
+      
+  <string name="switch_to_front_camera">Passer à la caméra frontale</string>
+      
+  <string name="switch_to_back_camera">Passer à la caméra arrière</string>
+      
+  <string name="load_from_gallery">Charger depuis la galerie</string>
+      
+  <string name="timer">Minuteur</string>
+      
+  <string name="select">Sélectionner</string>
+      
+  <string name="seconds">Secondes</string>
+      
+  <string name="capturing_in">Capture dans : %1$d...</string>
+      
+  <string name="take_photo">Prendre une photo</string>
+      
+  <string name="error_loading_shared_image">Erreur lors du chargement de l\'image partagée.</string>
+      
+  <string name="error_loading_gallery_image">Erreur lors du chargement de l\'image de la galerie.</string>
+      
+  <string name="tts_lang_not_supported">Langue non prise en charge pour la synthèse vocale.</string>
+      
+  <string name="tts_init_error">Erreur lors de l\'initialisation de la synthèse vocale.</string>
+      
+  <string name="loading_description">Chargement. Le bouton est désactivé.</string>
+      
+  <string name="load_more_photos">Charger plus de photos</string>
+      
+  <string name="select_from_gallery">Sélectionnez dans la galerie</string>
+      
+  <string name="select_images_limit">Vous pouvez sélectionner jusqu\'à 3 images.</string>
+      
+  <string name="api_usage_warning_title">Avertissement d\'utilisation</string>
+      
+  <string name="api_usage_warning_message">Avertissement! L\'ajout de plusieurs photos peut entraîner une consommation excessive de votre clé API. Utilisez-le à vos propres risques.</string>
+      
+  <string name="ok_understood">OK, je comprends</string>
+      
+  <string name="add_image_dialog_title">Ajouter une image</string>
+      
+  <string name="load_more_photos_icon_description">Ajoutez plus de photos à la conversation</string>
+  
+</resources>

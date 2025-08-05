@@ -1,0 +1,195 @@
+<?xml version="1.0" encoding="UTF-8"?><resources>
+      
+  <string name="app_name">RayoAI</string>
+      
+  <string name="tab_home">Lar</string>
+      
+  <string name="tab_history">História</string>
+      
+  <string name="tab_about">Sobre</string>
+      
+  <string name="tab_settings">Configurações</string>
+      
+  <string name="describe_image_label">Descreva a imagem</string>
+      
+  <string name="settings_title">Configurações</string>
+      
+  <string name="channel_name">Descrições do RayoAI</string>
+      
+  <string name="channel_description">Notificações para descrições de imagens geradas pelo RayoAI</string>
+      
+  <string name="history_title">História</string>
+      
+  <string name="api_instructions_title">Obter chave de API</string>
+      
+  <string name="api_instructions_description">Uma chave de API é um identificador exclusivo para sua conta do Google e permite acesso aos modelos Gemini.</string>
+      
+  <string name="api_instructions_step_1">Para obter um, basta ir para</string>
+      
+  <string name="api_instructions_link">https://aistudio.google.com/apikey</string>
+      
+  <string name="api_instructions_warning">Faça login com o Google, clique em “Criar chave de API” ou “Obter chave de API” e clique em “Copiar para a área de transferência”. Atenção! Se sua conta for para menores de idade (menos de 18 anos) ou seu país não estiver na lista de permitidos, você receberá uma mensagem de erro ao entrar no AIStudio.</string>
+      
+  <string name="api_instructions_go_to_google">Acesse o Google AI Studio</string>
+      
+  <string name="api_instructions_done">Feito</string>
+      
+  <string name="history_empty">Nenhuma captura na história.</string>
+      
+  <string name="history_delete_all">Excluir todo o histórico</string>
+      
+  <string name="history_confirm_delete_title">Confirmar exclusão</string>
+      
+  <string name="history_confirm_delete_message">Tem certeza de que deseja excluir todo o histórico? Esta ação não pode ser desfeita.</string>
+      
+  <string name="delete">Excluir</string>
+      
+  <string name="cancel">Cancelar</string>
+      
+  <string name="no_image">Nenhuma imagem</string>
+      
+  <string name="delete_capture">Excluir este chat</string>
+      
+  <string name="welcome_title">Bem-vindo ao RayoAI</string>
+      
+  <string name="welcome_first_time_message">Foi detectado que esta é a primeira vez que você instala o RayoAI neste dispositivo e você não configurou uma chave de API do Google Studio.</string>
+      
+  <string name="welcome_instruction_message">Se você tiver sua chave de API, pressione o botão Aceitar abaixo e vá para configurações para configurá-la.</string>
+      
+  <string name="accept">Aceitar</string>
+      
+  <string name="no_api_key_help">Não sei como obter uma chave de API</string>
+      
+  <!-- Settings: API Key -->
+      
+  <string name="settings_api_key_label">Chave de API</string>
+      
+  <string name="settings_api_key_hint">Chave de API Gemini</string>
+      
+  <string name="settings_api_key_save">Salvar chave de API</string>
+      
+  <string name="settings_api_key_saved_message">Chave de API salva com sucesso!</string>
+      
+  <!-- Settings: Theme -->
+      
+  <string name="settings_theme_label">Tema</string>
+      
+  <!-- Settings: Text size -->
+      
+  <string name="settings_text_size_label">Tamanho do texto</string>
+      
+  <string name="settings_text_scale">Escala atual: %1$.1fx</string>
+      
+  <!-- Settings: Auto describe -->
+      
+  <string name="settings_autodescribe_label">Descreva automaticamente ao compartilhar</string>
+      
+  <string name="about_app_name">RayoAI</string>
+      
+  <string name="about_developed_by">Desenvolvido por:</string>
+      
+  <string name="about_developer_name">Ángel De Jesus Alcântar Garza</string>
+      
+  <string name="about_tester_label">Testador Alpha, Designer e Criativo:</string>
+      
+  <string name="about_tester_name">Jéssica Herrera</string>
+      
+  <string name="about_legal_label">Consultor Jurídico</string>
+      
+  <string name="about_legal_name">Eddie Cortes</string>
+      
+  <string name="about_donation_message">Este software foi criado sem fins lucrativos, mas doações são sempre bem-vindas para continuar seu desenvolvimento.</string>
+      
+  <string name="about_contact_developer">Entre em contato com o desenvolvedor</string>
+      
+  <string name="about_visit_website">Visite o site</string>
+      
+  <string name="about_donate_paypal">Doar para o desenvolvedor</string>
+      
+  <string name="donate_dialog_title">Escolha um método de doação</string>
+      
+  <string name="donate_paypal">PayPal (Internacional)</string>
+      
+  <string name="donate_bbva">Transferência Bancária (México - BBVA)</string>
+      
+  <string name="donate_bbva_dialog_title">Detalhes da doação</string>
+      
+  <string name="donate_bbva_clipboard_message">Dados bancários copiados para a área de transferência</string>
+      
+  <string name="donate_bbva_details">Banco de destino: BBVA\nNome completo: Angel De Jesús Alcantar Garza\nCartão: 4152314082325278</string>
+      
+  <string name="about_email_subject">Contato da RayoAI</string>
+      
+  <string name="about_website_url">https://rayoscompany.com/</string>
+      
+  <string name="about_paypal_url">https://paypal.me/rayoalcantar?country.x=MX&amp;locale.x=es_XC</string>
+      
+  <string name="about_email">contato\@rayoscompany.com</string>
+      
+  <string name="captured_image_description">Imagem capturada</string>
+      
+  <string name="save_image">Salvar imagem na galeria</string>
+      
+  <string name="share_image">Compartilhar imagem</string>
+      
+  <string name="no_image_to_save">Nenhuma imagem para salvar.</string>
+      
+  <string name="no_image_to_share">Nenhuma imagem para compartilhar.</string>
+      
+  <string name="share_image_chooser">Compartilhar imagem</string>
+      
+  <string name="analyzing_image">Analisando imagem. Por favor, aguarde.</string>
+      
+  <string name="ai_typing">RayoAI está digitando...</string>
+      
+  <string name="ask_about_image_label">Pergunte sobre a imagem...</string>
+      
+  <string name="send_message">Enviar mensagem</string>
+      
+  <string name="back">Voltar</string>
+      
+  <string name="camera_permission_required">É necessária permissão da câmera para tirar fotos.</string>
+      
+  <string name="switch_to_front_camera">Mudar para a câmera frontal</string>
+      
+  <string name="switch_to_back_camera">Mudar para a câmera traseira</string>
+      
+  <string name="load_from_gallery">Carregar da galeria</string>
+      
+  <string name="timer">Temporizador</string>
+      
+  <string name="select">Selecione</string>
+      
+  <string name="seconds">Segundos</string>
+      
+  <string name="capturing_in">Capturando em: %1$d...</string>
+      
+  <string name="take_photo">Tirar foto</string>
+      
+  <string name="error_loading_shared_image">Erro ao carregar imagem compartilhada.</string>
+      
+  <string name="error_loading_gallery_image">Erro ao carregar a imagem da galeria.</string>
+      
+  <string name="tts_lang_not_supported">Idioma não suportado para conversão de texto em fala.</string>
+      
+  <string name="tts_init_error">Erro ao inicializar o Text-to-Speech.</string>
+      
+  <string name="loading_description">Carregando. O botão está desabilitado.</string>
+      
+  <string name="load_more_photos">Carregar mais fotos</string>
+      
+  <string name="select_from_gallery">Selecione na galeria</string>
+      
+  <string name="select_images_limit">Você pode selecionar até 3 imagens.</string>
+      
+  <string name="api_usage_warning_title">Aviso de uso</string>
+      
+  <string name="api_usage_warning_message">Aviso! Adicionar várias fotos pode levar ao consumo excessivo da sua chave de API. Use por sua conta e risco.</string>
+      
+  <string name="ok_understood">Ok, eu entendo</string>
+      
+  <string name="add_image_dialog_title">Adicionar imagem</string>
+      
+  <string name="load_more_photos_icon_description">Adicione mais fotos à conversa</string>
+  
+</resources>
