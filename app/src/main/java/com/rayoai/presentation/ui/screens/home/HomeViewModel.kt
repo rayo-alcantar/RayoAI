@@ -54,7 +54,8 @@ data class HomeUiState(
     val isCountingDown: Boolean = false,
     val selectedImageUris: List<Uri> = emptyList(),
     val showApiUsageWarning: Boolean = false,
-    val showAddImageDialog: Boolean = false
+    val showAddImageDialog: Boolean = false,
+    val showRatingBanner: Boolean = false
 )
 
 @HiltViewModel
@@ -83,6 +84,32 @@ class HomeViewModel @Inject constructor(
         }
         savedStateHandle.get<String>("captureId")?.toLongOrNull()?.let {
             restoreChatFromHistory(it)
+        }
+
+        viewModelScope.launch {
+            val hasRated = userPreferencesRepository.hasRated.first()
+            if (!hasRated) {
+                val lastPromptTime = userPreferencesRepository.lastPromptTime.first()
+                val currentTime = System.currentTimeMillis()
+                val threeDaysInMillis = 72 * 60 * 60 * 1000L // 72 hours in milliseconds
+                if (lastPromptTime == 0L || (currentTime - lastPromptTime) > threeDaysInMillis) {
+                    _uiState.update { it.copy(showRatingBanner = true) }
+                }
+            }
+        }
+    }
+
+    fun onRateLaterClicked() {
+        viewModelScope.launch {
+            userPreferencesRepository.saveLastPromptTime(System.currentTimeMillis())
+            _uiState.update { it.copy(showRatingBanner = false) }
+        }
+    }
+
+    fun onRateNowClicked() {
+        viewModelScope.launch {
+            userPreferencesRepository.saveHasRated(true)
+            _uiState.update { it.copy(showRatingBanner = false) }
         }
     }
 

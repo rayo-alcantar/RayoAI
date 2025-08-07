@@ -5,6 +5,7 @@ import androidx.datastore.preferences.core.Preferences
 import androidx.datastore.preferences.core.booleanPreferencesKey
 import androidx.datastore.preferences.core.edit
 import androidx.datastore.preferences.core.floatPreferencesKey
+import androidx.datastore.preferences.core.longPreferencesKey
 import androidx.datastore.preferences.core.stringPreferencesKey
 import com.rayoai.domain.repository.ThemeMode
 import com.rayoai.domain.repository.UserPreferencesRepository
@@ -23,6 +24,8 @@ class UserPreferencesRepositoryImpl @Inject constructor(
         val AUTO_DESCRIBE_ON_SHARE = booleanPreferencesKey("auto_describe_on_share")
         val IS_FIRST_RUN = booleanPreferencesKey("is_first_run")
         val HAS_SHOWN_API_USAGE_WARNING = booleanPreferencesKey("has_shown_api_usage_warning")
+        val HAS_RATED = booleanPreferencesKey("has_rated")
+        val LAST_PROMPT_TIME = longPreferencesKey("last_prompt_time")
     }
 
     override val apiKey: Flow<String?> = dataStore.data.map {
@@ -47,6 +50,14 @@ class UserPreferencesRepositoryImpl @Inject constructor(
 
     override val hasShownApiUsageWarning: Flow<Boolean> = dataStore.data.map {
         it[PreferencesKeys.HAS_SHOWN_API_USAGE_WARNING] ?: false
+    }
+
+    override val hasRated: Flow<Boolean> = dataStore.data.map {
+        it[PreferencesKeys.HAS_RATED] ?: false
+    }
+
+    override val lastPromptTime: Flow<Long> = dataStore.data.map {
+        it[PreferencesKeys.LAST_PROMPT_TIME] ?: 0L
     }
 
     override suspend fun saveApiKey(apiKey: String) {
@@ -82,6 +93,18 @@ class UserPreferencesRepositoryImpl @Inject constructor(
     override suspend fun setHasShownApiUsageWarning(shown: Boolean) {
         dataStore.edit {
             it[PreferencesKeys.HAS_SHOWN_API_USAGE_WARNING] = shown
+        }
+    }
+
+    override suspend fun saveHasRated(hasRated: Boolean) {
+        dataStore.edit {
+            it[PreferencesKeys.HAS_RATED] = hasRated
+        }
+    }
+
+    override suspend fun saveLastPromptTime(time: Long) {
+        dataStore.edit {
+            it[PreferencesKeys.LAST_PROMPT_TIME] = time
         }
     }
 }

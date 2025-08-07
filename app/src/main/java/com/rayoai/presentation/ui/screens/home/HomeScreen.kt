@@ -61,6 +61,7 @@ import com.rayoai.domain.model.ChatMessage
 import kotlinx.coroutines.delay
 import androidx.activity.result.PickVisualMediaRequest
 import androidx.activity.result.contract.ActivityResultContracts.PickMultipleVisualMedia
+import android.content.ActivityNotFoundException
 
 @OptIn(ExperimentalMaterial3Api::class, ExperimentalPermissionsApi::class)
 @Composable
@@ -199,6 +200,12 @@ fun HomeScreen(
                 .padding(paddingValues)
                 .fillMaxSize()
         ) {
+            if (uiState.showRatingBanner) {
+                RatingBanner(
+                    onRateNow = { viewModel.onRateNowClicked() },
+                    onRateLater = { viewModel.onRateLaterClicked() }
+                )
+            }
             when (uiState.screenState) {
                 HomeScreenState.Initial -> {
                     Column(
@@ -465,5 +472,65 @@ fun HomeScreen(
                 }
             }
         )
+    }
+}
+
+@Composable
+fun RatingBanner(
+    onRateNow: () -> Unit,
+    onRateLater: () -> Unit
+) {
+    val context = LocalContext.current
+
+    Card(
+        modifier = Modifier
+            .fillMaxWidth()
+            .padding(8.dp),
+        elevation = CardDefaults.cardElevation(defaultElevation = 4.dp)
+    ) {
+        Column(
+            modifier = Modifier.padding(16.dp)
+        ) {
+            Text(
+                text = stringResource(id = R.string.rating_banner_text),
+                style = MaterialTheme.typography.bodyMedium,
+                modifier = Modifier.fillMaxWidth()
+            )
+            Spacer(modifier = Modifier.height(8.dp))
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.End
+            ) {
+                Button(
+                    onClick = onRateLater,
+                    modifier = Modifier.padding(end = 8.dp)
+                ) {
+                    Text(text = stringResource(id = R.string.rating_banner_later))
+                }
+                Button(
+                    onClick = {
+                        val packageName = context.packageName
+                        try {
+                            context.startActivity(
+                                Intent(
+                                    Intent.ACTION_VIEW,
+                                    Uri.parse("market://details?id=$packageName")
+                                ).addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
+                            )
+                        } catch (e: ActivityNotFoundException) {
+                            context.startActivity(
+                                Intent(
+                                    Intent.ACTION_VIEW,
+                                    Uri.parse("https://play.google.com/store/apps/details?id=$packageName")
+                                ).addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
+                            )
+                        }
+                        onRateNow()
+                    }
+                ) {
+                    Text(text = stringResource(id = R.string.rating_banner_rate))
+                }
+            }
+        }
     }
 }

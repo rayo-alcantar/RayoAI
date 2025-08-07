@@ -97,4 +97,7 @@ Tarjeta: 4152314082325278</string>
     <string name="ok_understood">OK, entendido</string>
     <string name="add_image_dialog_title">Añadir imagen</string>
     <string name="load_more_photos_icon_description">Añadir más fotos a la conversación</string>
+    <string name="rating_banner_text">Si te gusta RayoAI, por favor califícanos en Play Store</string>
+    <string name="rating_banner_later">Ahora no</string>
+    <string name="rating_banner_rate">Calificar</string>
 </resources>

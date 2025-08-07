@@ -95,4 +95,7 @@
     <string name="ok_understood">OK, I understand</string>
     <string name="add_image_dialog_title">Add image</string>
     <string name="load_more_photos_icon_description">Add more photos to the conversation</string>
+    <string name="rating_banner_text">If you like RayoAI, please rate us on the Play Store</string>
+    <string name="rating_banner_later">Not now</string>
+    <string name="rating_banner_rate">Rate</string>
 </resources>
