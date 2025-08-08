@@ -119,19 +119,22 @@ fun HomeScreen(
         contract = ActivityResultContracts.PickVisualMedia()
     ) { uri: Uri? ->
         uri?.let {
-            val bitmap = try {
-                if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.P) {
+            try {
+                // Take persistent read permission for the URI
+                val takeFlags: Int = Intent.FLAG_GRANT_READ_URI_PERMISSION
+                context.contentResolver.takePersistableUriPermission(it, takeFlags)
+
+                val bitmap = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.P) {
                     val source = ImageDecoder.createSource(context.contentResolver, it)
                     ImageDecoder.decodeBitmap(source)
                 } else {
                     MediaStore.Images.Media.getBitmap(context.contentResolver, it)
                 }
+                viewModel.processGalleryImage(bitmap)
             } catch (e: Exception) {
                 Log.e("HomeScreen", "Error loading gallery image", e)
                 viewModel.setError(context.getString(R.string.error_loading_gallery_image))
-                null
             }
-            bitmap?.let { img -> viewModel.processGalleryImage(img) }
         }
     }
 
