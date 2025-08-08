@@ -166,33 +166,38 @@ class HomeViewModel @Inject constructor(
                 )
             }
 
-            val languageCode = Locale.getDefault().language
-            describeImageUseCase(apiKey, image, languageCode = languageCode).collect { result ->
-                when (result) {
-                    is ResultWrapper.Loading -> {
-                        Log.d("HomeViewModel", "describeImage: ResultWrapper.Loading")
-                    }
-                    is ResultWrapper.Success -> {
-                        Log.d("HomeViewModel", "describeImage: ResultWrapper.Success")
-                        val newMessages = _uiState.value.chatMessages +
-                                ChatMessage(content = result.data, isFromUser = false)
-                        val finalImageUri: Uri? = imageUri
-                        val newCaptureId = saveCaptureUseCase(_uiState.value.selectedImageUris.map { it.toString() }, newMessages)
-                        _uiState.update { 
-                            it.copy(
-                                isLoading = false,
-                                chatMessages = newMessages,
-                                currentImageDescription = result.data,
-                                screenState = HomeScreenState.ImageCaptured(image, result.data, imageUri),
-                                currentCaptureId = newCaptureId
-                            )
+            try {
+                val languageCode = Locale.getDefault().language
+                describeImageUseCase(apiKey, image, languageCode = languageCode).collect { result ->
+                    when (result) {
+                        is ResultWrapper.Loading -> {
+                            Log.d("HomeViewModel", "describeImage: ResultWrapper.Loading")
+                        }
+                        is ResultWrapper.Success -> {
+                            Log.d("HomeViewModel", "describeImage: ResultWrapper.Success")
+                            val newMessages = _uiState.value.chatMessages +
+                                    ChatMessage(content = result.data, isFromUser = false)
+                            val finalImageUri: Uri? = imageUri
+                            val newCaptureId = saveCaptureUseCase(_uiState.value.selectedImageUris.map { it.toString() }, newMessages)
+                            _uiState.update {
+                                it.copy(
+                                    isLoading = false,
+                                    chatMessages = newMessages,
+                                    currentImageDescription = result.data,
+                                    screenState = HomeScreenState.ImageCaptured(image, result.data, imageUri),
+                                    currentCaptureId = newCaptureId
+                                )
+                            }
+                        }
+                        is ResultWrapper.Error -> {
+                            Log.e("HomeViewModel", "Error describing image: ${result.message}")
+                            _uiState.update { it.copy(isLoading = false, error = result.message) }
                         }
                     }
-                    is ResultWrapper.Error -> {
-                        Log.e("HomeViewModel", "Error describing image: ${result.message}", result.exception)
-                        _uiState.update { it.copy(isLoading = false, error = result.message) }
-                    }
                 }
+            } catch (e: Exception) {
+                Log.e("HomeViewModel", "An unexpected error occurred in describeImageUseCase", e)
+                _uiState.update { it.copy(isLoading = false, error = "An unexpected error occurred.") }
             }
         }
     }
@@ -223,37 +228,41 @@ class HomeViewModel @Inject constructor(
             val imageBitmaps = _uiState.value.selectedImageUris.mapNotNull { uri ->
                 imageStorageManager.getBitmapFromUri(uri)
             }
-
-            continueChatUseCase(apiKey, message, _uiState.value.chatMessages, imageBitmaps).collect { result ->
-                when (result) {
-                    is ResultWrapper.Loading -> {
-                    }
-                    is ResultWrapper.Success -> {
-                        val newMessages = _uiState.value.chatMessages +
-                                ChatMessage(content = result.data, isFromUser = false)
-                        val currentImageUris = _uiState.value.selectedImageUris.map { it.toString() }
-                        val newCaptureId = saveCaptureUseCase(currentImageUris, newMessages, _uiState.value.currentCaptureId)
-                        _uiState.update { 
-                            it.copy(
-                                isLoading = false,
-                                isAiTyping = false,
-                                chatMessages = newMessages,
-                                selectedImageUris = emptyList(),
-                                currentCaptureId = newCaptureId
-                            )
+            try {
+                continueChatUseCase(apiKey, message, _uiState.value.chatMessages, imageBitmaps).collect { result ->
+                    when (result) {
+                        is ResultWrapper.Loading -> {
                         }
-                    }
-                    is ResultWrapper.Error -> {
-                        Log.e("HomeViewModel", "Error continuing chat: ${result.message}", result.exception)
-                        _uiState.update {
-                            it.copy(
-                                isLoading = false,
-                                isAiTyping = false,
-                                error = result.message
-                            )
+                        is ResultWrapper.Success -> {
+                            val newMessages = _uiState.value.chatMessages +
+                                    ChatMessage(content = result.data, isFromUser = false)
+                            val currentImageUris = _uiState.value.selectedImageUris.map { it.toString() }
+                            val newCaptureId = saveCaptureUseCase(currentImageUris, newMessages, _uiState.value.currentCaptureId)
+                            _uiState.update {
+                                it.copy(
+                                    isLoading = false,
+                                    isAiTyping = false,
+                                    chatMessages = newMessages,
+                                    selectedImageUris = emptyList(),
+                                    currentCaptureId = newCaptureId
+                                )
+                            }
+                        }
+                        is ResultWrapper.Error -> {
+                            Log.e("HomeViewModel", "Error continuing chat: ${result.message}")
+                            _uiState.update {
+                                it.copy(
+                                    isLoading = false,
+                                    isAiTyping = false,
+                                    error = result.message
+                                )
+                            }
                         }
                     }
                 }
+            } catch (e: Exception) {
+                Log.e("HomeViewModel", "An unexpected error occurred in continueChatUseCase", e)
+                _uiState.update { it.copy(isLoading = false, isAiTyping = false, error = "An unexpected error occurred.") }
             }
         }
     }
