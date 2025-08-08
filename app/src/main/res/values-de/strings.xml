@@ -191,5 +191,7 @@
   <string name="add_image_dialog_title">Bild hinzufügen</string>
       
   <string name="load_more_photos_icon_description">Fügen Sie der Unterhaltung weitere Fotos hinzu</string>
-  
+  <string name="rating_banner_text">Wenn Ihnen RayoAI gefällt, bewerten Sie uns bitte im Play Store</string>
+  <string name="rating_banner_later">Nicht jetzt</string>
+  <string name="rating_banner_rate">Rate</string>
 </resources>

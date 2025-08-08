@@ -191,5 +191,7 @@
   <string name="add_image_dialog_title">添加图片</string>
       
   <string name="load_more_photos_icon_description">在对话中添加更多照片</string>
-  
+  <string name="rating_banner_text">如果您喜欢 RayoAI，请在 Play 商店中为我们评分</string>
+  <string name="rating_banner_later">现在不要</string>
+  <string name="rating_banner_rate">评价</string>
 </resources>

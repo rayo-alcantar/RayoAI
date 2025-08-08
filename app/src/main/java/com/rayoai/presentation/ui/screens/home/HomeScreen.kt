@@ -62,6 +62,9 @@ import kotlinx.coroutines.delay
 import androidx.activity.result.PickVisualMediaRequest
 import androidx.activity.result.contract.ActivityResultContracts.PickMultipleVisualMedia
 import android.content.ActivityNotFoundException
+import com.google.android.play.core.review.ReviewManagerFactory
+import com.rayoai.presentation.ui.findActivity
+import com.rayoai.presentation.ui.openPlayStoreListing
 
 @OptIn(ExperimentalMaterial3Api::class, ExperimentalPermissionsApi::class)
 @Composable
@@ -481,6 +484,7 @@ fun RatingBanner(
     onRateLater: () -> Unit
 ) {
     val context = LocalContext.current
+    var isRequestingReview by remember { mutableStateOf(false) }
 
     Card(
         modifier = Modifier
@@ -503,29 +507,39 @@ fun RatingBanner(
             ) {
                 Button(
                     onClick = onRateLater,
+                    enabled = !isRequestingReview,
                     modifier = Modifier.padding(end = 8.dp)
                 ) {
                     Text(text = stringResource(id = R.string.rating_banner_later))
                 }
                 Button(
+                    enabled = !isRequestingReview,
                     onClick = {
-                        val packageName = context.packageName
-                        try {
-                            context.startActivity(
-                                Intent(
-                                    Intent.ACTION_VIEW,
-                                    Uri.parse("market://details?id=$packageName")
-                                ).addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
-                            )
-                        } catch (e: ActivityNotFoundException) {
-                            context.startActivity(
-                                Intent(
-                                    Intent.ACTION_VIEW,
-                                    Uri.parse("https://play.google.com/store/apps/details?id=$packageName")
-                                ).addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
-                            )
+                        isRequestingReview = true
+                        val activity = context.findActivity()
+                        if (activity == null) {
+                            openPlayStoreListing(context)
+                            onRateNow()
+                            isRequestingReview = false
+                            return@Button
                         }
-                        onRateNow()
+
+                        val manager = ReviewManagerFactory.create(context)
+                        val request = manager.requestReviewFlow()
+                        request.addOnCompleteListener { task ->
+                            if (task.isSuccessful) {
+                                val reviewInfo = task.result
+                                val flow = manager.launchReviewFlow(activity, reviewInfo)
+                                flow.addOnCompleteListener { _ ->
+                                    onRateNow()
+                                    isRequestingReview = false
+                                }
+                            } else {
+                                openPlayStoreListing(context)
+                                onRateNow()
+                                isRequestingReview = false
+                            }
+                        }
                     }
                 ) {
                     Text(text = stringResource(id = R.string.rating_banner_rate))

@@ -6,6 +6,8 @@ plugins {
     id("kotlin-kapt") // Para Hilt (procesador de anotaciones)
     id("com.google.dagger.hilt.android")
     id("com.google.devtools.ksp") // Para Room (procesador de anotaciones)
+    id("dagger.hilt.android.plugin")
+    kotlin("kapt")
 }
 
 // 🔐 Cargar configuración de firma
@@ -26,7 +28,7 @@ android {
         targetSdk = 35
         versionCode = 15
         versionName = "2.0.1"
-        testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
+        testInstrumentationRunner = "com.rayoai.CustomTestRunner"
         vectorDrawables {
             useSupportLibrary = true
         }
@@ -121,6 +123,9 @@ dependencies {
     // Accompanist Permissions
     implementation("com.google.accompanist:accompanist-permissions:0.34.0")
 
+    // In-App Review
+    implementation("com.google.android.play:review-ktx:2.0.1")
+
     // Coil (Image Loading)
     implementation("io.coil-kt:coil-compose:2.6.0")
 
@@ -129,6 +134,9 @@ dependencies {
 
     // Testing
     testImplementation("junit:junit:4.13.2")
+    testImplementation("androidx.arch.core:core-testing:2.2.0")
+    testImplementation("org.jetbrains.kotlinx:kotlinx-coroutines-test:1.8.0")
+    testImplementation("io.mockk:mockk:1.13.10")
     androidTestImplementation("androidx.test.ext:junit:1.1.5")
     androidTestImplementation("androidx.test.espresso:espresso-core:3.5.1")
     androidTestImplementation("androidx.compose.ui:ui-test-junit4")
@@ -136,4 +144,6 @@ dependencies {
     androidTestImplementation("app.cash.turbine:turbine:1.1.0")
     androidTestImplementation("org.jetbrains.kotlinx:kotlinx-coroutines-test:1.8.0")
     androidTestImplementation("org.jetbrains.kotlin:kotlin-test:1.9.23")
+    androidTestImplementation("com.google.dagger:hilt-android-testing:2.51.1")
+    kaptAndroidTest("com.google.dagger:hilt-android-compiler:2.51.1")
 }
