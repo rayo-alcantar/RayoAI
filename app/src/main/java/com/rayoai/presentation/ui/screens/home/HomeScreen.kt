@@ -105,7 +105,12 @@ fun HomeScreen(
     }
 
     val cameraPermissionState = rememberPermissionState(Manifest.permission.CAMERA)
-    val readStoragePermissionState = rememberPermissionState(Manifest.permission.READ_EXTERNAL_STORAGE)
+
+    val readStoragePermissionState = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
+        rememberPermissionState(Manifest.permission.READ_MEDIA_IMAGES)
+    } else {
+        rememberPermissionState(Manifest.permission.READ_EXTERNAL_STORAGE)
+    }
     val writeStoragePermissionState = rememberPermissionState(Manifest.permission.WRITE_EXTERNAL_STORAGE)
 
     val galleryLauncher = rememberLauncherForActivityResult(
@@ -276,7 +281,7 @@ fun HomeScreen(
 
                             Button(
                                 onClick = {
-                                    if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU || readStoragePermissionState.status.isGranted) {
+                                    if (readStoragePermissionState.status.isGranted) {
                                         galleryLauncher.launch("image/*")
                                     } else {
                                         readStoragePermissionState.launchPermissionRequest()
