@@ -116,7 +116,7 @@ fun HomeScreen(
     val writeStoragePermissionState = rememberPermissionState(Manifest.permission.WRITE_EXTERNAL_STORAGE)
 
     val galleryLauncher = rememberLauncherForActivityResult(
-        contract = ActivityResultContracts.GetContent()
+        contract = ActivityResultContracts.PickVisualMedia()
     ) { uri: Uri? ->
         uri?.let {
             val bitmap = try {
@@ -286,11 +286,9 @@ fun HomeScreen(
 
                             Button(
                                 onClick = {
-                                    if (readStoragePermissionState.status.isGranted) {
-                                        galleryLauncher.launch("image/*")
-                                    } else {
-                                        readStoragePermissionState.launchPermissionRequest()
-                                    }
+                                    galleryLauncher.launch(
+                                        PickVisualMediaRequest(ActivityResultContracts.PickVisualMedia.ImageOnly)
+                                    )
                                 },
                                 modifier = Modifier
                                     .fillMaxWidth()
