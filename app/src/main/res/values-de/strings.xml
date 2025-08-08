@@ -69,6 +69,8 @@
   <string name="settings_api_key_save">API-Schlüssel speichern</string>
       
   <string name="settings_api_key_saved_message">API-Schlüssel erfolgreich gespeichert!</string>
+  <string name="settings_api_key_instructions_button">Anleitung zum Abrufen des API-Schlüssels anzeigen</string>
+  <string name="settings_max_images_label">Maximale Anzahl von Bildern in einem Chat</string>
       
   <!-- Settings: Theme -->
       
@@ -181,6 +183,7 @@
   <string name="select_from_gallery">Aus der Galerie auswählen</string>
       
   <string name="select_images_limit">Sie können bis zu 3 Bilder auswählen.</string>
+  <string name="select_images_limit_dynamic">Sie können bis zu %1$d Bilder auswählen.</string>
       
   <string name="api_usage_warning_title">Verwendungswarnung</string>
       

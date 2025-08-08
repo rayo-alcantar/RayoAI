@@ -69,6 +69,8 @@
   <string name="settings_api_key_save">保存 API 密钥</string>
       
   <string name="settings_api_key_saved_message">API 密钥保存成功！</string>
+  <string name="settings_api_key_instructions_button">查看API密钥说明</string>
+  <string name="settings_max_images_label">聊天中的最大图片数</string>
       
   <!-- Settings: Theme -->
       
@@ -181,6 +183,7 @@
   <string name="select_from_gallery">从图库中选择</string>
       
   <string name="select_images_limit">您最多可以选择 3 张图片。</string>
+  <string name="select_images_limit_dynamic">您最多可以选择 %1$d 张图片。</string>
       
   <string name="api_usage_warning_title">使用警告</string>
       

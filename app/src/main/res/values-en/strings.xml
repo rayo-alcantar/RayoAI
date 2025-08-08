@@ -34,6 +34,8 @@
     <string name="settings_api_key_hint">Gemini API Key</string>
     <string name="settings_api_key_save">Save API Key</string>
     <string name="settings_api_key_saved_message">API Key saved successfully!</string>
+    <string name="settings_api_key_instructions_button">View API key instructions</string>
+    <string name="settings_max_images_label">Maximum number of images in a chat</string>
     <!-- Settings: Theme -->
     <string name="settings_theme_label">Theme</string>
     <!-- Settings: Text size -->
@@ -90,6 +92,7 @@
     <string name="load_more_photos">Load more photos</string>
     <string name="select_from_gallery">Select from gallery</string>
     <string name="select_images_limit">You can select up to 3 images.</string>
+    <string name="select_images_limit_dynamic">You can select up to %1$d images.</string>
     <string name="api_usage_warning_title">Usage Warning</string>
     <string name="api_usage_warning_message">Warning! Adding multiple photos may lead to excessive consumption of your API key. Use it at your own risk.</string>
     <string name="ok_understood">OK, I understand</string>

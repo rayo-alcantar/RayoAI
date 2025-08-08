@@ -34,6 +34,8 @@
     <string name="settings_api_key_hint">Gemini API Key</string>
     <string name="settings_api_key_save">Guardar API Key</string>
     <string name="settings_api_key_saved_message">¡API Key guardada con éxito!</string>
+    <string name="settings_api_key_instructions_button">Ver instrucciones para obtener API key</string>
+    <string name="settings_max_images_label">Número máximo de imágenes en un chat</string>
     <!-- Ajustes: Tema -->
     <string name="settings_theme_label">Tema</string>
     <!-- Ajustes: Tamaño de texto -->
@@ -92,6 +94,7 @@ Tarjeta: 4152314082325278</string>
     <string name="load_more_photos">Cargar más fotos</string>
     <string name="select_from_gallery">Cargar de galería</string>
     <string name="select_images_limit">Puedes seleccionar hasta 3 imágenes.</string>
+    <string name="select_images_limit_dynamic">Puedes seleccionar hasta %1$d imágenes.</string>
     <string name="api_usage_warning_title">Advertencia de Uso</string>
     <string name="api_usage_warning_message">¡Cuidado! Añadir muchas fotografías podría generar un consumo excesivo de tu clave de API. Úsalo bajo tu responsabilidad.</string>
     <string name="ok_understood">OK, entendido</string>

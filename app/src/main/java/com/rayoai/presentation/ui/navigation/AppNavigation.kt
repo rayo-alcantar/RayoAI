@@ -119,7 +119,7 @@ fun AppNavigation(imageUri: Uri?, startDestination: String) {
                 AboutScreen()
             }
             composable(Screen.Settings.route) {
-                SettingsScreen()
+                SettingsScreen(navController = navController)
             }
             composable(Screen.Welcome.route) {
                 WelcomeScreen(navController = navController)

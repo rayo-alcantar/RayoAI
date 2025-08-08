@@ -13,6 +13,7 @@ interface UserPreferencesRepository {
     val hasShownApiUsageWarning: Flow<Boolean>
     val hasRated: Flow<Boolean>
     val lastPromptTime: Flow<Long>
+    val maxImagesInChat: Flow<Int>
 
 
     suspend fun saveApiKey(apiKey: String)
@@ -23,4 +24,5 @@ interface UserPreferencesRepository {
     suspend fun setHasShownApiUsageWarning(shown: Boolean)
     suspend fun saveHasRated(hasRated: Boolean)
     suspend fun saveLastPromptTime(time: Long)
+    suspend fun saveMaxImagesInChat(count: Int)
 }

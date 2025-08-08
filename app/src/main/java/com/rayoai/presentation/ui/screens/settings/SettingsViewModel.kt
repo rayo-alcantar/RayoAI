@@ -16,10 +16,12 @@ import javax.inject.Inject
  * Gestiona el estado de la UI y la interacción con el repositorio de preferencias del usuario.
  */
 data class SettingsUiState(
-    val isApiKeySaved: Boolean = false, // Indica si la API Key se ha guardado con éxito.
-    val currentThemeMode: ThemeMode = ThemeMode.SYSTEM, // El modo de tema seleccionado actualmente.
-    val currentTextScale: Float = 1.0f, // La escala de texto seleccionada actualmente.
-    val currentAutoDescribeOnShare: Boolean = false // Estado del interruptor de auto-descripción al compartir.
+    val isApiKeySaved: Boolean = false,
+    val currentThemeMode: ThemeMode = ThemeMode.SYSTEM,
+    val currentTextScale: Float = 1.0f,
+    val currentAutoDescribeOnShare: Boolean = false,
+    val maxImagesInChat: String = "3",
+    val navigateTo: String? = null
 )
 
 @HiltViewModel
@@ -46,6 +48,11 @@ class SettingsViewModel @Inject constructor(
         viewModelScope.launch {
             userPreferencesRepository.autoDescribeOnShare.collect { enabled ->
                 _uiState.update { it.copy(currentAutoDescribeOnShare = enabled) }
+            }
+        }
+        viewModelScope.launch {
+            userPreferencesRepository.maxImagesInChat.collect { count ->
+                _uiState.update { it.copy(maxImagesInChat = count.toString()) }
             }
         }
     }
@@ -96,5 +103,27 @@ class SettingsViewModel @Inject constructor(
         viewModelScope.launch {
             userPreferencesRepository.saveAutoDescribeOnShare(enabled)
         }
+    }
+
+    fun onMaxImagesInChatChanged(text: String) {
+        // Allow only digits and ensure it's not empty before updating the state
+        if (text.all { it.isDigit() }) {
+            _uiState.update { it.copy(maxImagesInChat = text) }
+        }
+    }
+
+    fun saveMaxImagesInChat() {
+        viewModelScope.launch {
+            val count = _uiState.value.maxImagesInChat.toIntOrNull() ?: 3
+            userPreferencesRepository.saveMaxImagesInChat(count)
+        }
+    }
+
+    fun onNavigateToApiInstructions() {
+        _uiState.update { it.copy(navigateTo = "api_instructions") }
+    }
+
+    fun onNavigationHandled() {
+        _uiState.update { it.copy(navigateTo = null) }
     }
 }

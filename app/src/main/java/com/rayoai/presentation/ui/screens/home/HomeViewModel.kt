@@ -55,7 +55,8 @@ data class HomeUiState(
     val selectedImageUris: List<Uri> = emptyList(),
     val showApiUsageWarning: Boolean = false,
     val showAddImageDialog: Boolean = false,
-    val showRatingBanner: Boolean = false
+    val showRatingBanner: Boolean = false,
+    val maxImagesInChat: Int = 3
 )
 
 @HiltViewModel
@@ -95,6 +96,11 @@ class HomeViewModel @Inject constructor(
                 if (lastPromptTime == 0L || (currentTime - lastPromptTime) > threeDaysInMillis) {
                     _uiState.update { it.copy(showRatingBanner = true) }
                 }
+            }
+        }
+        viewModelScope.launch {
+            userPreferencesRepository.maxImagesInChat.collect { maxImages ->
+                _uiState.update { it.copy(maxImagesInChat = maxImages) }
             }
         }
     }
@@ -393,9 +399,11 @@ class HomeViewModel @Inject constructor(
 
     fun onImagesSelected(uris: List<Uri>) {
         val currentSelectedCount = _uiState.value.selectedImageUris.size
-        val remainingSlots = 3 - currentSelectedCount
-        val newUris = uris.take(remainingSlots)
-        _uiState.update { it.copy(selectedImageUris = it.selectedImageUris + newUris) }
+        val remainingSlots = _uiState.value.maxImagesInChat - currentSelectedCount
+        if (remainingSlots > 0) {
+            val newUris = uris.take(remainingSlots)
+            _uiState.update { it.copy(selectedImageUris = it.selectedImageUris + newUris) }
+        }
     }
 
     fun removeSelectedImage(uri: Uri) {

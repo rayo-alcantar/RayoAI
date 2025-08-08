@@ -5,6 +5,7 @@ import androidx.datastore.preferences.core.Preferences
 import androidx.datastore.preferences.core.booleanPreferencesKey
 import androidx.datastore.preferences.core.edit
 import androidx.datastore.preferences.core.floatPreferencesKey
+import androidx.datastore.preferences.core.intPreferencesKey
 import androidx.datastore.preferences.core.longPreferencesKey
 import androidx.datastore.preferences.core.stringPreferencesKey
 import com.rayoai.domain.repository.ThemeMode
@@ -26,6 +27,7 @@ class UserPreferencesRepositoryImpl @Inject constructor(
         val HAS_SHOWN_API_USAGE_WARNING = booleanPreferencesKey("has_shown_api_usage_warning")
         val HAS_RATED = booleanPreferencesKey("has_rated")
         val LAST_PROMPT_TIME = longPreferencesKey("last_prompt_time")
+        val MAX_IMAGES_IN_CHAT = intPreferencesKey("max_images_in_chat")
     }
 
     override val apiKey: Flow<String?> = dataStore.data.map {
@@ -58,6 +60,10 @@ class UserPreferencesRepositoryImpl @Inject constructor(
 
     override val lastPromptTime: Flow<Long> = dataStore.data.map {
         it[PreferencesKeys.LAST_PROMPT_TIME] ?: 0L
+    }
+
+    override val maxImagesInChat: Flow<Int> = dataStore.data.map {
+        it[PreferencesKeys.MAX_IMAGES_IN_CHAT] ?: 3
     }
 
     override suspend fun saveApiKey(apiKey: String) {
@@ -105,6 +111,12 @@ class UserPreferencesRepositoryImpl @Inject constructor(
     override suspend fun saveLastPromptTime(time: Long) {
         dataStore.edit {
             it[PreferencesKeys.LAST_PROMPT_TIME] = time
+        }
+    }
+
+    override suspend fun saveMaxImagesInChat(count: Int) {
+        dataStore.edit {
+            it[PreferencesKeys.MAX_IMAGES_IN_CHAT] = count
         }
     }
 }

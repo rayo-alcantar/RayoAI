@@ -139,7 +139,7 @@ fun HomeScreen(
     }
 
     val multipleGalleryLauncher = rememberLauncherForActivityResult(
-        contract = PickMultipleVisualMedia(3)
+        contract = PickMultipleVisualMedia(uiState.maxImagesInChat),
     ) { uris: List<Uri> ->
         if (uris.isNotEmpty()) {
             viewModel.onImagesSelected(uris)
@@ -466,9 +466,9 @@ fun HomeScreen(
         AlertDialog(
             onDismissRequest = { viewModel.onAddImageDialogDismissed() },
             title = { Text(stringResource(R.string.add_image_dialog_title)) },
-            text = { Text(stringResource(R.string.select_images_limit)) },
+            text = { Text(stringResource(R.string.select_images_limit_dynamic, uiState.maxImagesInChat)) },
             confirmButton = {
-                Button(onClick = { 
+                Button(onClick = {
                     multipleGalleryLauncher.launch(PickVisualMediaRequest(ActivityResultContracts.PickVisualMedia.ImageOnly))
                     viewModel.onAddImageDialogDismissed()
                 }) {
