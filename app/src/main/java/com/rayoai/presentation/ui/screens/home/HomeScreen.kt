@@ -8,6 +8,7 @@ import android.net.Uri
 import android.os.Build
 import android.provider.MediaStore
 import android.speech.tts.TextToSpeech
+import android.util.Log
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.foundation.Image
@@ -90,6 +91,7 @@ fun HomeScreen(
                     MediaStore.Images.Media.getBitmap(context.contentResolver, it)
                 }
             } catch (e: Exception) {
+                Log.e("HomeScreen", "Error loading shared image", e)
                 viewModel.setError(context.getString(R.string.error_loading_shared_image))
                 null
             }
@@ -125,6 +127,7 @@ fun HomeScreen(
                     MediaStore.Images.Media.getBitmap(context.contentResolver, it)
                 }
             } catch (e: Exception) {
+                Log.e("HomeScreen", "Error loading gallery image", e)
                 viewModel.setError(context.getString(R.string.error_loading_gallery_image))
                 null
             }
@@ -167,11 +170,13 @@ fun HomeScreen(
             if (status == TextToSpeech.SUCCESS) {
                 val result = textToSpeech?.setLanguage(Locale("es", "ES"))
                 if (result == TextToSpeech.LANG_MISSING_DATA || result == TextToSpeech.LANG_NOT_SUPPORTED) {
+                    Log.e("HomeScreen", "TTS language not supported or missing data.")
                     viewModel.setError(context.getString(R.string.tts_lang_not_supported))
                 } else {
                     ttsInitialized = true
                 }
             } else {
+                Log.e("HomeScreen", "TTS initialization failed with status: $status")
                 viewModel.setError(context.getString(R.string.tts_init_error))
             }
         }

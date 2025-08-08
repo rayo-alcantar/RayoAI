@@ -142,12 +142,14 @@ class HomeViewModel @Inject constructor(
         viewModelScope.launch {
             val apiKey = userPreferencesRepository.apiKey.first()
             if (apiKey.isNullOrBlank()) {
+                Log.e("HomeViewModel", "API Key is null or blank.")
                 _uiState.update { it.copy(error = "API Key no configurada. Por favor, ve a Ajustes.") }
                 return@launch
             }
 
             val imageUri = imageStorageManager.saveBitmapAndGetUri(image)
             if (imageUri == null) {
+                Log.e("HomeViewModel", "Failed to save bitmap and get URI.")
                 _uiState.update { it.copy(error = "Error al guardar la imagen.") }
                 return@launch
             }
@@ -187,7 +189,7 @@ class HomeViewModel @Inject constructor(
                         }
                     }
                     is ResultWrapper.Error -> {
-                        Log.d("HomeViewModel", "describeImage: ResultWrapper.Error: ${result.message}")
+                        Log.e("HomeViewModel", "Error describing image: ${result.message}", result.exception)
                         _uiState.update { it.copy(isLoading = false, error = result.message) }
                     }
                 }
@@ -203,6 +205,7 @@ class HomeViewModel @Inject constructor(
         viewModelScope.launch {
             val apiKey = userPreferencesRepository.apiKey.first()
             if (apiKey.isNullOrBlank()) {
+                Log.e("HomeViewModel", "API Key is null or blank for sending chat message.")
                 _uiState.update { it.copy(error = "API Key no configurada. Por favor, ve a Ajustes.") }
                 return@launch
             }
@@ -241,7 +244,8 @@ class HomeViewModel @Inject constructor(
                         }
                     }
                     is ResultWrapper.Error -> {
-                        _uiState.update { 
+                        Log.e("HomeViewModel", "Error continuing chat: ${result.message}", result.exception)
+                        _uiState.update {
                             it.copy(
                                 isLoading = false,
                                 isAiTyping = false,
@@ -288,6 +292,7 @@ class HomeViewModel @Inject constructor(
             if (uri != null) {
                 _uiState.update { it.copy(error = "Imagen guardada en la galería.", currentImageUri = uri) }
             } else {
+                Log.e("HomeViewModel", "Failed to save image to gallery.")
                 _uiState.update { it.copy(error = "Error al guardar la imagen.") }
             }
         }
@@ -325,9 +330,11 @@ class HomeViewModel @Inject constructor(
                         )
                     }
                 } else {
+                    Log.e("HomeViewModel", "Could not load image from history for captureId: $captureId")
                     setError("No se pudo cargar la imagen del historial.")
                 }
             } else {
+                Log.e("HomeViewModel", "Could not find capture in history for captureId: $captureId")
                 setError("No se pudo encontrar la captura en el historial.")
             }
         }
