@@ -36,6 +36,10 @@ import com.rayoai.presentation.ui.screens.settings.SettingsScreen
 import com.rayoai.presentation.ui.screens.welcome.WelcomeScreen
 import com.rayoai.R
 
+import androidx.activity.compose.BackHandler
+import androidx.compose.ui.platform.LocalContext
+import android.app.Activity
+
 sealed class Screen(val route: String, val baseRoute: String, val labelRes: Int? = null, val icon: ImageVector? = null) {
     object Welcome : Screen("welcome", "welcome")
     object ApiInstructions : Screen("api_instructions", "api_instructions")
@@ -62,10 +66,25 @@ private fun NavDestination?.isSameRouteAs(baseRoute: String): Boolean {
 @Composable
 fun AppNavigation(imageUri: Uri?, startDestination: String) {
     val navController = rememberNavController()
+    val navBackStackEntry by navController.currentBackStackEntryAsState()
+    val currentDestination = navBackStackEntry?.destination
+    val activity = (LocalContext.current as? Activity)
+
+    BackHandler(enabled = true) {
+        if (currentDestination?.route?.startsWith(Screen.Home.baseRoute) == false) {
+            navController.navigate(Screen.Home.createRoute(null)) {
+                popUpTo(navController.graph.findStartDestination().id) {
+                    inclusive = true
+                }
+                launchSingleTop = true
+            }
+        } else {
+            activity?.finish()
+        }
+    }
+
     Scaffold(
         bottomBar = {
-            val navBackStackEntry by navController.currentBackStackEntryAsState()
-            val currentDestination = navBackStackEntry?.destination
             val showBottomBar = items.any { currentDestination.isSameRouteAs(it.baseRoute) }
             if (showBottomBar) {
                 NavigationBar {
