@@ -116,27 +116,23 @@ fun HomeScreen(
     val writeStoragePermissionState = rememberPermissionState(Manifest.permission.WRITE_EXTERNAL_STORAGE)
 
     val galleryLauncher = rememberLauncherForActivityResult(
-        contract = ActivityResultContracts.PickVisualMedia()
-    ) { uri: Uri? ->
-        uri?.let {
-            try {
-                // Take persistent read permission for the URI
-                val takeFlags: Int = Intent.FLAG_GRANT_READ_URI_PERMISSION
-                context.contentResolver.takePersistableUriPermission(it, takeFlags)
-
-                val bitmap = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.P) {
-                    val source = ImageDecoder.createSource(context.contentResolver, it)
-                    ImageDecoder.decodeBitmap(source)
-                } else {
-                    MediaStore.Images.Media.getBitmap(context.contentResolver, it)
-                }
-                viewModel.processGalleryImage(bitmap)
-            } catch (e: Exception) {
-                Log.e("HomeScreen", "Error loading gallery image", e)
-                viewModel.setError(context.getString(R.string.error_loading_gallery_image))
+    contract = ActivityResultContracts.PickVisualMedia()
+) { uri: Uri? ->
+    uri?.let {
+        try {
+            val bitmap = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.P) {
+                val source = ImageDecoder.createSource(context.contentResolver, it)
+                ImageDecoder.decodeBitmap(source)
+            } else {
+                MediaStore.Images.Media.getBitmap(context.contentResolver, it)
             }
+            viewModel.processGalleryImage(bitmap)
+        } catch (e: Exception) {
+            Log.e("HomeScreen", "Error loading gallery image", e)
+            viewModel.setError(context.getString(R.string.error_loading_gallery_image))
         }
     }
+}
 
     val multipleGalleryLauncher = rememberLauncherForActivityResult(
         contract = PickMultipleVisualMedia(uiState.maxImagesInChat),
@@ -237,13 +233,12 @@ fun HomeScreen(
                                     .weight(1f),
                                 onImageCaptured = { bitmap ->
                                     viewModel.describeImage(bitmap)
-                                    viewModel.setLoading(false)
                                 },
                                 onError = { errorMessage ->
                                     viewModel.setError(errorMessage)
-                                    viewModel.setLoading(false)
+                                    viewModel.setCapturing(false) // nuevo
                                 },
-                                isCapturing = uiState.isLoading,
+                                isCapturing = uiState.isCapturing,
                                 cameraSelector = uiState.currentCameraSelector
                             )
                         } else {

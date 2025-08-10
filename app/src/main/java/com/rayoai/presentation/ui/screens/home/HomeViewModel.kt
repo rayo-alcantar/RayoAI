@@ -21,7 +21,6 @@ import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
-import kotlinx.coroutines.delay
 import android.util.Log
 import java.util.Locale
 import androidx.lifecycle.SavedStateHandle
@@ -56,8 +55,10 @@ data class HomeUiState(
     val showApiUsageWarning: Boolean = false,
     val showAddImageDialog: Boolean = false,
     val showRatingBanner: Boolean = false,
-    val maxImagesInChat: Int = 3
+    val maxImagesInChat: Int = 3,
+    val isCapturing: Boolean = false
 )
+
 
 @HiltViewModel
 class HomeViewModel @Inject constructor(
@@ -128,19 +129,19 @@ class HomeViewModel @Inject constructor(
     }
 
     fun triggerImageCapture() {
+        // Candado: si ya estás ocupado (capturando/procesando) o en cuenta regresiva, ignora el tap.
+        if (_uiState.value.isLoading || _uiState.value.isCountingDown) return
+    
         Log.d("HomeViewModel", "triggerImageCapture called")
         viewModelScope.launch {
-            _uiState.update { it.copy(isLoading = true) }
-            Log.d("HomeViewModel", "isLoading set to true by triggerImageCapture")
-            if (_uiState.value.isTimerEnabled && _uiState.value.timerSeconds > 0) {
-                _uiState.update { it.copy(isCountingDown = true) }
-                for (i in _uiState.value.timerSeconds downTo 1) {
-                    _countdownTrigger.emit(i)
-                    delay(1000L)
-                }
-                _uiState.update { it.copy(isCountingDown = false) }
-            }
+            _uiState.update { it.copy(isLoading = true, isCapturing = true) }
+            Log.d("HomeViewModel", "isLoading + isCapturing set to true by triggerImageCapture")
+            // SIN cuenta regresiva aquí. La UI ya hizo la suya antes de llamar a este método.
         }
+    }
+
+    fun setCapturing(value: Boolean) {
+        _uiState.update { it.copy(isCapturing = value) }
     }
 
     fun describeImage(image: Bitmap) {
@@ -149,14 +150,14 @@ class HomeViewModel @Inject constructor(
             val apiKey = userPreferencesRepository.apiKey.first()
             if (apiKey.isNullOrBlank()) {
                 Log.e("HomeViewModel", "API Key is null or blank.")
-                _uiState.update { it.copy(error = "API Key no configurada. Por favor, ve a Ajustes.") }
+                _uiState.update { it.copy(error = "API Key no configurada. Por favor, ve a Ajustes.", isLoading = false) }
                 return@launch
             }
-
+            _uiState.update { it.copy(isCapturing = false, isLoading = true, error = null) }
             val imageUri = imageStorageManager.saveBitmapAndGetUri(image)
             if (imageUri == null) {
                 Log.e("HomeViewModel", "Failed to save bitmap and get URI.")
-                _uiState.update { it.copy(error = "Error al guardar la imagen.") }
+                _uiState.update { it.copy(error = "Error al guardar la imagen.", isLoading = false) }
                 return@launch
             }
             _playCaptureSound.emit(Unit)
@@ -183,7 +184,6 @@ class HomeViewModel @Inject constructor(
                             Log.d("HomeViewModel", "describeImage: ResultWrapper.Success")
                             val newMessages = _uiState.value.chatMessages +
                                     ChatMessage(content = result.data, isFromUser = false)
-                            val finalImageUri: Uri? = imageUri
                             val newCaptureId = saveCaptureUseCase(_uiState.value.selectedImageUris.map { it.toString() }, newMessages)
                             _uiState.update {
                                 it.copy(
@@ -296,6 +296,7 @@ class HomeViewModel @Inject constructor(
                 currentImageUri = null,
                 isLoading = false,
                 error = null,
+                isCapturing = false,
                 selectedImageUris = emptyList()
             )
         }
