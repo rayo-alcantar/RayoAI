@@ -235,7 +235,8 @@ class HomeViewModel @Inject constructor(
                 imageStorageManager.getBitmapFromUri(uri)
             }
             try {
-                continueChatUseCase(apiKey, message, _uiState.value.chatMessages, imageBitmaps).collect { result ->
+                val languageCode = Locale.getDefault().language
+                continueChatUseCase(apiKey, message, _uiState.value.chatMessages, imageBitmaps, languageCode).collect { result ->
                     when (result) {
                         is ResultWrapper.Loading -> {
                         }
