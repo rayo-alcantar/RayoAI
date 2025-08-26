@@ -103,4 +103,7 @@ Tarjeta: 4152314082325278</string>
     <string name="rating_banner_text">Si te gusta RayoAI, por favor califícanos en Play Store</string>
     <string name="rating_banner_later">Ahora no</string>
     <string name="rating_banner_rate">Calificar</string>
+    <string name="donation_banner_text">Si RayoAI te es útil, considera apoyar su desarrollo con una donación.</string>
+    <string name="donation_banner_donate">Donar</string>
+    <string name="donation_banner_later">Más tarde</string>
 </resources>

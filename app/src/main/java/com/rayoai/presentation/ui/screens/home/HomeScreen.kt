@@ -218,6 +218,15 @@ fun HomeScreen(
                     onRateLater = { viewModel.onRateLaterClicked() }
                 )
             }
+            if (uiState.showDonationBanner) {
+                DonationBanner(
+                    onDonateNow = {
+                        viewModel.onDonationNowClicked()
+                        navController.navigate(Screen.About.createRoute(showDonationDialog = true))
+                    },
+                    onDonateLater = { viewModel.onDonationLaterClicked() }
+                )
+            }
             when (uiState.screenState) {
                 HomeScreenState.Initial -> {
                     Column(
@@ -549,6 +558,46 @@ fun RatingBanner(
                     }
                 ) {
                     Text(text = stringResource(id = R.string.rating_banner_rate))
+                }
+            }
+        }
+    }
+}
+
+@Composable
+fun DonationBanner(
+    onDonateNow: () -> Unit,
+    onDonateLater: () -> Unit
+) {
+    Card(
+        modifier = Modifier
+            .fillMaxWidth()
+            .padding(8.dp),
+        elevation = CardDefaults.cardElevation(defaultElevation = 4.dp)
+    ) {
+        Column(
+            modifier = Modifier.padding(16.dp)
+        ) {
+            Text(
+                text = stringResource(id = R.string.donation_banner_text),
+                style = MaterialTheme.typography.bodyMedium,
+                modifier = Modifier.fillMaxWidth()
+            )
+            Spacer(modifier = Modifier.height(8.dp))
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.End
+            ) {
+                Button(
+                    onClick = onDonateLater,
+                    modifier = Modifier.padding(end = 8.dp)
+                ) {
+                    Text(text = stringResource(id = R.string.donation_banner_later))
+                }
+                Button(
+                    onClick = onDonateNow
+                ) {
+                    Text(text = stringResource(id = R.string.donation_banner_donate))
                 }
             }
         }

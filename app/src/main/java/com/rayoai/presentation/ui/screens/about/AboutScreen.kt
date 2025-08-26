@@ -13,6 +13,7 @@ import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
@@ -26,10 +27,16 @@ import androidx.compose.ui.unit.dp
 import com.rayoai.R
 
 @Composable
-fun AboutScreen() {
+fun AboutScreen(showDonationDialogInitially: Boolean = false) {
     val context = LocalContext.current
-    var showDonateDialog by remember { mutableStateOf(false) }
+    var showDonateDialog by remember { mutableStateOf(showDonationDialogInitially) }
     var showBbvaDialog by remember { mutableStateOf(false) }
+
+    LaunchedEffect(showDonationDialogInitially) {
+        if (showDonationDialogInitially) {
+            showDonateDialog = true
+        }
+    }
 
     if (showDonateDialog) {
         AlertDialog(

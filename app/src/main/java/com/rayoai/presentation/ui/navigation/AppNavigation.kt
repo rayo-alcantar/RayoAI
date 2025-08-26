@@ -47,7 +47,9 @@ sealed class Screen(val route: String, val baseRoute: String, val labelRes: Int?
         fun createRoute(captureId: Long?) = if (captureId != null) "home?captureId=$captureId" else "home"
     }
     object History : Screen("history", "history", R.string.tab_history, Icons.Default.History)
-    object About : Screen("about", "about", R.string.tab_about, Icons.Default.Info)
+    object About : Screen("about?showDonationDialog={showDonationDialog}", "about", R.string.tab_about, Icons.Default.Info) {
+        fun createRoute(showDonationDialog: Boolean = false) = "about?showDonationDialog=$showDonationDialog"
+    }
     object Settings : Screen("settings", "settings", R.string.tab_settings, Icons.Default.Settings)
 }
 
@@ -134,8 +136,15 @@ fun AppNavigation(imageUri: Uri?, startDestination: String) {
             composable(Screen.History.route) {
                 HistoryScreen(navController = navController)
             }
-            composable(Screen.About.route) {
-                AboutScreen()
+            composable(
+                route = Screen.About.route,
+                arguments = listOf(navArgument("showDonationDialog") {
+                    type = NavType.BoolType
+                    defaultValue = false
+                })
+            ) { backStackEntry ->
+                val showDonationDialog = backStackEntry.arguments?.getBoolean("showDonationDialog") ?: false
+                AboutScreen(showDonationDialogInitially = showDonationDialog)
             }
             composable(Screen.Settings.route) {
                 SettingsScreen(navController = navController)

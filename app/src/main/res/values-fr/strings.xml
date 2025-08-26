@@ -197,4 +197,7 @@
   <string name="rating_banner_text">Si vous aimez RayoAI, veuillez nous évaluer sur le Play Store</string>
   <string name="rating_banner_later">Pas maintenant</string>
   <string name="rating_banner_rate">Taux</string>
+  <string name="donation_banner_text">If you find RayoAI useful, please consider supporting its development with a donation.</string>
+  <string name="donation_banner_donate">Donate</string>
+  <string name="donation_banner_later">Later</string>
 </resources>

@@ -55,6 +55,7 @@ data class HomeUiState(
     val showApiUsageWarning: Boolean = false,
     val showAddImageDialog: Boolean = false,
     val showRatingBanner: Boolean = false,
+    val showDonationBanner: Boolean = false,
     val maxImagesInChat: Int = 3,
     val isCapturing: Boolean = false
 )
@@ -104,6 +105,19 @@ class HomeViewModel @Inject constructor(
                 _uiState.update { it.copy(maxImagesInChat = maxImages) }
             }
         }
+
+        viewModelScope.launch {
+            val hasDonated = userPreferencesRepository.hasDonated.first()
+            if (!hasDonated) {
+                val lastDonationPromptTime = userPreferencesRepository.lastDonationPromptTime.first()
+                val currentTime = System.currentTimeMillis()
+                val sevenDaysInMillis = 7 * 24 * 60 * 60 * 1000L // 7 days in milliseconds
+
+                if (lastDonationPromptTime == 0L || (currentTime - lastDonationPromptTime) > sevenDaysInMillis) {
+                    _uiState.update { it.copy(showDonationBanner = true) }
+                }
+            }
+        }
     }
 
     fun onRateLaterClicked() {
@@ -117,6 +131,20 @@ class HomeViewModel @Inject constructor(
         viewModelScope.launch {
             userPreferencesRepository.saveHasRated(true)
             _uiState.update { it.copy(showRatingBanner = false) }
+        }
+    }
+
+    fun onDonationLaterClicked() {
+        viewModelScope.launch {
+            userPreferencesRepository.saveLastDonationPromptTime(System.currentTimeMillis())
+            _uiState.update { it.copy(showDonationBanner = false) }
+        }
+    }
+
+    fun onDonationNowClicked() {
+        viewModelScope.launch {
+            userPreferencesRepository.saveHasDonated(true)
+            _uiState.update { it.copy(showDonationBanner = false) }
         }
     }
 
