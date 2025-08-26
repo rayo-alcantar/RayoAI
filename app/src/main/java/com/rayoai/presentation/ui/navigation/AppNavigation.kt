@@ -72,18 +72,7 @@ fun AppNavigation(imageUri: Uri?, startDestination: String) {
     val currentDestination = navBackStackEntry?.destination
     val activity = (LocalContext.current as? Activity)
 
-    BackHandler(enabled = true) {
-        if (currentDestination?.route?.startsWith(Screen.Home.baseRoute) == false) {
-            navController.navigate(Screen.Home.createRoute(null)) {
-                popUpTo(navController.graph.findStartDestination().id) {
-                    inclusive = true
-                }
-                launchSingleTop = true
-            }
-        } else {
-            activity?.finish()
-        }
-    }
+    
 
     Scaffold(
         bottomBar = {
