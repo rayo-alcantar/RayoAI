@@ -106,4 +106,8 @@ Tarjeta: 4152314082325278</string>
     <string name="donation_banner_text">Si RayoAI te es útil, considera apoyar su desarrollo con una donación.</string>
     <string name="donation_banner_donate">Donar</string>
     <string name="donation_banner_later">Más tarde</string>
+    <string name="show_hidden_chats_button_text_show">Mostrar chats ocultos</string>
+    <string name="show_hidden_chats_button_text_hide">Ocultar chats</string>
+    <string name="hide_chat_button_text">Ocultar</string>
+    <string name="show_chat_button_text">Mostrar</string>
 </resources>

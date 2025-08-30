@@ -10,5 +10,6 @@ data class CaptureEntity(
     @PrimaryKey(autoGenerate = true) val id: Long = 0,
     val imageUris: List<String>,
     val chatHistory: List<ChatMessage>,
-    val timestamp: Long
+    val timestamp: Long,
+    val isHidden: Boolean = false
 )

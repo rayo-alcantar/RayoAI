@@ -12,8 +12,11 @@ interface CaptureDao {
     @Insert(onConflict = OnConflictStrategy.REPLACE)
     suspend fun insertCapture(capture: CaptureEntity): Long
 
-    @Query("SELECT * FROM captures ORDER BY timestamp DESC")
-    fun getAllCaptures(): Flow<List<CaptureEntity>>
+    @Query("SELECT * FROM captures WHERE isHidden = 0 OR :showHidden = 1 ORDER BY timestamp DESC")
+    fun getAllCaptures(showHidden: Boolean): Flow<List<CaptureEntity>>
+
+    @Query("UPDATE captures SET isHidden = :isHidden WHERE id = :captureId")
+    suspend fun updateHiddenState(captureId: Long, isHidden: Boolean)
 
     @Query("DELETE FROM captures WHERE id = :captureId")
     suspend fun deleteCapture(captureId: Long)

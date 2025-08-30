@@ -104,4 +104,8 @@
     <string name="donation_banner_text">If you find RayoAI useful, please consider supporting its development with a donation.</string>
     <string name="donation_banner_donate">Donate</string>
     <string name="donation_banner_later">Later</string>
+    <string name="show_hidden_chats_button_text_show">Show hidden chats</string>
+    <string name="show_hidden_chats_button_text_hide">Hide chats</string>
+    <string name="hide_chat_button_text">Hide</string>
+    <string name="show_chat_button_text">Show</string>
 </resources>

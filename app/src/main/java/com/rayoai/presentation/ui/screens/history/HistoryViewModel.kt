@@ -2,14 +2,22 @@ package com.rayoai.presentation.ui.screens.history
 
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
-import com.rayoai.data.local.ImageStorageManager
-import com.rayoai.data.local.db.CaptureDao
-import com.rayoai.data.local.model.CaptureEntity
+import com.rayoai.domain.model.Capture
+import com.rayoai.domain.repository.UserPreferencesRepository
+import com.rayoai.domain.usecase.DeleteAllCapturesUseCase
+import com.rayoai.domain.usecase.DeleteCaptureUseCase
+import com.rayoai.domain.usecase.GetHistoryUseCase
+import com.rayoai.domain.usecase.UpdateChatHiddenStateUseCase
 import dagger.hilt.android.lifecycle.HiltViewModel
 import kotlinx.coroutines.flow.Flow
+import kotlinx.coroutines.flow.MutableStateFlow
+import kotlinx.coroutines.flow.SharingStarted
+import kotlinx.coroutines.flow.StateFlow
+import kotlinx.coroutines.flow.combine
+import kotlinx.coroutines.flow.flatMapLatest
+import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.launch
 import javax.inject.Inject
-import android.net.Uri
 
 /**
  * ViewModel para la pantalla de historial de capturas.
@@ -17,39 +25,50 @@ import android.net.Uri
  */
 @HiltViewModel
 class HistoryViewModel @Inject constructor(
-    private val captureDao: CaptureDao,
-    private val imageStorageManager: ImageStorageManager
+    private val getHistoryUseCase: GetHistoryUseCase,
+    private val deleteCaptureUseCase: DeleteCaptureUseCase,
+    private val deleteAllCapturesUseCase: DeleteAllCapturesUseCase,
+    private val updateChatHiddenStateUseCase: UpdateChatHiddenStateUseCase,
+    private val userPreferencesRepository: UserPreferencesRepository
 ) : ViewModel() {
 
-    // Flow que emite la lista de todas las capturas, ordenadas por marca de tiempo descendente.
-    val captures: Flow<List<CaptureEntity>> = captureDao.getAllCaptures()
+    val showHiddenChats: StateFlow<Boolean> = userPreferencesRepository.showHiddenChats.stateIn(
+        scope = viewModelScope,
+        started = SharingStarted.WhileSubscribed(5000),
+        initialValue = false
+    )
 
-    /**
-     * Elimina una única captura, borrando su entrada en la base de datos y el archivo de imagen asociado.
-     * @param capture La entidad [CaptureEntity] a eliminar.
-     */
-    fun deleteCapture(capture: CaptureEntity) {
+    val captures: StateFlow<List<Capture>> = showHiddenChats
+        .flatMapLatest { showHidden ->
+            getHistoryUseCase(showHidden)
+        }
+        .stateIn(
+            scope = viewModelScope,
+            started = SharingStarted.WhileSubscribed(5000),
+            initialValue = emptyList()
+        )
+
+    fun toggleShowHiddenChats() {
         viewModelScope.launch {
-            try {
-                imageStorageManager.deleteImages(capture.imageUris.map { Uri.parse(it) })
-                captureDao.deleteCapture(capture.id)
-            } catch (e: Exception) {
-                e.printStackTrace()
-            }
+            userPreferencesRepository.saveShowHiddenChats(!showHiddenChats.value)
+        }
+    }
+
+    fun deleteCapture(capture: Capture) {
+        viewModelScope.launch {
+            deleteCaptureUseCase(capture)
         }
     }
 
     fun deleteAllCaptures() {
         viewModelScope.launch {
-            try {
-                val allCaptures = captureDao.getAllCapturesList()
-                allCaptures.forEach { capture ->
-                    imageStorageManager.deleteImages(capture.imageUris.map { Uri.parse(it) })
-                }
-                captureDao.deleteAllCaptures()
-            } catch (e: Exception) {
-                e.printStackTrace()
-            }
+            deleteAllCapturesUseCase()
+        }
+    }
+
+    fun toggleChatHiddenState(capture: Capture) {
+        viewModelScope.launch {
+            updateChatHiddenStateUseCase(capture.id, !capture.isHidden)
         }
     }
 }

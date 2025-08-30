@@ -9,6 +9,7 @@ import androidx.room.Room
 import com.rayoai.data.local.db.CaptureDao
 import com.rayoai.data.local.db.RayoAIDatabase
 import com.rayoai.data.local.db.MIGRATION_1_2
+import com.rayoai.data.local.db.MIGRATION_2_3
 import com.rayoai.data.repository.UserPreferencesRepositoryImpl
 import com.rayoai.data.repository.VisionRepositoryImpl
 import com.rayoai.domain.repository.UserPreferencesRepository
@@ -53,7 +54,7 @@ object AppModule {
             context,
             RayoAIDatabase::class.java,
             "rayo_ai_db"
-                ).addMigrations(MIGRATION_1_2).build()
+                ).addMigrations(MIGRATION_1_2, MIGRATION_2_3).build()
     }
 
     @Provides

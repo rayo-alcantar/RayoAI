@@ -30,6 +30,7 @@ class UserPreferencesRepositoryImpl @Inject constructor(
         val MAX_IMAGES_IN_CHAT = intPreferencesKey("max_images_in_chat")
         val HAS_DONATED = booleanPreferencesKey("has_donated")
         val LAST_DONATION_PROMPT_TIME = longPreferencesKey("last_donation_prompt_time")
+        val SHOW_HIDDEN_CHATS = booleanPreferencesKey("show_hidden_chats")
     }
 
     override val apiKey: Flow<String?> = dataStore.data.map {
@@ -74,6 +75,10 @@ class UserPreferencesRepositoryImpl @Inject constructor(
 
     override val lastDonationPromptTime: Flow<Long> = dataStore.data.map {
         it[PreferencesKeys.LAST_DONATION_PROMPT_TIME] ?: 0L
+    }
+
+    override val showHiddenChats: Flow<Boolean> = dataStore.data.map {
+        it[PreferencesKeys.SHOW_HIDDEN_CHATS] ?: false
     }
 
     override suspend fun saveApiKey(apiKey: String) {
@@ -139,6 +144,12 @@ class UserPreferencesRepositoryImpl @Inject constructor(
     override suspend fun saveLastDonationPromptTime(time: Long) {
         dataStore.edit {
             it[PreferencesKeys.LAST_DONATION_PROMPT_TIME] = time
+        }
+    }
+
+    override suspend fun saveShowHiddenChats(show: Boolean) {
+        dataStore.edit {
+            it[PreferencesKeys.SHOW_HIDDEN_CHATS] = show
         }
     }
 }

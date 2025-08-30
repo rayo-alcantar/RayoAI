@@ -7,6 +7,8 @@ import androidx.compose.foundation.lazy.grid.LazyVerticalGrid
 import androidx.compose.foundation.lazy.grid.items
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Delete
+import androidx.compose.material.icons.filled.Visibility
+import androidx.compose.material.icons.filled.VisibilityOff
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
@@ -22,7 +24,7 @@ import androidx.navigation.NavController
 import coil.compose.AsyncImage
 import coil.request.ImageRequest
 import com.rayoai.R
-import com.rayoai.data.local.model.CaptureEntity
+import com.rayoai.domain.model.Capture
 import com.rayoai.presentation.ui.navigation.Screen
 import androidx.compose.foundation.background
 import androidx.compose.foundation.shape.CircleShape
@@ -65,6 +67,12 @@ fun HistoryScreen(
             TopAppBar(
                 title = { Text(stringResource(id = R.string.history_title)) },
                 actions = {
+                    val showHiddenChats by viewModel.showHiddenChats.collectAsState()
+                    TextButton(
+                        onClick = { viewModel.toggleShowHiddenChats() }
+                    ) {
+                        Text(stringResource(if (showHiddenChats) R.string.show_hidden_chats_button_text_hide else R.string.show_hidden_chats_button_text_show))
+                    }
                     IconButton(onClick = { showDeleteAllDialog = true }) {
                         Icon(Icons.Default.Delete, contentDescription = stringResource(R.string.history_delete_all))
                     }
@@ -97,7 +105,8 @@ fun HistoryScreen(
                         onDelete = { viewModel.deleteCapture(it) },
                         onClick = { 
                             navController.navigate(Screen.Home.createRoute(it.id))
-                        }
+                        },
+                        onToggleHidden = { viewModel.toggleChatHiddenState(it) }
                     )
                 }
             }
@@ -107,16 +116,17 @@ fun HistoryScreen(
 
 @Composable
 fun HistoryItem(
-    capture: CaptureEntity,
-    onDelete: (CaptureEntity) -> Unit,
-    onClick: (CaptureEntity) -> Unit
+    capture: Capture,
+    onDelete: (Capture) -> Unit,
+    onClick: (Capture) -> Unit,
+    onToggleHidden: (Capture) -> Unit
 ) {
     Card(
         modifier = Modifier
             .aspectRatio(1f)
             .clickable { onClick(capture) }
             .semantics(mergeDescendants = true) {
-                contentDescription = capture.chatHistory.getOrNull(1)?.content ?: ""
+                contentDescription = capture.lastMessage
             }
     ) {
         Box(modifier = Modifier.fillMaxSize()) {
@@ -149,6 +159,19 @@ fun HistoryItem(
                     .background(MaterialTheme.colorScheme.surface.copy(alpha = 0.5f), shape = CircleShape)
             ) {
                 Icon(Icons.Default.Delete, contentDescription = stringResource(R.string.delete_capture), tint = MaterialTheme.colorScheme.onSurface)
+            }
+            IconButton(
+                onClick = { onToggleHidden(capture) },
+                modifier = Modifier
+                    .align(Alignment.TopStart)
+                    .padding(4.dp)
+                    .background(MaterialTheme.colorScheme.surface.copy(alpha = 0.5f), shape = CircleShape)
+            ) {
+                Icon(
+                    imageVector = if (capture.isHidden) Icons.Default.Visibility else Icons.Default.VisibilityOff,
+                    contentDescription = stringResource(if (capture.isHidden) R.string.show_chat_button_text else R.string.hide_chat_button_text),
+                    tint = MaterialTheme.colorScheme.onSurface
+                )
             }
         }
     }
