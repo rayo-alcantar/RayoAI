@@ -1,13 +1,11 @@
 import java.util.Properties
+// No necesitas importar JvmTarget si usarás kotlinOptions con string.
 
 plugins {
     id("com.android.application")
     id("org.jetbrains.kotlin.android")
-    id("kotlin-kapt") // Para Hilt (procesador de anotaciones)
     id("com.google.dagger.hilt.android")
-    id("com.google.devtools.ksp") // Para Room (procesador de anotaciones)
-    id("dagger.hilt.android.plugin")
-    kotlin("kapt")
+    id("com.google.devtools.ksp")
 }
 
 // 🔐 Cargar configuración de firma
@@ -29,13 +27,12 @@ android {
         versionCode = 21
         versionName = "2.1.6"
         testInstrumentationRunner = "com.rayoai.CustomTestRunner"
-        vectorDrawables {
-            useSupportLibrary = true
-        }
+        vectorDrawables { useSupportLibrary = true }
     }
 
     signingConfigs {
         create("release") {
+            // Asegúrate de que keystore.properties tenga estas 4 claves.
             storeFile = file(keystoreProperties["storeFile"] as String)
             storePassword = keystoreProperties["storePassword"] as String
             keyAlias = keystoreProperties["keyAlias"] as String
@@ -48,7 +45,14 @@ android {
             isMinifyEnabled = true
             isShrinkResources = true
             signingConfig = signingConfigs.getByName("release")
-            proguardFiles(getDefaultProguardFile("proguard-android-optimize.txt"), "proguard-rules.pro")
+            proguardFiles(
+                getDefaultProguardFile("proguard-android-optimize.txt"),
+                "proguard-rules.pro"
+            )
+        }
+        debug {
+            isMinifyEnabled = false
+            isShrinkResources = false
         }
     }
 
@@ -57,16 +61,16 @@ android {
         targetCompatibility = JavaVersion.VERSION_17
     }
 
+    // En Kotlin 1.9.x usa kotlinOptions, NO compilerOptions
     kotlinOptions {
         jvmTarget = "17"
     }
 
-    buildFeatures {
-        compose = true
-    }
+    buildFeatures { compose = true }
 
+    // Kotlin 1.9.24 ↔ Compose Compiler 1.5.14
     composeOptions {
-        kotlinCompilerExtensionVersion = "1.5.11"
+        kotlinCompilerExtensionVersion = "1.5.14"
     }
 
     packaging {
@@ -82,68 +86,71 @@ dependencies {
     implementation("org.jetbrains.kotlinx:kotlinx-coroutines-android:1.8.0")
     implementation("org.jetbrains.kotlinx:kotlinx-coroutines-play-services:1.8.0")
 
-    // Jetpack Compose
+    // Jetpack Compose (BOM controla versiones de artefactos Compose)
     val composeBom = platform("androidx.compose:compose-bom:2024.06.00")
     implementation(composeBom)
     androidTestImplementation(composeBom)
-    implementation("androidx.compose.material3:material3")
-    implementation("androidx.compose.material:material-icons-extended")
-    implementation("androidx.compose.ui:ui")
-    implementation("androidx.compose.ui:ui-tooling-preview")
-    debugImplementation("androidx.compose.ui:ui-tooling")
+
+    implementation("androidx.compose.material3:material3:1.2.1")
+    implementation("androidx.compose.material:material-icons-extended:1.6.8")
+    implementation("androidx.compose.ui:ui:1.6.8")
+    implementation("androidx.compose.ui:ui-tooling-preview:1.6.8")
+    debugImplementation("androidx.compose.ui:ui-tooling:1.6.8")
+
     implementation("androidx.activity:activity-compose:1.9.0")
     implementation("androidx.lifecycle:lifecycle-viewmodel-compose:2.8.0")
-    implementation("androidx.navigation:navigation-compose:2.7.7")
 
-    // Hilt (Dependency Injection)
+    // Navigation estable (no beta)
+    implementation("androidx.navigation:navigation-compose:2.8.8") // estable a feb 2025. :contentReference[oaicite:1]{index=1}
+
+    // Hilt (alineado)
     implementation("com.google.dagger:hilt-android:2.51.1")
-    kapt("com.google.dagger:hilt-compiler:2.51.1")
+    ksp("com.google.dagger:hilt-android-compiler:2.51.1")
     implementation("androidx.hilt:hilt-navigation-compose:1.2.0")
 
-    // Gemini AI
-    implementation("com.google.ai.client.generativeai:generativeai:0.9.0")
+    // Gemini AI (puedes dejar esta versión de momento)
+    implementation("com.google.ai.client.generativeai:generativeai:0.6.0")
 
     // CameraX
     val cameraxVersion = "1.3.3"
-    implementation("androidx.camera:camera-core:${cameraxVersion}")
-    implementation("androidx.camera:camera-camera2:${cameraxVersion}")
-    implementation("androidx.camera:camera-lifecycle:${cameraxVersion}")
-    implementation("androidx.camera:camera-view:${cameraxVersion}")
+    implementation("androidx.camera:camera-core:$cameraxVersion")
+    implementation("androidx.camera:camera-camera2:$cameraxVersion")
+    implementation("androidx.camera:camera-lifecycle:$cameraxVersion")
+    implementation("androidx.camera:camera-view:$cameraxVersion")
+    implementation("androidx.camera:camera-extensions:$cameraxVersion")
 
-    // Data Persistence (Room & DataStore)
+    // Room & DataStore
     val roomVersion = "2.6.1"
-    implementation("androidx.room:room-runtime:${roomVersion}")
-    implementation("androidx.room:room-ktx:${roomVersion}")
-    ksp("androidx.room:room-compiler:${roomVersion}") // Usar KSP para Room
+    implementation("androidx.room:room-runtime:$roomVersion")
+    implementation("androidx.room:room-ktx:$roomVersion")
+    ksp("androidx.room:room-compiler:$roomVersion")
     implementation("androidx.datastore:datastore-preferences:1.1.1")
 
     // Security
     implementation("androidx.security:security-crypto:1.1.0-alpha06")
 
-    // Accompanist Permissions
+    // Accompanist Permissions (válido para Compose 1.6.x)
     implementation("com.google.accompanist:accompanist-permissions:0.34.0")
 
     // In-App Review
     implementation("com.google.android.play:review-ktx:2.0.1")
 
-    // Coil (Image Loading)
+    // Coil
     implementation("io.coil-kt:coil-compose:2.6.0")
 
-    // Gson (JSON Serialization)
+    // Gson
     implementation("com.google.code.gson:gson:2.10.1")
 
     // Testing
     testImplementation("junit:junit:4.13.2")
-    testImplementation("androidx.arch.core:core-testing:2.2.0")
-    testImplementation("org.jetbrains.kotlinx:kotlinx-coroutines-test:1.8.0")
-    testImplementation("io.mockk:mockk:1.13.10")
     androidTestImplementation("androidx.test.ext:junit:1.1.5")
     androidTestImplementation("androidx.test.espresso:espresso-core:3.5.1")
     androidTestImplementation("androidx.compose.ui:ui-test-junit4")
     debugImplementation("androidx.compose.ui:ui-test-manifest")
+
     androidTestImplementation("app.cash.turbine:turbine:1.1.0")
     androidTestImplementation("org.jetbrains.kotlinx:kotlinx-coroutines-test:1.8.0")
     androidTestImplementation("org.jetbrains.kotlin:kotlin-test:1.9.23")
     androidTestImplementation("com.google.dagger:hilt-android-testing:2.51.1")
-    kaptAndroidTest("com.google.dagger:hilt-android-compiler:2.51.1")
+    kspAndroidTest("com.google.dagger:hilt-android-compiler:2.51.1")
 }
