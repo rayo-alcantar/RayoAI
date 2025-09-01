@@ -310,7 +310,12 @@ fun HomeScreen(
                                     .fillMaxWidth()
                                     .height(56.dp)
                             ) {
-                                Text(stringResource(R.string.write_pre_prompt), style = MaterialTheme.typography.titleMedium)
+                                Text(
+                                    text = stringResource(
+                                        id = if (uiState.showPrePromptInput) R.string.hide_pre_prompt_input else R.string.write_pre_prompt
+                                    ),
+                                    style = MaterialTheme.typography.titleMedium
+                                )
                             }
 
                             if (uiState.showPrePromptInput) {

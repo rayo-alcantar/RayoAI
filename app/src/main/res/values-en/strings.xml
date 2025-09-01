@@ -110,4 +110,5 @@
     <string name="show_chat_button_text">Show</string>
     <string name="write_pre_prompt">Write pre-prompt message</string>
     <string name="pre_prompt_hint">Write your question or prompt here...</string>
+    <string name="hide_pre_prompt_input">Hide pre-prompt message box</string>
 </resources>

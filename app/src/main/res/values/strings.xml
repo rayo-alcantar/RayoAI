@@ -112,4 +112,5 @@ Tarjeta: 4152314082325278</string>
     <string name="show_chat_button_text">Mostrar</string>
     <string name="write_pre_prompt">Escribir mensaje previo</string>
     <string name="pre_prompt_hint">Escribe tu pregunta o prompt aquí...</string>
+    <string name="hide_pre_prompt_input">Ocultar cuadro de mensaje previo</string>
 </resources>
