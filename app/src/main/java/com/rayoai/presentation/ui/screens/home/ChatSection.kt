@@ -1,5 +1,7 @@
 package com.rayoai.presentation.ui.screens.home
 
+import android.util.Log
+
 import android.content.Intent
 import android.graphics.Bitmap
 import android.net.Uri
@@ -85,31 +87,28 @@ fun ChatSection(
     val sendMessageDesc = stringResource(R.string.send_message)
     val loadMorePhotosDesc = stringResource(R.string.load_more_photos_icon_description)
 
-    LaunchedEffect(chatMessages) {
-        val lastMessage = chatMessages.lastOrNull()
-        val lastIndex = chatMessages.size - 1
+    LaunchedEffect(chatMessages, listState) {
+        val lastIndex = chatMessages.indices.last
+        if (lastIndex < 0) return@LaunchedEffect
 
-        if (lastMessage != null && lastIndex >= 0) {
-            val shouldFocus = when {
-                lastMessage.isFromUser -> true
-                !lastMessage.isFromUser && chatMessages.size == 2 -> {
-                    textToSpeech?.speak(lastMessage.content, TextToSpeech.QUEUE_FLUSH, null, null)
-                    true
-                }
-                !lastMessage.isFromUser -> {
-                    textToSpeech?.speak(lastMessage.content, TextToSpeech.QUEUE_FLUSH, null, null)
-                    true
-                }
-                else -> false
-            }
+        val lastMessage = chatMessages.last()
+        val shouldSpeak = !lastMessage.isFromUser && (chatMessages.size == 2 || chatMessages.size > 2)
 
-            if (shouldFocus) {
-                scope.launch {
-                    listState.animateScrollToItem(lastIndex)
-                    delay(100)
-                    focusRequester.requestFocus()
-                }
+        if (shouldSpeak) {
+            textToSpeech?.speak(lastMessage.content, TextToSpeech.QUEUE_FLUSH, null, null)
+        }
+
+        // Always try to scroll to the last item and focus.
+        try {
+            // Use a coroutine to avoid blocking the main thread, but stay within the LaunchedEffect
+            launch {
+                listState.animateScrollToItem(lastIndex)
+                // The focus request should happen after the scroll and composition update.
+                delay(100) // A small delay can help ensure the item is composed and ready for focus.
+                focusRequester.requestFocus()
             }
+        } catch (e: Exception) {
+            Log.w("ChatSection", "Failed to scroll or focus on new message", e)
         }
     }
 

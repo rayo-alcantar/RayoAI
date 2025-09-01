@@ -428,11 +428,24 @@ class HomeViewModel @Inject constructor(
     }
 
     fun onImagesSelected(uris: List<Uri>) {
-        val currentSelectedCount = _uiState.value.selectedImageUris.size
-        val remainingSlots = _uiState.value.maxImagesInChat - currentSelectedCount
-        if (remainingSlots > 0) {
-            val newUris = uris.take(remainingSlots)
-            _uiState.update { it.copy(selectedImageUris = it.selectedImageUris + newUris) }
+        viewModelScope.launch {
+            val currentSelectedCount = _uiState.value.selectedImageUris.size
+            val remainingSlots = _uiState.value.maxImagesInChat - currentSelectedCount
+            if (remainingSlots <= 0) return@launch
+
+            val newImageUris = uris.take(remainingSlots).mapNotNull { uri ->
+                try {
+                    val bitmap = imageStorageManager.getBitmapFromUri(uri)
+                    bitmap?.let { imageStorageManager.saveBitmapAndGetUri(it) }
+                } catch (e: Exception) {
+                    Log.e("HomeViewModel", "Error processing selected image URI: $uri", e)
+                    null
+                }
+            }
+
+            if (newImageUris.isNotEmpty()) {
+                _uiState.update { it.copy(selectedImageUris = it.selectedImageUris + newImageUris) }
+            }
         }
     }
 

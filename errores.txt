@@ -1,0 +1,27 @@
+Advertencia: PowerShell detectó que es posible que estés usando un lector de pantalla y que hayas deshabilitado PSReadLine con fines de compatibilidad. Si quieres volver a habilitarlo, ejecuta "Import-Module PSReadLine".
+
+PS C:\Users\angel\Documents\git\rayoai> ./gradlew assembleRelease
+Starting a Gradle Daemon, 1 incompatible and 1 stopped Daemons could not be reused, use --status for details
+
+> Task :app:compileReleaseKotlin
+e: file:///C:/Users/angel/Documents/git/rayoai/app/src/main/java/com/rayoai/presentation/ui/components/CameraView.kt:116:26 Unresolved reference: isBound
+e: file:///C:/Users/angel/Documents/git/rayoai/app/src/main/java/com/rayoai/presentation/ui/screens/home/ChatSection.kt:109:13 Unresolved reference: Log
+
+> Task :app:compileReleaseKotlin FAILED
+
+FAILURE: Build failed with an exception.
+
+* What went wrong:
+Execution failed for task ':app:compileReleaseKotlin'.
+> A failure occurred while executing org.jetbrains.kotlin.compilerRunner.GradleCompilerRunnerWithWorkers$GradleKotlinCompilerWorkAction
+   > Compilation error. See log for more details
+
+* Try:
+> Run with --stacktrace option to get the stack trace.
+> Run with --info or --debug option to get more log output.
+> Run with --scan to get full insights.
+> Get more help at https://help.gradle.org.
+
+BUILD FAILED in 55s
+37 actionable tasks: 6 executed, 31 up-to-date
+PS C:\Users\angel\Documents\git\rayoai>

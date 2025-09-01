@@ -24,8 +24,8 @@ android {
         applicationId = "com.rayoai"
         minSdk = 29
         targetSdk = 35
-        versionCode = 21
-        versionName = "2.1.6"
+        versionCode = 22
+        versionName = "2.2.6"
         testInstrumentationRunner = "com.rayoai.CustomTestRunner"
         vectorDrawables { useSupportLibrary = true }
     }
@@ -112,7 +112,7 @@ dependencies {
     implementation("com.google.ai.client.generativeai:generativeai:0.6.0")
 
     // CameraX
-    val cameraxVersion = "1.3.3"
+    val cameraxVersion = "1.4.2"
     implementation("androidx.camera:camera-core:$cameraxVersion")
     implementation("androidx.camera:camera-camera2:$cameraxVersion")
     implementation("androidx.camera:camera-lifecycle:$cameraxVersion")

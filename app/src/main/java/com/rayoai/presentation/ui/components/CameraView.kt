@@ -112,28 +112,30 @@ private fun captureImage(
     onImageCaptured: (Bitmap) -> Unit,
     onError: (String) -> Unit
 ) {
-    Log.d("CameraView", "captureImage called")
-    cameraController.takePicture(
-        ContextCompat.getMainExecutor(context),
-        object : ImageCapture.OnImageCapturedCallback() {
-            override fun onCaptureSuccess(image: ImageProxy) {
-                Log.d("CameraView", "onCaptureSuccess: Image captured")
-                // Convertir ImageProxy a Bitmap.
-                val bitmap = image.toBitmap()
-                // Obtener la rotación de la imagen y rotar el Bitmap si es necesario.
-                val rotationDegrees = image.imageInfo.rotationDegrees
-                val rotatedBitmap = rotateBitmap(bitmap, rotationDegrees)
-                onImageCaptured(rotatedBitmap)
-                image.close() // Es importante cerrar la ImageProxy.
-            }
+    Log.d("CameraView", "Attempting to capture image...")
+    try {
+        cameraController.takePicture(
+            ContextCompat.getMainExecutor(context),
+            object : ImageCapture.OnImageCapturedCallback() {
+                override fun onCaptureSuccess(image: ImageProxy) {
+                    Log.d("CameraView", "onCaptureSuccess: Image captured")
+                    val bitmap = image.toBitmap()
+                    val rotationDegrees = image.imageInfo.rotationDegrees
+                    val rotatedBitmap = rotateBitmap(bitmap, rotationDegrees)
+                    onImageCaptured(rotatedBitmap)
+                    image.close()
+                }
 
-            override fun onError(exception: ImageCaptureException) {
-                // Registrar el error y notificar a través del callback onError.
-                Log.e("CameraView", "Error capturing image: ", exception)
-                onError(exception.localizedMessage ?: "Error al capturar la imagen")
+                override fun onError(exception: ImageCaptureException) {
+                    Log.e("CameraView", "Error capturing image: ", exception)
+                    onError(exception.localizedMessage ?: "Error al capturar la imagen")
+                }
             }
-        }
-    )
+        )
+    } catch (e: IllegalStateException) {
+        Log.e("CameraView", "Failed to capture image, camera not ready or closed.", e)
+        onError("La cámara no está lista. Inténtalo de nuevo.")
+    }
 }
 
 /**

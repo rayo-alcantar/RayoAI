@@ -12,6 +12,7 @@ import com.rayoai.data.local.model.CaptureEntity
 import com.rayoai.domain.model.Capture
 import com.rayoai.domain.model.ChatMessage
 import com.rayoai.domain.repository.VisionRepository
+import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.flow
 import kotlinx.coroutines.flow.map
@@ -63,7 +64,10 @@ class VisionRepositoryImpl @Inject constructor(
                 emit(ResultWrapper.Success(it))
                 return@flow
             }
+        } catch (e: CancellationException) {
+            throw e
         } catch (e: Exception) {
+            // Silently try the next model
         }
 
         try {
@@ -84,6 +88,8 @@ class VisionRepositoryImpl @Inject constructor(
                 emit(ResultWrapper.Success(it))
                 return@flow
             } ?: emit(ResultWrapper.Error("Empty response from both APIs."))
+        } catch (e: CancellationException) {
+            throw e
         } catch (e: Exception) {
             emit(ResultWrapper.Error(e.localizedMessage ?: "An unknown error occurred after multiple attempts"))
         }
