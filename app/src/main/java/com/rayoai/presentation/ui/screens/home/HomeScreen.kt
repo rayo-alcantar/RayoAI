@@ -304,6 +304,27 @@ fun HomeScreen(
                                 Text(stringResource(R.string.load_from_gallery), style = MaterialTheme.typography.titleMedium)
                             }
 
+                            Button(
+                                onClick = { viewModel.togglePrePromptInput() },
+                                modifier = Modifier
+                                    .fillMaxWidth()
+                                    .height(56.dp)
+                            ) {
+                                Text(stringResource(R.string.write_pre_prompt), style = MaterialTheme.typography.titleMedium)
+                            }
+
+                            if (uiState.showPrePromptInput) {
+                                OutlinedTextField(
+                                    value = uiState.prePromptText,
+                                    onValueChange = { viewModel.onPrePromptTextChanged(it) },
+                                    label = { Text(stringResource(R.string.pre_prompt_hint)) },
+                                    modifier = Modifier
+                                        .fillMaxWidth()
+                                        .heightIn(min = 56.dp, max = 112.dp),
+                                    maxLines = 4
+                                )
+                            }
+
                             Row(
                                 modifier = Modifier.fillMaxWidth(),
                                 verticalAlignment = Alignment.CenterVertically,

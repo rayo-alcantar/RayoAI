@@ -110,4 +110,6 @@ Tarjeta: 4152314082325278</string>
     <string name="show_hidden_chats_button_text_hide">Ocultar chats</string>
     <string name="hide_chat_button_text">Ocultar</string>
     <string name="show_chat_button_text">Mostrar</string>
+    <string name="write_pre_prompt">Escribir mensaje previo</string>
+    <string name="pre_prompt_hint">Escribe tu pregunta o prompt aquí...</string>
 </resources>

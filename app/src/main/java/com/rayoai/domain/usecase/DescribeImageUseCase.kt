@@ -32,11 +32,17 @@ class DescribeImageUseCase @Inject constructor(
     operator fun invoke(
         apiKey: String,
         image: Bitmap,
+        userPrePrompt: String,
         history: List<ChatMessage> = emptyList(),
         languageCode: String
     ): Flow<ResultWrapper<String>> {
-        val prompt = createSystemPrompt(languageCode)
+        val systemPrompt = createSystemPrompt(languageCode)
+        val finalPrompt = if (userPrePrompt.isNotBlank()) {
+            "$systemPrompt\n\nUser's request: $userPrePrompt".trim()
+        } else {
+            systemPrompt
+        }
         // Delega la llamada al repositorio de visión para interactuar con el modelo Gemini.
-        return visionRepository.generateContent(apiKey, prompt, listOf(image), history)
+        return visionRepository.generateContent(apiKey, finalPrompt, listOf(image), history)
     }
 }

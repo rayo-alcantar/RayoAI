@@ -57,7 +57,9 @@ data class HomeUiState(
     val showRatingBanner: Boolean = false,
     val showDonationBanner: Boolean = false,
     val maxImagesInChat: Int = 3,
-    val isCapturing: Boolean = false
+    val isCapturing: Boolean = false,
+    val showPrePromptInput: Boolean = false,
+    val prePromptText: String = ""
 )
 
 
@@ -191,19 +193,22 @@ class HomeViewModel @Inject constructor(
             _playCaptureSound.emit(Unit)
 
             val initialPromptMessage = ChatMessage(content = "Imagen capturada.", isFromUser = true)
+            val prePrompt = _uiState.value.prePromptText
             _uiState.update {
                 it.copy(
                     error = null,
                     currentImageBitmap = image,
                     currentImageUri = imageUri,
                     chatMessages = listOf(initialPromptMessage),
-                    selectedImageUris = listOf(imageUri) // Add the described image to selectedImageUris
+                    selectedImageUris = listOf(imageUri), // Add the described image to selectedImageUris
+                    prePromptText = "",
+                    showPrePromptInput = false
                 )
             }
 
             try {
                 val languageCode = Locale.getDefault().language
-                describeImageUseCase(apiKey, image, languageCode = languageCode).collect { result ->
+                describeImageUseCase(apiKey, image, prePrompt, languageCode = languageCode).collect { result ->
                     when (result) {
                         is ResultWrapper.Loading -> {
                             Log.d("HomeViewModel", "describeImage: ResultWrapper.Loading")
@@ -455,5 +460,13 @@ class HomeViewModel @Inject constructor(
 
     fun getTmpFileUri(): Uri {
         return imageStorageManager.getTmpFileUri()
+    }
+
+    fun togglePrePromptInput() {
+        _uiState.update { it.copy(showPrePromptInput = !it.showPrePromptInput) }
+    }
+
+    fun onPrePromptTextChanged(text: String) {
+        _uiState.update { it.copy(prePromptText = text) }
     }
 }
