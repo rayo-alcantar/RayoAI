@@ -123,7 +123,12 @@ fun AppNavigation(imageUri: Uri?, startDestination: String) {
                 )
             }
             composable(Screen.History.route) {
-                HistoryScreen(navController = navController)
+                HistoryScreen(
+                    onNavigateBack = { navController.popBackStack() },
+                    onNavigateToChat = { captureId ->
+                        navController.navigate(Screen.Home.createRoute(captureId))
+                    }
+                )
             }
             composable(
                 route = Screen.About.route,

@@ -19,9 +19,8 @@
     <string name="history_empty">No hay capturas en el historial.</string>
     <string name="history_delete_all">Eliminar todo el historial</string>
     <string name="history_confirm_delete_title">Confirmar eliminación</string>
-    <string name="history_confirm_delete_message">¿Estás seguro de que quieres borrar todo el historial? Esta acción no se puede deshacer.</string>
-    <string name="delete">Eliminar</string>
-    <string name="cancel">Cancelar</string>
+    <string name="dialog_action_delete">Eliminar</string>
+    <string name="dialog_action_cancel">Cancelar</string>
     <string name="no_image">Sin imagen</string>
     <string name="delete_capture">Eliminar este chat</string>
     <string name="welcome_title">Bienvenido a RayoAI</string>
@@ -113,4 +112,13 @@ Tarjeta: 4152314082325278</string>
     <string name="write_pre_prompt">Escribir mensaje previo</string>
     <string name="pre_prompt_hint">Escribe tu pregunta o prompt aquí...</string>
     <string name="hide_pre_prompt_input">Ocultar cuadro de mensaje previo</string>
+    <string name="delete_capture_error">Error al eliminar la captura</string>
+    <string name="delete_selection_dialog_title">Eliminar selección</string>
+    <string name="delete_selection_dialog_text">Estás a punto de eliminar %1$d conversaciones. ¿Estás seguro?</string>
+    <string name="delete">Eliminar</string>
+    <string name="cancel">Cancelar</string>
+    <string name="selection_mode_title">%1$d seleccionados</string>
+    <string name="clear_selection_description">Borrar selección</string>
+    <string name="delete_selection_description">Eliminar elementos seleccionados</string>
+    <string name="history_confirm_delete_message">¿Seguro que deseas eliminar todo el historial? Esta acción no se puede deshacer.</string>
 </resources>

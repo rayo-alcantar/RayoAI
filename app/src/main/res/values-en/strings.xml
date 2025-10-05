@@ -20,8 +20,8 @@
     <string name="history_delete_all">Delete all history</string>
     <string name="history_confirm_delete_title">Confirm deletion</string>
     <string name="history_confirm_delete_message">Are you sure you want to delete all history? This action cannot be undone.</string>
-    <string name="delete">Delete</string>
-    <string name="cancel">Cancel</string>
+    <string name="dialog_action_delete">Delete</string>
+    <string name="dialog_action_cancel">Cancel</string>
     <string name="no_image">No image</string>
     <string name="delete_capture">Delete this chat</string>
     <string name="welcome_title">Welcome to RayoAI</string>
@@ -111,4 +111,12 @@
     <string name="write_pre_prompt">Write pre-prompt message</string>
     <string name="pre_prompt_hint">Write your question or prompt here...</string>
     <string name="hide_pre_prompt_input">Hide pre-prompt message box</string>
+    <string name="delete_capture_error">Error deleting capture</string>
+    <string name="delete_selection_dialog_title">Delete selection</string>
+    <string name="delete_selection_dialog_text">You are about to delete %1$d conversations. Are you sure?</string>
+    <string name="delete">Delete</string>
+    <string name="cancel">Cancel</string>
+    <string name="selection_mode_title">%1$d selected</string>
+    <string name="clear_selection_description">Clear selection</string>
+    <string name="delete_selection_description">Delete selected items</string>
 </resources>

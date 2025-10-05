@@ -1,62 +1,82 @@
 package com.rayoai.presentation.ui.screens.history
-
-import androidx.compose.foundation.clickable
-import androidx.compose.foundation.layout.*
-import androidx.compose.foundation.lazy.grid.GridCells
-import androidx.compose.foundation.lazy.grid.LazyVerticalGrid
-import androidx.compose.foundation.lazy.grid.items
+import androidx.compose.foundation.ExperimentalFoundationApi
+import androidx.compose.foundation.combinedClickable
+import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.PaddingValues
+import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.fillMaxSize
+import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.lazy.LazyColumn
+import androidx.compose.foundation.lazy.items
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.automirrored.filled.ArrowBack
+import androidx.compose.material.icons.filled.CheckCircle
+import androidx.compose.material.icons.filled.Close
 import androidx.compose.material.icons.filled.Delete
-import androidx.compose.material.icons.filled.Visibility
-import androidx.compose.material.icons.filled.VisibilityOff
-import androidx.compose.material3.*
-import androidx.compose.runtime.*
+import androidx.compose.material3.AlertDialog
+import androidx.compose.material3.Button
+import androidx.compose.material3.Card
+import androidx.compose.material3.CardDefaults
+import androidx.compose.material3.ExperimentalMaterial3Api
+import androidx.compose.material3.Icon
+import androidx.compose.material3.IconButton
+import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.Scaffold
+import androidx.compose.material3.Text
+import androidx.compose.material3.TopAppBar
+import androidx.compose.runtime.Composable
+import androidx.compose.runtime.collectAsState
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.layout.ContentScale
-import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.stringResource
-import androidx.compose.ui.semantics.contentDescription
-import androidx.compose.ui.semantics.semantics
+import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.hilt.navigation.compose.hiltViewModel
-import androidx.navigation.NavController
-import coil.compose.AsyncImage
-import coil.request.ImageRequest
 import com.rayoai.R
 import com.rayoai.domain.model.Capture
-import com.rayoai.presentation.ui.navigation.Screen
-import androidx.compose.foundation.background
-import androidx.compose.foundation.shape.CircleShape
-import android.util.Log
+import java.text.SimpleDateFormat
+import java.util.Date
+import java.util.Locale
 
-@OptIn(ExperimentalMaterial3Api::class)
+@OptIn(ExperimentalMaterial3Api::class, ExperimentalFoundationApi::class)
 @Composable
 fun HistoryScreen(
     viewModel: HistoryViewModel = hiltViewModel(),
-    navController: NavController
+    onNavigateBack: () -> Unit,
+    onNavigateToChat: (Long) -> Unit
 ) {
-    val captures by viewModel.captures.collectAsState(initial = emptyList())
-    var showDeleteAllDialog by remember { mutableStateOf(false) }
+    val history by viewModel.history.collectAsState()
+    val isSelectionMode by viewModel.isSelectionMode.collectAsState()
+    val selectedItems by viewModel.selectedItemIds.collectAsState()
+    var showDeleteConfirmationDialog by remember { mutableStateOf(false) }
 
-    if (showDeleteAllDialog) {
+    if (showDeleteConfirmationDialog) {
         AlertDialog(
-            onDismissRequest = { showDeleteAllDialog = false },
-            title = { Text(stringResource(R.string.history_confirm_delete_title)) },
-            text = { Text(stringResource(R.string.history_confirm_delete_message)) },
+            onDismissRequest = { showDeleteConfirmationDialog = false },
+            title = { Text(stringResource(R.string.delete_selection_dialog_title)) },
+            text = { Text(stringResource(R.string.delete_selection_dialog_text, selectedItems.size)) },
             confirmButton = {
-                Button(
-                    onClick = {
-                        viewModel.deleteAllCaptures()
-                        showDeleteAllDialog = false
-                    }
-                ) {
-                    Text(stringResource(R.string.delete))
+                Button({
+                    viewModel.onEvent(HistoryEvent.OnDeleteSelected)
+                    showDeleteConfirmationDialog = false
+                }) {
+                    Text(stringResource(R.string.dialog_action_delete))
                 }
             },
             dismissButton = {
-                Button(onClick = { showDeleteAllDialog = false }) {
-                    Text(stringResource(R.string.cancel))
+                Button({
+                    showDeleteConfirmationDialog = false
+                }) {
+                    Text(stringResource(R.string.dialog_action_cancel))
                 }
             }
         )
@@ -64,115 +84,124 @@ fun HistoryScreen(
 
     Scaffold(
         topBar = {
-            TopAppBar(
-                title = { Text(stringResource(id = R.string.history_title)) },
-                actions = {
-                    val showHiddenChats by viewModel.showHiddenChats.collectAsState()
-                    TextButton(
-                        onClick = { viewModel.toggleShowHiddenChats() }
-                    ) {
-                        Text(stringResource(if (showHiddenChats) R.string.show_hidden_chats_button_text_hide else R.string.show_hidden_chats_button_text_show))
-                    }
-                    IconButton(onClick = { showDeleteAllDialog = true }) {
-                        Icon(Icons.Default.Delete, contentDescription = stringResource(R.string.history_delete_all))
-                    }
-                }
-            )
-        }
-    ) { paddingValues ->
-        if (captures.isEmpty()) {
-            Box(
-                modifier = Modifier
-                    .fillMaxSize()
-                    .padding(paddingValues),
-                contentAlignment = Alignment.Center
-            ) {
-                Text(stringResource(R.string.history_empty))
+            if (isSelectionMode) {
+                SelectionTopAppBar(
+                    selectedItemCount = selectedItems.size,
+                    onClearSelection = { viewModel.onEvent(HistoryEvent.OnClearSelection) },
+                    onDeleteSelected = { showDeleteConfirmationDialog = true }
+                )
+            } else {
+                HistoryTopAppBar(onNavigateBack = onNavigateBack)
             }
-        } else {
-            LazyVerticalGrid(
-                columns = GridCells.Adaptive(minSize = 128.dp),
-                modifier = Modifier
-                    .fillMaxSize()
-                    .padding(paddingValues)
-                    .padding(4.dp),
-                verticalArrangement = Arrangement.spacedBy(4.dp),
-                horizontalArrangement = Arrangement.spacedBy(4.dp)
-            ) {
-                items(captures) { capture ->
-                    HistoryItem(
-                        capture = capture,
-                        onDelete = { viewModel.deleteCapture(it) },
-                        onClick = { 
-                            navController.navigate(Screen.Home.createRoute(it.id))
+        }
+    ) { padding ->
+        LazyColumn(
+            modifier = Modifier
+                .fillMaxSize()
+                .padding(padding),
+            contentPadding = PaddingValues(16.dp),
+            verticalArrangement = Arrangement.spacedBy(12.dp)
+        ) {
+            items(history, key = { it.id }) { capture ->
+                val isSelected = selectedItems.contains(capture.id)
+                HistoryItem(
+                    capture = capture,
+                    isSelected = isSelected,
+                    modifier = Modifier.combinedClickable(
+                        onClick = {
+                            viewModel.onEvent(HistoryEvent.OnItemClick(capture.id, onNavigateToChat))
                         },
-                        onToggleHidden = { viewModel.toggleChatHiddenState(it) }
+                        onLongClick = {
+                            viewModel.onEvent(HistoryEvent.OnItemLongClick(capture.id))
+                        }
                     )
-                }
+                )
             }
         }
     }
 }
 
 @Composable
-fun HistoryItem(
-    capture: Capture,
-    onDelete: (Capture) -> Unit,
-    onClick: (Capture) -> Unit,
-    onToggleHidden: (Capture) -> Unit
-) {
+fun HistoryItem(capture: Capture, isSelected: Boolean, modifier: Modifier = Modifier) {
+    val cardColors = if (isSelected) {
+        CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.primaryContainer)
+    } else {
+        CardDefaults.cardColors()
+    }
+
     Card(
-        modifier = Modifier
-            .aspectRatio(1f)
-            .clickable { onClick(capture) }
-            .semantics(mergeDescendants = true) {
-                contentDescription = capture.lastMessage
-            }
+        modifier = modifier.fillMaxWidth(),
+        elevation = CardDefaults.cardElevation(4.dp),
+        colors = cardColors
     ) {
-        Box(modifier = Modifier.fillMaxSize()) {
-            if (capture.imageUris.isNotEmpty()) {
-                AsyncImage(
-                    model = ImageRequest.Builder(LocalContext.current)
-                        .data(capture.imageUris.firstOrNull())
-                        .crossfade(true)
-                        .build(),
-                    contentDescription = null,
-                    contentScale = ContentScale.Crop,
-                    modifier = Modifier.fillMaxSize()
-                )
-            } else {
-                Log.d("HistoryScreen", "Image URI is empty for capture ID: ${capture.id}")
-                Box(
-                    modifier = Modifier
-                        .fillMaxSize()
-                        .background(MaterialTheme.colorScheme.surfaceVariant),
-                    contentAlignment = Alignment.Center
-                ) {
-                    Text("No image", color = MaterialTheme.colorScheme.onSurfaceVariant)
+        Box(modifier = Modifier.fillMaxWidth()) {
+            Row(
+                modifier = Modifier
+                    .padding(16.dp)
+                    .fillMaxWidth(),
+                verticalAlignment = Alignment.CenterVertically,
+                horizontalArrangement = Arrangement.SpaceBetween
+            ) {
+                Column(modifier = Modifier.weight(1f)) {
+                    Text(
+                        text = capture.lastMessage,
+                        style = MaterialTheme.typography.bodyLarge.copy(fontWeight = FontWeight.Bold),
+                        maxLines = 1,
+                        overflow = TextOverflow.Ellipsis
+                    )
+                    Text(
+                        text = SimpleDateFormat("dd/MM/yyyy HH:mm", Locale.getDefault()).format(Date(capture.timestamp)),
+                        style = MaterialTheme.typography.bodySmall,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant
+                    )
                 }
             }
-            IconButton(
-                onClick = { onDelete(capture) },
-                modifier = Modifier
-                    .align(Alignment.TopEnd)
-                    .padding(4.dp)
-                    .background(MaterialTheme.colorScheme.surface.copy(alpha = 0.5f), shape = CircleShape)
-            ) {
-                Icon(Icons.Default.Delete, contentDescription = stringResource(R.string.delete_capture), tint = MaterialTheme.colorScheme.onSurface)
-            }
-            IconButton(
-                onClick = { onToggleHidden(capture) },
-                modifier = Modifier
-                    .align(Alignment.TopStart)
-                    .padding(4.dp)
-                    .background(MaterialTheme.colorScheme.surface.copy(alpha = 0.5f), shape = CircleShape)
-            ) {
+            if (isSelected) {
                 Icon(
-                    imageVector = if (capture.isHidden) Icons.Default.Visibility else Icons.Default.VisibilityOff,
-                    contentDescription = stringResource(if (capture.isHidden) R.string.show_chat_button_text else R.string.hide_chat_button_text),
-                    tint = MaterialTheme.colorScheme.onSurface
+                    imageVector = Icons.Default.CheckCircle,
+                    contentDescription = null, // Decorative
+                    tint = MaterialTheme.colorScheme.primary,
+                    modifier = Modifier.align(Alignment.TopEnd).padding(8.dp).size(24.dp)
                 )
             }
         }
     }
+}
+
+@OptIn(ExperimentalMaterial3Api::class)
+@Composable
+fun HistoryTopAppBar(onNavigateBack: () -> Unit) {
+    TopAppBar(
+        title = { Text(stringResource(id = R.string.history_title)) },
+        navigationIcon = {
+            IconButton(onClick = onNavigateBack) {
+                Icon(
+                    imageVector = Icons.AutoMirrored.Filled.ArrowBack,
+                    contentDescription = stringResource(id = R.string.back)
+                )
+            }
+        }
+    )
+}
+
+@OptIn(ExperimentalMaterial3Api::class)
+@Composable
+fun SelectionTopAppBar(
+    selectedItemCount: Int,
+    onClearSelection: () -> Unit,
+    onDeleteSelected: () -> Unit
+) {
+    TopAppBar(
+        title = { Text(stringResource(R.string.selection_mode_title, selectedItemCount)) },
+        navigationIcon = {
+            IconButton(onClick = onClearSelection) {
+                Icon(Icons.Default.Close, contentDescription = stringResource(R.string.clear_selection_description))
+            }
+        },
+        actions = {
+            IconButton(onClick = onDeleteSelected) {
+                Icon(Icons.Default.Delete, contentDescription = stringResource(R.string.delete_selection_description))
+            }
+        }
+    )
 }
