@@ -18,16 +18,28 @@ class SharingActivity : ComponentActivity() {
         // Manejar el Intent de compartir.
         when (intent?.action) {
             Intent.ACTION_SEND -> {
-                if (intent.type?.startsWith("image/") == true) {
-                    (intent.getParcelableExtra<Uri>(Intent.EXTRA_STREAM))?.let { imageUri ->
-                        // Crear un Intent para iniciar MainActivity.
-                        val mainIntent = Intent(this, MainActivity::class.java).apply {
-                            action = Intent.ACTION_SEND
-                            putExtra(Intent.EXTRA_STREAM, imageUri)
-                            // Flags para traer la tarea existente al frente o crear una nueva.
-                            flags = Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_CLEAR_TASK
+                val type = intent.type
+                when {
+                    type?.startsWith("image/") == true -> {
+                        (intent.getParcelableExtra<Uri>(Intent.EXTRA_STREAM))?.let { imageUri ->
+                            val mainIntent = Intent(this, MainActivity::class.java).apply {
+                                action = Intent.ACTION_SEND
+                                putExtra(Intent.EXTRA_STREAM, imageUri)
+                                flags = Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_CLEAR_TASK
+                            }
+                            startActivity(mainIntent)
                         }
-                        startActivity(mainIntent)
+                    }
+                    type == "application/pdf" -> {
+                        (intent.getParcelableExtra<Uri>(Intent.EXTRA_STREAM))?.let { pdfUri ->
+                            val mainIntent = Intent(this, MainActivity::class.java).apply {
+                                action = Intent.ACTION_SEND
+                                putExtra(Intent.EXTRA_STREAM, pdfUri)
+                                putExtra("EXTRA_IS_PDF", true)
+                                flags = Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_CLEAR_TASK
+                            }
+                            startActivity(mainIntent)
+                        }
                     }
                 }
             }

@@ -6,6 +6,7 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.History
 import androidx.compose.material.icons.filled.Home
 import androidx.compose.material.icons.filled.Info
+import androidx.compose.material.icons.filled.Build
 import androidx.compose.material.icons.filled.Settings
 import androidx.compose.material3.Icon
 import androidx.compose.material3.NavigationBar
@@ -47,6 +48,11 @@ sealed class Screen(val route: String, val baseRoute: String, val labelRes: Int?
         fun createRoute(captureId: Long?) = if (captureId != null) "home?captureId=$captureId" else "home"
     }
     object History : Screen("history", "history", R.string.tab_history, Icons.Default.History)
+    object Tools : Screen("tools", "tools", R.string.tab_tools, Icons.Default.Build)
+    object ScanPdf : Screen("scan_pdf", "tools")
+    object ViewPdf : Screen("view_pdf?id={id}", "tools") {
+        fun createRoute(id: Long) = "view_pdf?id=$id"
+    }
     object About : Screen("about?showDonationDialog={showDonationDialog}", "about", R.string.tab_about, Icons.Default.Info) {
         fun createRoute(showDonationDialog: Boolean = false) = "about?showDonationDialog=$showDonationDialog"
     }
@@ -56,6 +62,7 @@ sealed class Screen(val route: String, val baseRoute: String, val labelRes: Int?
 val items = listOf(
     Screen.Home,
     Screen.History,
+    Screen.Tools,
     Screen.About,
     Screen.Settings
 )
@@ -66,7 +73,7 @@ private fun NavDestination?.isSameRouteAs(baseRoute: String): Boolean {
 }
 
 @Composable
-fun AppNavigation(imageUri: Uri?, startDestination: String) {
+fun AppNavigation(imageUri: Uri?, startDestination: String, pdfUri: Uri? = null) {
     val navController = rememberNavController()
     val navBackStackEntry by navController.currentBackStackEntryAsState()
     val currentDestination = navBackStackEntry?.destination
@@ -128,6 +135,30 @@ fun AppNavigation(imageUri: Uri?, startDestination: String) {
                     onNavigateToChat = { captureId ->
                         navController.navigate(Screen.Home.createRoute(captureId))
                     }
+                )
+            }
+            composable(Screen.Tools.route) {
+                com.rayoai.presentation.ui.screens.tools.ToolsScreen(
+                    onScanPdf = { navController.navigate(Screen.ScanPdf.route) },
+                    onOpenProcessed = { doc ->
+                        navController.navigate(Screen.ViewPdf.createRoute(doc.id))
+                    }
+                )
+            }
+            composable(Screen.ScanPdf.route) {
+                com.rayoai.presentation.ui.screens.tools.ScanPdfScreen(
+                    incomingPdfUri = pdfUri,
+                    onNavigateBack = { navController.popBackStack() }
+                )
+            }
+            composable(
+                route = Screen.ViewPdf.route,
+                arguments = listOf(navArgument("id") { type = NavType.LongType })
+            ) { backStackEntry ->
+                val id = backStackEntry.arguments?.getLong("id") ?: 0L
+                com.rayoai.presentation.ui.screens.tools.PdfResultScreen(
+                    docId = id,
+                    onNavigateBack = { navController.popBackStack() }
                 )
             }
             composable(

@@ -3,6 +3,7 @@
     <string name="tab_home">Inicio</string>
     <string name="tab_history">Historial</string>
     <string name="tab_about">Acerca de</string>
+    <string name="tab_tools">Herramientas</string>
     <string name="tab_settings">Ajustes</string>
     <string name="describe_image_label">Describir imagen</string>
     <string name="settings_title">Ajustes</string>
@@ -125,4 +126,15 @@ Tarjeta: 4152314082325278</string>
     <string name="clear_selection_description">Borrar selección</string>
     <string name="delete_selection_description">Eliminar elementos seleccionados</string>
     <string name="history_confirm_delete_message">¿Seguro que deseas eliminar todo el historial? Esta acción no se puede deshacer.</string>
+    <string name="tools_title">Herramientas</string>
+    <string name="tool_scan_pdf">Escanear PDF</string>
+    <string name="tool_scan_pdf_description">Extrae texto y describe imágenes</string>
+    <string name="scan_pdf_select">Seleccionar PDF</string>
+    <string name="scan_pdf_loading_document">Cargando documento...</string>
+    <string name="scan_pdf_analyzing">Analizando con Gemini...</string>
+    <string name="scan_pdf_processing_text">Procesando texto...</string>
+    <string name="scan_pdf_copy">Copiar contenido</string>
+    <string name="scan_pdf_back">Volver</string>
+    <string name="pdf_delete_confirm_title">Eliminar documento</string>
+    <string name="pdf_delete_confirm_text">¿Deseas eliminar este documento procesado?</string>
 </resources>

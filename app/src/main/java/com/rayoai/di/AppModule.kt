@@ -10,6 +10,8 @@ import com.rayoai.data.local.db.CaptureDao
 import com.rayoai.data.local.db.RayoAIDatabase
 import com.rayoai.data.local.db.MIGRATION_1_2
 import com.rayoai.data.local.db.MIGRATION_2_3
+import com.rayoai.data.local.pdfdb.PdfDao
+import com.rayoai.data.local.pdfdb.PdfDatabase
 import com.rayoai.data.repository.UserPreferencesRepositoryImpl
 import com.rayoai.data.repository.VisionRepositoryImpl
 import com.rayoai.domain.repository.UserPreferencesRepository
@@ -60,5 +62,20 @@ object AppModule {
     @Provides
     fun provideCaptureDao(database: RayoAIDatabase): CaptureDao {
         return database.captureDao()
+    }
+
+    @Provides
+    @Singleton
+    fun providePdfDatabase(@ApplicationContext context: Context): PdfDatabase {
+        return Room.databaseBuilder(
+            context,
+            PdfDatabase::class.java,
+            "rayo_ai_pdf_db"
+        ).build()
+    }
+
+    @Provides
+    fun providePdfDao(database: PdfDatabase): PdfDao {
+        return database.pdfDao()
     }
 }
