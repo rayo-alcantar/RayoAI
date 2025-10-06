@@ -6,9 +6,14 @@ import com.rayoai.domain.model.Capture
 import com.rayoai.domain.usecase.DeleteAllCapturesUseCase
 import com.rayoai.domain.usecase.DeleteCaptureUseCase
 import com.rayoai.domain.usecase.GetHistoryUseCase
+import com.rayoai.domain.usecase.UpdateChatHiddenStateUseCase
+import com.rayoai.domain.repository.UserPreferencesRepository
 import dagger.hilt.android.lifecycle.HiltViewModel
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
+import kotlinx.coroutines.flow.SharingStarted
+import kotlinx.coroutines.flow.flatMapLatest
+import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.launch
 import javax.inject.Inject
 
@@ -23,8 +28,13 @@ import kotlinx.coroutines.flow.update
 class HistoryViewModel @Inject constructor(
     private val getHistoryUseCase: GetHistoryUseCase,
     private val deleteAllCapturesUseCase: DeleteAllCapturesUseCase,
-    private val deleteCaptureUseCase: DeleteCaptureUseCase
+    private val deleteCaptureUseCase: DeleteCaptureUseCase,
+    private val updateChatHiddenStateUseCase: UpdateChatHiddenStateUseCase,
+    private val userPreferencesRepository: UserPreferencesRepository
 ) : ViewModel() {
+
+    val showHiddenChats: StateFlow<Boolean> = userPreferencesRepository.showHiddenChats
+        .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), false)
 
     private val _history = MutableStateFlow<List<Capture>>(emptyList())
     val history: StateFlow<List<Capture>> = _history.asStateFlow()
@@ -41,9 +51,11 @@ class HistoryViewModel @Inject constructor(
 
     private fun loadHistory() {
         viewModelScope.launch {
-            getHistoryUseCase(showHidden = false).collect { captures ->
-                _history.value = captures
-            }
+            showHiddenChats
+                .flatMapLatest { showHidden -> getHistoryUseCase(showHidden) }
+                .collect { captures ->
+                    _history.value = captures
+                }
         }
     }
 
@@ -83,6 +95,25 @@ class HistoryViewModel @Inject constructor(
                     _selectedItemIds.value = emptySet()
                 }
             }
+        }
+    }
+
+    fun toggleShowHiddenChats() {
+        viewModelScope.launch {
+            val current = showHiddenChats.value
+            userPreferencesRepository.saveShowHiddenChats(!current)
+        }
+    }
+
+    fun toggleChatHiddenState(capture: Capture) {
+        viewModelScope.launch {
+            updateChatHiddenStateUseCase(capture.id, !capture.isHidden)
+        }
+    }
+
+    fun deleteCapture(capture: Capture) {
+        viewModelScope.launch {
+            deleteCaptureUseCase(capture)
         }
     }
 

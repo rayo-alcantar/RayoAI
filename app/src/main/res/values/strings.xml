@@ -21,6 +21,10 @@
     <string name="history_confirm_delete_title">Confirmar eliminación</string>
     <string name="dialog_action_delete">Eliminar</string>
     <string name="dialog_action_cancel">Cancelar</string>
+    <string name="history_accessibility_state_selected">Seleccionado</string>
+    <string name="history_accessibility_state_not_selected">No seleccionado</string>
+    <string name="history_accessibility_action_select">Seleccionar conversación</string>
+    <string name="history_accessibility_action_deselect">Quitar selección</string>
     <string name="no_image">Sin imagen</string>
     <string name="delete_capture">Eliminar este chat</string>
     <string name="welcome_title">Bienvenido a RayoAI</string>

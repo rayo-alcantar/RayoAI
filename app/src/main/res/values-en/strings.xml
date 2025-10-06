@@ -22,6 +22,10 @@
     <string name="history_confirm_delete_message">Are you sure you want to delete all history? This action cannot be undone.</string>
     <string name="dialog_action_delete">Delete</string>
     <string name="dialog_action_cancel">Cancel</string>
+    <string name="history_accessibility_state_selected">Selected</string>
+    <string name="history_accessibility_state_not_selected">Not selected</string>
+    <string name="history_accessibility_action_select">Select conversation</string>
+    <string name="history_accessibility_action_deselect">Deselect conversation</string>
     <string name="no_image">No image</string>
     <string name="delete_capture">Delete this chat</string>
     <string name="welcome_title">Welcome to RayoAI</string>
