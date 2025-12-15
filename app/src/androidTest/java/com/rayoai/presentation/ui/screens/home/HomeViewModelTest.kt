@@ -71,8 +71,8 @@ class HomeViewModelTest {
         // Given
         val currentTime = System.currentTimeMillis()
         val lastPromptTime = currentTime - (73 * 60 * 60 * 1000) // 73 hours ago
-        userPreferencesRepository.setHasRated(false)
-        userPreferencesRepository.setLastPromptTime(lastPromptTime)
+        userPreferencesRepository.saveHasRated(false)
+        userPreferencesRepository.saveLastPromptTime(lastPromptTime)
 
         // When
         viewModel = HomeViewModel(
@@ -93,7 +93,7 @@ class HomeViewModelTest {
     @Test
     fun `showRatingBanner should be false when user has already rated`() = runTest {
         // Given
-        userPreferencesRepository.setHasRated(true)
+        userPreferencesRepository.saveHasRated(true)
 
         // When
         viewModel = HomeViewModel(
@@ -116,8 +116,8 @@ class HomeViewModelTest {
         // Given
         val currentTime = System.currentTimeMillis()
         val lastPromptTime = currentTime - (71 * 60 * 60 * 1000) // 71 hours ago
-        userPreferencesRepository.setHasRated(false)
-        userPreferencesRepository.setLastPromptTime(lastPromptTime)
+        userPreferencesRepository.saveHasRated(false)
+        userPreferencesRepository.saveLastPromptTime(lastPromptTime)
 
         // When
         viewModel = HomeViewModel(
@@ -157,4 +157,3 @@ class HomeViewModelTest {
         assertFalse(viewModel.uiState.value.showRatingBanner)
     }
 }
-

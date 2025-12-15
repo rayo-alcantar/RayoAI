@@ -39,6 +39,13 @@
     <string name="settings_api_key_hint">Gemini API Key</string>
     <string name="settings_api_key_save">Save API Key</string>
     <string name="settings_api_key_saved_message">API Key saved successfully!</string>
+    <string name="settings_default_model_label">Default model (Gemini)</string>
+    <string name="settings_default_model_hint">Select the default model</string>
+    <string name="model_gemini_20_flash">Gemini 2.0 Flash (default)</string>
+    <string name="model_gemini_25_flash">Gemini 2.5 Flash</string>
+    <string name="model_gemini_25_pro">Gemini 2.5 Pro</string>
+    <string name="model_gemini_3_pro">Gemini 3 Pro</string>
+    <string name="model_gemini_3">Gemini 3</string>
     <string name="settings_api_key_instructions_button">View API key instructions</string>
     <string name="settings_max_images_label">Maximum number of images in a chat</string>
     <!-- Settings: Theme -->

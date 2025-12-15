@@ -8,7 +8,7 @@ plugins {
     id("com.google.devtools.ksp")
 }
 
-// 🔐 Cargar configuración de firma
+//  Cargar configuración de firma
 val keystoreProperties = Properties().apply {
     val keystoreFile = rootProject.file("keystore.properties")
     if (keystoreFile.exists()) {
@@ -24,8 +24,8 @@ android {
         applicationId = "com.rayoai"
         minSdk = 29
         targetSdk = 35
-        versionCode = 25
-        versionName = "3.0.0"
+        versionCode = 26
+        versionName = "3.0.1"
         testInstrumentationRunner = "com.rayoai.CustomTestRunner"
         vectorDrawables { useSupportLibrary = true }
     }
@@ -33,7 +33,7 @@ android {
     signingConfigs {
         create("release") {
             // Asegúrate de que keystore.properties tenga estas 4 claves.
-            storeFile = file(keystoreProperties["storeFile"] as String)
+            storeFile = rootProject.file(keystoreProperties["storeFile"] as String)
             storePassword = keystoreProperties["storePassword"] as String
             keyAlias = keystoreProperties["keyAlias"] as String
             keyPassword = keystoreProperties["keyPassword"] as String
@@ -68,7 +68,7 @@ android {
 
     buildFeatures { compose = true }
 
-    // Kotlin 1.9.24 ↔ Compose Compiler 1.5.14
+    // Kotlin 1.9.24  + Compose Compiler 1.5.14
     composeOptions {
         kotlinCompilerExtensionVersion = "1.5.14"
     }
@@ -83,33 +83,33 @@ android {
 dependencies {
     // Core & Coroutines
     implementation("androidx.core:core-ktx:1.13.1")
-    implementation("org.jetbrains.kotlinx:kotlinx-coroutines-android:1.8.0")
-    implementation("org.jetbrains.kotlinx:kotlinx-coroutines-play-services:1.8.0")
+    implementation("org.jetbrains.kotlinx:kotlinx-coroutines-android:1.8.1")
+    implementation("org.jetbrains.kotlinx:kotlinx-coroutines-play-services:1.8.1")
 
     // Jetpack Compose (BOM controla versiones de artefactos Compose)
     val composeBom = platform("androidx.compose:compose-bom:2024.06.00")
     implementation(composeBom)
     androidTestImplementation(composeBom)
 
-    implementation("androidx.compose.material3:material3:1.2.1")
-    implementation("androidx.compose.material:material-icons-extended:1.6.8")
-    implementation("androidx.compose.ui:ui:1.6.8")
-    implementation("androidx.compose.ui:ui-tooling-preview:1.6.8")
-    debugImplementation("androidx.compose.ui:ui-tooling:1.6.8")
+    implementation("androidx.compose.material3:material3")
+    implementation("androidx.compose.material:material-icons-extended")
+    implementation("androidx.compose.ui:ui")
+    implementation("androidx.compose.ui:ui-tooling-preview")
+    debugImplementation("androidx.compose.ui:ui-tooling")
 
     implementation("androidx.activity:activity-compose:1.9.0")
     implementation("androidx.lifecycle:lifecycle-viewmodel-compose:2.8.0")
 
     // Navigation estable (no beta)
-    implementation("androidx.navigation:navigation-compose:2.8.8") // estable a feb 2025. :contentReference[oaicite:1]{index=1}
+    implementation("androidx.navigation:navigation-compose:2.8.8")
 
     // Hilt (alineado)
     implementation("com.google.dagger:hilt-android:2.51.1")
     ksp("com.google.dagger:hilt-android-compiler:2.51.1")
     implementation("androidx.hilt:hilt-navigation-compose:1.2.0")
 
-    // Gemini AI (puedes dejar esta versión de momento)
-    implementation("com.google.ai.client.generativeai:generativeai:0.6.0")
+    // Gemini AI
+    implementation("com.google.ai.client.generativeai:generativeai:0.9.0")
 
     // CameraX
     val cameraxVersion = "1.4.2"
@@ -129,17 +129,17 @@ dependencies {
     // Security
     implementation("androidx.security:security-crypto:1.1.0-alpha06")
 
-    // Accompanist Permissions (válido para Compose 1.6.x)
+    // Accompanist Permissions
     implementation("com.google.accompanist:accompanist-permissions:0.34.0")
 
     // In-App Review
-    implementation("com.google.android.play:review-ktx:2.0.1")
+    implementation("com.google.android.play:review-ktx:2.0.2")
 
     // Coil
-    implementation("io.coil-kt:coil-compose:2.6.0")
+    implementation("io.coil-kt:coil-compose:2.7.0")
 
     // Gson
-    implementation("com.google.code.gson:gson:2.10.1")
+    implementation("com.google.code.gson:gson:2.13.2")
 
     // Testing
     testImplementation("junit:junit:4.13.2")
@@ -149,8 +149,8 @@ dependencies {
     debugImplementation("androidx.compose.ui:ui-test-manifest")
 
     androidTestImplementation("app.cash.turbine:turbine:1.1.0")
-    androidTestImplementation("org.jetbrains.kotlinx:kotlinx-coroutines-test:1.8.0")
-    androidTestImplementation("org.jetbrains.kotlin:kotlin-test:1.9.23")
+    androidTestImplementation("org.jetbrains.kotlinx:kotlinx-coroutines-test:1.8.1")
+    androidTestImplementation("org.jetbrains.kotlin:kotlin-test:1.9.24")
     androidTestImplementation("com.google.dagger:hilt-android-testing:2.51.1")
     kspAndroidTest("com.google.dagger:hilt-android-compiler:2.51.1")
 }

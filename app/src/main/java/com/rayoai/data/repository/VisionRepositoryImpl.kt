@@ -8,9 +8,9 @@ import com.google.ai.client.generativeai.type.content
 import com.rayoai.core.ResultWrapper
 import com.rayoai.data.local.ImageStorageManager
 import com.rayoai.data.local.db.CaptureDao
-import com.rayoai.data.local.model.CaptureEntity
 import com.rayoai.domain.model.Capture
 import com.rayoai.domain.model.ChatMessage
+import com.rayoai.domain.model.GeminiModelConfig
 import com.rayoai.domain.repository.VisionRepository
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.flow.Flow
@@ -27,7 +27,8 @@ class VisionRepositoryImpl @Inject constructor(
         apiKey: String,
         prompt: String,
         images: List<Bitmap>,
-        history: List<ChatMessage>
+        history: List<ChatMessage>,
+        model: String
     ): Flow<ResultWrapper<String>> = flow {
         emit(ResultWrapper.Loading)
 
@@ -46,53 +47,54 @@ class VisionRepositoryImpl @Inject constructor(
         }
         contents.add(currentContent)
 
-        try {
-            val generativeModelFlash = GenerativeModel(
-                modelName = "gemini-2.0-flash",
-                apiKey = apiKey
-            )
-            val responseFlash = generativeModelFlash.generateContent(*contents.toTypedArray())
-            val responseTextFlash = responseFlash.candidates.firstOrNull()
-                ?.content?.parts?.firstOrNull()
-                ?.let { part ->
-                    when (part) {
-                        is com.google.ai.client.generativeai.type.TextPart -> part.text
-                        else -> null
-                    }
+        val modelPriority = buildModelPriority(model)
+        var lastError: String? = null
+
+        for (modelName in modelPriority) {
+            try {
+                val responseText = generateWithModel(apiKey, modelName, contents)
+                if (!responseText.isNullOrBlank()) {
+                    emit(ResultWrapper.Success(responseText))
+                    return@flow
                 }
-            responseTextFlash?.let {
-                emit(ResultWrapper.Success(it))
-                return@flow
+            } catch (e: CancellationException) {
+                throw e
+            } catch (e: Exception) {
+                lastError = "${modelName}: ${e.localizedMessage ?: "Unknown error"}"
             }
-        } catch (e: CancellationException) {
-            throw e
-        } catch (e: Exception) {
-            // Silently try the next model
         }
 
-        try {
-            val generativeModel1_5Flash = GenerativeModel(
-                modelName = "gemini-1.5-flash",
-                apiKey = apiKey
-            )
-            val response1_5Flash = generativeModel1_5Flash.generateContent(*contents.toTypedArray())
-            val responseText1_5Flash = response1_5Flash.candidates.firstOrNull()
-                ?.content?.parts?.firstOrNull()
-                ?.let { part ->
-                    when (part) {
-                        is com.google.ai.client.generativeai.type.TextPart -> part.text
-                        else -> null
-                    }
+        emit(ResultWrapper.Error(lastError ?: "No se pudo obtener respuesta de los modelos configurados."))
+    }
+
+    private fun buildModelPriority(preferredModel: String): List<String> {
+        val normalizedPreferred = preferredModel.ifBlank { GeminiModelConfig.DEFAULT_MODEL }
+        return (listOf(normalizedPreferred) + GeminiModelConfig.fallbackOrder).distinct()
+    }
+
+    private suspend fun generateWithModel(
+        apiKey: String,
+        modelName: String,
+        contents: List<Content>
+    ): String? {
+        val generativeModel = GenerativeModel(
+            modelName = modelName,
+            apiKey = apiKey
+        )
+        val response = generativeModel.generateContent(*contents.toTypedArray())
+        val directText = response.text?.takeIf { it.isNotBlank() }
+        if (!directText.isNullOrBlank()) return directText
+
+        return response.candidates.firstOrNull()
+            ?.content
+            ?.parts
+            ?.joinToString(separator = "") { part ->
+                when (part) {
+                    is com.google.ai.client.generativeai.type.TextPart -> part.text
+                    else -> ""
                 }
-            responseText1_5Flash?.let {
-                emit(ResultWrapper.Success(it))
-                return@flow
-            } ?: emit(ResultWrapper.Error("Empty response from both APIs."))
-        } catch (e: CancellationException) {
-            throw e
-        } catch (e: Exception) {
-            emit(ResultWrapper.Error(e.localizedMessage ?: "An unknown error occurred after multiple attempts"))
-        }
+            }
+            ?.takeIf { it.isNotBlank() }
     }
 
     override fun getHistory(showHidden: Boolean): Flow<List<Capture>> {

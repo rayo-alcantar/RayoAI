@@ -2,6 +2,7 @@ package com.rayoai.presentation.ui.screens.settings
 
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
+import com.rayoai.domain.model.GeminiModelConfig
 import com.rayoai.domain.repository.ThemeMode
 import com.rayoai.domain.repository.UserPreferencesRepository
 import dagger.hilt.android.lifecycle.HiltViewModel
@@ -17,6 +18,7 @@ import javax.inject.Inject
  */
 data class SettingsUiState(
     val isApiKeySaved: Boolean = false,
+    val currentDefaultModel: String = GeminiModelConfig.DEFAULT_MODEL,
     val currentThemeMode: ThemeMode = ThemeMode.SYSTEM,
     val currentTextScale: Float = 1.0f,
     val currentAutoDescribeOnShare: Boolean = false,
@@ -38,6 +40,11 @@ class SettingsViewModel @Inject constructor(
         viewModelScope.launch {
             userPreferencesRepository.themeMode.collect { mode ->
                 _uiState.update { it.copy(currentThemeMode = mode) }
+            }
+        }
+        viewModelScope.launch {
+            userPreferencesRepository.defaultModel.collect { model ->
+                _uiState.update { it.copy(currentDefaultModel = model) }
             }
         }
         viewModelScope.launch {
@@ -79,6 +86,12 @@ class SettingsViewModel @Inject constructor(
      * Guarda el modo de tema seleccionado por el usuario.
      * @param mode El [ThemeMode] a guardar.
      */
+    fun saveDefaultModel(model: String) {
+        viewModelScope.launch {
+            userPreferencesRepository.saveDefaultModel(model)
+        }
+    }
+
     fun saveThemeMode(mode: ThemeMode) {
         viewModelScope.launch {
             userPreferencesRepository.saveThemeMode(mode)

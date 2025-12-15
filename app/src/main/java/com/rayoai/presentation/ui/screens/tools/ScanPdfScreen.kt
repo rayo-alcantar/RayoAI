@@ -36,12 +36,14 @@ import androidx.compose.ui.semantics.role
 import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.unit.dp
 import androidx.hilt.navigation.compose.hiltViewModel
+import com.rayoai.domain.model.GeminiModelConfig
 import com.rayoai.domain.repository.UserPreferencesRepository
 import com.rayoai.domain.usecase.ExtractTextFromImagesUseCase
 import com.rayoai.domain.usecase.pdf.SavePdfDocumentUseCase
 import com.rayoai.core.ResultWrapper
 import dagger.hilt.android.lifecycle.HiltViewModel
 import kotlinx.coroutines.flow.first
+import kotlinx.coroutines.flow.firstOrNull
 import kotlinx.coroutines.launch
 import java.util.Locale
 import javax.inject.Inject
@@ -75,8 +77,10 @@ class ScanPdfViewModel @Inject constructor(
                 status = "Analizando con Gemini..."
                 val apiKey = userPreferencesRepository.apiKey.first() ?: ""
                 val language = Locale.getDefault().language
+                val model = userPreferencesRepository.defaultModel.firstOrNull()
+                    ?: GeminiModelConfig.DEFAULT_MODEL
 
-                extractTextFromImagesUseCase(apiKey, images, language).collect { res ->
+                extractTextFromImagesUseCase(apiKey, images, language, model).collect { res ->
                     when (res) {
                         is ResultWrapper.Loading -> status = "Procesando texto..."
                         is ResultWrapper.Success -> {

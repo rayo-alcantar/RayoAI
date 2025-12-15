@@ -6,6 +6,7 @@ enum class ThemeMode { SYSTEM, LIGHT, DARK, HIGH_CONTRAST }
 
 interface UserPreferencesRepository {
     val apiKey: Flow<String?>
+    val defaultModel: Flow<String>
     val themeMode: Flow<ThemeMode>
     val textScale: Flow<Float>
     val autoDescribeOnShare: Flow<Boolean>
@@ -18,8 +19,8 @@ interface UserPreferencesRepository {
     val lastDonationPromptTime: Flow<Long>
     val showHiddenChats: Flow<Boolean>
 
-
     suspend fun saveApiKey(apiKey: String)
+    suspend fun saveDefaultModel(model: String)
     suspend fun saveThemeMode(mode: ThemeMode)
     suspend fun saveTextScale(scale: Float)
     suspend fun saveAutoDescribeOnShare(enabled: Boolean)

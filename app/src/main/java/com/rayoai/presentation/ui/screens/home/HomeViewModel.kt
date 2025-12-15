@@ -24,6 +24,7 @@ import kotlinx.coroutines.launch
 import android.util.Log
 import java.util.Locale
 import androidx.lifecycle.SavedStateHandle
+import com.rayoai.domain.model.GeminiModelConfig
 import com.rayoai.data.local.db.CaptureDao
 import javax.inject.Inject
 
@@ -43,6 +44,7 @@ data class HomeUiState(
     val chatMessages: List<ChatMessage> = emptyList(),
     val error: String? = null,
     val apiKey: String? = null,
+    val defaultModel: String = GeminiModelConfig.DEFAULT_MODEL,
     val currentImageBitmap: Bitmap? = null,
     val currentImageDescription: String? = null,
     val currentImageUri: Uri? = null,
@@ -85,6 +87,11 @@ class HomeViewModel @Inject constructor(
         viewModelScope.launch {
             userPreferencesRepository.apiKey.collect { key ->
                 _uiState.update { it.copy(apiKey = key) }
+            }
+        }
+        viewModelScope.launch {
+            userPreferencesRepository.defaultModel.collect { model ->
+                _uiState.update { it.copy(defaultModel = model) }
             }
         }
         savedStateHandle.get<String>("captureId")?.toLongOrNull()?.let {
@@ -208,7 +215,8 @@ class HomeViewModel @Inject constructor(
 
             try {
                 val languageCode = Locale.getDefault().language
-                describeImageUseCase(apiKey, image, prePrompt, languageCode = languageCode).collect { result ->
+                val model = _uiState.value.defaultModel.ifBlank { GeminiModelConfig.DEFAULT_MODEL }
+                describeImageUseCase(apiKey, image, prePrompt, languageCode = languageCode, model = model).collect { result ->
                     when (result) {
                         is ResultWrapper.Loading -> {
                             Log.d("HomeViewModel", "describeImage: ResultWrapper.Loading")
@@ -269,7 +277,8 @@ class HomeViewModel @Inject constructor(
             }
             try {
                 val languageCode = Locale.getDefault().language
-                continueChatUseCase(apiKey, message, _uiState.value.chatMessages, imageBitmaps, languageCode).collect { result ->
+                val model = _uiState.value.defaultModel.ifBlank { GeminiModelConfig.DEFAULT_MODEL }
+                continueChatUseCase(apiKey, message, _uiState.value.chatMessages, imageBitmaps, languageCode, model).collect { result ->
                     when (result) {
                         is ResultWrapper.Loading -> {
                         }

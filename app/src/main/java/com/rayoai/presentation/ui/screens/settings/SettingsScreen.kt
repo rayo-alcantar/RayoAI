@@ -1,5 +1,6 @@
 package com.rayoai.presentation.ui.screens.settings
 
+import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.selection.selectable
@@ -20,9 +21,15 @@ import androidx.compose.ui.unit.dp
 import androidx.hilt.navigation.compose.hiltViewModel
 import androidx.navigation.NavController
 import com.rayoai.R
+import com.rayoai.domain.model.GeminiModelConfig
 import com.rayoai.domain.repository.ThemeMode
 import com.rayoai.presentation.ui.components.SecureTextField
 import com.rayoai.presentation.ui.navigation.Screen
+import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.ArrowDropDown
+import androidx.compose.material3.DropdownMenu
+import androidx.compose.material3.DropdownMenuItem
+import androidx.compose.material3.Icon
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -32,8 +39,16 @@ fun SettingsScreen(
 ) {
     val uiState by viewModel.uiState.collectAsState()
     var apiKey by remember { mutableStateOf("") }
+    var isModelMenuExpanded by remember { mutableStateOf(false) }
     val snackbarHostState = remember { SnackbarHostState() }
     val focusManager = LocalFocusManager.current
+    val modelOptions = listOf(
+        GeminiModelConfig.DEFAULT_MODEL to stringResource(R.string.model_gemini_20_flash),
+        "gemini-2.5-flash" to stringResource(R.string.model_gemini_25_flash),
+        "gemini-2.5-pro" to stringResource(R.string.model_gemini_25_pro),
+        "gemini-3-pro" to stringResource(R.string.model_gemini_3_pro),
+        "gemini-3" to stringResource(R.string.model_gemini_3)
+    )
 
     val apiKeySavedMsg = stringResource(R.string.settings_api_key_saved_message)
 
@@ -90,6 +105,45 @@ fun SettingsScreen(
                 modifier = Modifier.fillMaxWidth()
             ) {
                 Text(stringResource(R.string.settings_api_key_instructions_button))
+            }
+
+            Spacer(modifier = Modifier.height(16.dp))
+
+            // Modelo predeterminado
+            Text(stringResource(R.string.settings_default_model_label), style = MaterialTheme.typography.titleMedium)
+            Spacer(modifier = Modifier.height(8.dp))
+            val selectedModelLabel = modelOptions.firstOrNull { it.first == uiState.currentDefaultModel }?.second
+                ?: uiState.currentDefaultModel
+            Box {
+                OutlinedTextField(
+                    value = selectedModelLabel,
+                    onValueChange = {},
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .clickable { isModelMenuExpanded = true },
+                    label = { Text(stringResource(R.string.settings_default_model_hint)) },
+                    readOnly = true,
+                    trailingIcon = {
+                        Icon(
+                            imageVector = Icons.Filled.ArrowDropDown,
+                            contentDescription = null
+                        )
+                    }
+                )
+                DropdownMenu(
+                    expanded = isModelMenuExpanded,
+                    onDismissRequest = { isModelMenuExpanded = false }
+                ) {
+                    modelOptions.forEach { (value, label) ->
+                        DropdownMenuItem(
+                            text = { Text(label) },
+                            onClick = {
+                                viewModel.saveDefaultModel(value)
+                                isModelMenuExpanded = false
+                            }
+                        )
+                    }
+                }
             }
 
             Spacer(modifier = Modifier.height(16.dp))

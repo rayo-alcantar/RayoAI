@@ -8,6 +8,7 @@ import androidx.datastore.preferences.core.floatPreferencesKey
 import androidx.datastore.preferences.core.intPreferencesKey
 import androidx.datastore.preferences.core.longPreferencesKey
 import androidx.datastore.preferences.core.stringPreferencesKey
+import com.rayoai.domain.model.GeminiModelConfig
 import com.rayoai.domain.repository.ThemeMode
 import com.rayoai.domain.repository.UserPreferencesRepository
 import kotlinx.coroutines.flow.Flow
@@ -20,6 +21,7 @@ class UserPreferencesRepositoryImpl @Inject constructor(
 
     private object PreferencesKeys {
         val API_KEY = stringPreferencesKey("api_key")
+        val DEFAULT_MODEL = stringPreferencesKey("default_model")
         val THEME_MODE = stringPreferencesKey("theme_mode")
         val TEXT_SCALE = floatPreferencesKey("text_scale")
         val AUTO_DESCRIBE_ON_SHARE = booleanPreferencesKey("auto_describe_on_share")
@@ -35,6 +37,10 @@ class UserPreferencesRepositoryImpl @Inject constructor(
 
     override val apiKey: Flow<String?> = dataStore.data.map {
         it[PreferencesKeys.API_KEY]
+    }
+
+    override val defaultModel: Flow<String> = dataStore.data.map {
+        it[PreferencesKeys.DEFAULT_MODEL] ?: GeminiModelConfig.DEFAULT_MODEL
     }
 
     override val themeMode: Flow<ThemeMode> = dataStore.data.map {
@@ -84,6 +90,12 @@ class UserPreferencesRepositoryImpl @Inject constructor(
     override suspend fun saveApiKey(apiKey: String) {
         dataStore.edit {
             it[PreferencesKeys.API_KEY] = apiKey
+        }
+    }
+
+    override suspend fun saveDefaultModel(model: String) {
+        dataStore.edit {
+            it[PreferencesKeys.DEFAULT_MODEL] = model
         }
     }
 
