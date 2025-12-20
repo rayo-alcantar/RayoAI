@@ -35,10 +35,12 @@ import androidx.compose.ui.focus.FocusRequester
 import androidx.compose.ui.focus.focusRequester
 import androidx.compose.ui.graphics.asImageBitmap
 import androidx.compose.ui.layout.ContentScale
+import androidx.compose.ui.platform.LocalClipboardManager
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.semantics.*
 import androidx.compose.ui.text.style.TextAlign
+import androidx.compose.ui.text.AnnotatedString
 import androidx.compose.ui.unit.dp
 import androidx.hilt.navigation.compose.hiltViewModel
 import androidx.navigation.NavController
@@ -77,6 +79,7 @@ fun HomeScreen(
 ) {
     val uiState by viewModel.uiState.collectAsState()
     val context = LocalContext.current
+    val clipboard = LocalClipboardManager.current
     val scope = rememberCoroutineScope()
 
     val snackbarHostState = remember { SnackbarHostState() }
@@ -96,13 +99,6 @@ fun HomeScreen(
                 null
             }
             bitmap?.let { img -> viewModel.describeImage(img) }
-        }
-    }
-
-    LaunchedEffect(uiState.error) {
-        uiState.error?.let {
-            snackbarHostState.showSnackbar(message = "Error: $it")
-            viewModel.clearError()
         }
     }
 
@@ -513,6 +509,29 @@ fun HomeScreen(
                     viewModel.onAddImageDialogDismissed()
                  }) {
                     Text(stringResource(R.string.take_photo))
+                }
+            }
+        )
+    }
+
+    uiState.error?.let { errorMessage ->
+        AlertDialog(
+            onDismissRequest = { viewModel.clearError() },
+            title = { Text(stringResource(R.string.error_dialog_title)) },
+            text = { Text(errorMessage) },
+            confirmButton = {
+                Button(
+                    onClick = {
+                        clipboard.setText(AnnotatedString(errorMessage))
+                        viewModel.clearError()
+                    }
+                ) {
+                    Text(stringResource(R.string.error_dialog_copy))
+                }
+            },
+            dismissButton = {
+                TextButton(onClick = { viewModel.clearError() }) {
+                    Text(stringResource(R.string.error_dialog_close))
                 }
             }
         )

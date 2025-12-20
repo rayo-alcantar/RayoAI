@@ -166,4 +166,10 @@ Tarjeta: 4152314082325278</string>
     <string name="update_check_no_updates">No hay actualizaciones disponibles.</string>
     <string name="update_check_failed">No se pudo comprobar actualizaciones.</string>
     <string name="update_check_beta_available">Hay una version beta disponible. Cambia el canal de actualizaciones.</string>
+    <string name="update_error_title">Error al comprobar actualizaciones</string>
+    <string name="update_error_copy">Copiar</string>
+    <string name="update_error_close">Cerrar</string>
+    <string name="error_dialog_title">Error</string>
+    <string name="error_dialog_copy">Copiar</string>
+    <string name="error_dialog_close">Cerrar</string>
 </resources>

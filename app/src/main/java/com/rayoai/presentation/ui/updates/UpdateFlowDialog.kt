@@ -22,8 +22,10 @@ import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.platform.LocalClipboardManager
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalLifecycleOwner
+import androidx.compose.ui.text.AnnotatedString
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.unit.dp
 import androidx.hilt.navigation.compose.hiltViewModel
@@ -37,7 +39,8 @@ fun UpdateFlowDialog() {
     val activity = LocalContext.current as ComponentActivity
     val viewModel: UpdateCheckViewModel = hiltViewModel(activity)
     val uiState by viewModel.uiState.collectAsState()
-    val updateInfo = uiState.updateAvailable ?: return
+    val clipboard = LocalClipboardManager.current
+    val updateInfo = uiState.updateAvailable
     val context = LocalContext.current
     var canInstall by remember { mutableStateOf(canRequestInstallPackages(context)) }
     val lifecycleOwner = LocalLifecycleOwner.current
@@ -51,6 +54,32 @@ fun UpdateFlowDialog() {
         lifecycleOwner.lifecycle.addObserver(observer)
         onDispose { lifecycleOwner.lifecycle.removeObserver(observer) }
     }
+
+    uiState.error?.let { error ->
+        AlertDialog(
+            onDismissRequest = { viewModel.clearError() },
+            title = { Text(text = stringResource(R.string.update_error_title)) },
+            text = { Text(text = error.details) },
+            confirmButton = {
+                Button(
+                    onClick = {
+                        clipboard.setText(AnnotatedString(error.details))
+                        viewModel.clearError()
+                    }
+                ) {
+                    Text(text = stringResource(R.string.update_error_copy))
+                }
+            },
+            dismissButton = {
+                TextButton(onClick = { viewModel.clearError() }) {
+                    Text(text = stringResource(R.string.update_error_close))
+                }
+            }
+        )
+        return
+    }
+
+    updateInfo ?: return
 
     AlertDialog(
         onDismissRequest = { viewModel.dismissUpdate() },

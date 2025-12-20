@@ -66,7 +66,6 @@ fun SettingsScreen(
 
     val apiKeySavedMsg = stringResource(R.string.settings_api_key_saved_message)
     val updateNoUpdatesMsg = stringResource(R.string.update_check_no_updates)
-    val updateFailedMsg = stringResource(R.string.update_check_failed)
     val updateBetaAvailableMsg = stringResource(R.string.update_check_beta_available)
 
     LaunchedEffect(uiState.isApiKeySaved) {
@@ -84,12 +83,6 @@ fun SettingsScreen(
             }
             UpdateCheckResult.BetaAvailable -> {
                 snackbarHostState.showSnackbar(updateBetaAvailableMsg)
-                updateViewModel.clearCheckResult()
-            }
-            is UpdateCheckResult.Error -> {
-                val message = result.message?.takeIf { it.isNotBlank() }
-                    ?: updateFailedMsg
-                snackbarHostState.showSnackbar(message)
                 updateViewModel.clearCheckResult()
             }
             null -> Unit

@@ -52,6 +52,7 @@ class UpdateDownloadReceiver : BroadcastReceiver() {
             .build()
 
         notificationManager.notify(UpdateInstaller.UPDATE_NOTIFICATION_ID, notification)
+        maybeStartInstaller(context, installIntent)
     }
 
     private fun isDownloadSuccessful(downloadManager: DownloadManager, downloadId: Long): Boolean {
@@ -74,5 +75,14 @@ class UpdateDownloadReceiver : BroadcastReceiver() {
             description = context.getString(R.string.update_channel_description)
         }
         manager.createNotificationChannel(channel)
+    }
+
+    private fun maybeStartInstaller(context: Context, intent: Intent) {
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
+            if (!context.packageManager.canRequestPackageInstalls()) return
+        }
+        runCatching {
+            context.startActivity(intent)
+        }
     }
 }

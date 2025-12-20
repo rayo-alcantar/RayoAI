@@ -13,20 +13,26 @@ import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
+import retrofit2.HttpException
 import javax.inject.Inject
 
 data class UpdateUiState(
     val isChecking: Boolean = false,
     val updateAvailable: UpdateInfo? = null,
     val isDownloading: Boolean = false,
-    val lastCheckResult: UpdateCheckResult? = null
+    val lastCheckResult: UpdateCheckResult? = null,
+    val error: UpdateError? = null
 )
 
 sealed class UpdateCheckResult {
     object UpToDate : UpdateCheckResult()
     object BetaAvailable : UpdateCheckResult()
-    data class Error(val message: String?) : UpdateCheckResult()
 }
+
+data class UpdateError(
+    val title: String,
+    val details: String
+)
 
 @HiltViewModel
 class UpdateCheckViewModel @Inject constructor(
@@ -48,17 +54,12 @@ class UpdateCheckViewModel @Inject constructor(
     fun checkForUpdates(manual: Boolean) {
         if (_uiState.value.isChecking) return
         viewModelScope.launch {
-            _uiState.update { it.copy(isChecking = true, lastCheckResult = null) }
+            _uiState.update { it.copy(isChecking = true, lastCheckResult = null, error = null) }
             val result = runCatching { updateRepository.checkForUpdateVerbose() }
             val response = result.getOrNull()
             val updateInfo = response?.updateInfo
             val checkResult = if (manual) {
                 when {
-                    result.isFailure -> {
-                        val error = result.exceptionOrNull()
-                        val message = error?.message?.takeIf { it.isNotBlank() } ?: error?.toString()
-                        UpdateCheckResult.Error(message)
-                    }
                     updateInfo == null &&
                         response?.channel == UpdateChannel.STABLE &&
                         response.hasStable == false &&
@@ -71,11 +72,13 @@ class UpdateCheckViewModel @Inject constructor(
             } else {
                 null
             }
+            val error = result.exceptionOrNull()?.let { formatError(it) }
             _uiState.update {
                 it.copy(
                     isChecking = false,
                     updateAvailable = updateInfo,
-                    lastCheckResult = checkResult
+                    lastCheckResult = checkResult,
+                    error = error
                 )
             }
         }
@@ -85,7 +88,7 @@ class UpdateCheckViewModel @Inject constructor(
         val updateInfo = _uiState.value.updateAvailable ?: return
         if (_uiState.value.isDownloading) return
         UpdateInstaller.downloadUpdate(context, updateInfo, updatePreferences)
-        _uiState.update { it.copy(isDownloading = true) }
+        _uiState.update { it.copy(isDownloading = true, updateAvailable = null) }
     }
 
     fun dismissUpdate() {
@@ -94,5 +97,30 @@ class UpdateCheckViewModel @Inject constructor(
 
     fun clearCheckResult() {
         _uiState.update { it.copy(lastCheckResult = null) }
+    }
+
+    fun clearError() {
+        _uiState.update { it.copy(error = null) }
+    }
+
+    private fun formatError(throwable: Throwable): UpdateError {
+        val title = "Error al comprobar actualizaciones"
+        val details = when (throwable) {
+            is HttpException -> {
+                val response = throwable.response()
+                val code = response?.code() ?: throwable.code()
+                val message = response?.message().orEmpty()
+                val url = response?.raw()?.request?.url?.toString().orEmpty()
+                val body = runCatching { response?.errorBody()?.string().orEmpty() }.getOrNull().orEmpty()
+                buildString {
+                    append("HTTP ").append(code)
+                    if (message.isNotBlank()) append(" ").append(message)
+                    if (url.isNotBlank()) append("\nURL: ").append(url)
+                    if (body.isNotBlank()) append("\nBody: ").append(body)
+                }
+            }
+            else -> throwable.toString()
+        }
+        return UpdateError(title = title, details = details.ifBlank { throwable.toString() })
     }
 }
