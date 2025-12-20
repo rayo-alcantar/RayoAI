@@ -144,4 +144,20 @@ Tarjeta: 4152314082325278</string>
     <string name="scan_pdf_back">Volver</string>
     <string name="pdf_delete_confirm_title">Eliminar documento</string>
     <string name="pdf_delete_confirm_text">¿Deseas eliminar este documento procesado?</string>
+    <string name="settings_update_channel_label">Canal de actualizaciones</string>
+    <string name="settings_update_channel_hint">Selecciona el canal</string>
+    <string name="update_channel_stable">Estable</string>
+    <string name="update_channel_beta">Beta</string>
+    <string name="update_channel_all">Beta y estable</string>
+    <string name="update_available_title">Nueva version disponible (%1$s)</string>
+    <string name="update_changelog_empty">Sin detalles de la version.</string>
+    <string name="update_download">Descargar</string>
+    <string name="update_later">Mas tarde</string>
+    <string name="update_downloading">Descarga en segundo plano...</string>
+    <string name="update_enable_install">Permitir instalaciones</string>
+    <string name="update_install_permission_required">Necesitas permitir instalaciones desde esta app.</string>
+    <string name="update_install_ready_title">Instalacion lista (%1$s)</string>
+    <string name="update_install_ready_text">Pulsa para instalar la nueva version.</string>
+    <string name="update_channel_name">Actualizaciones de RayoAI</string>
+    <string name="update_channel_description">Notificaciones para instalar nuevas versiones.</string>
 </resources>

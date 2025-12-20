@@ -12,6 +12,7 @@ import com.rayoai.data.local.db.MIGRATION_1_2
 import com.rayoai.data.local.db.MIGRATION_2_3
 import com.rayoai.data.local.pdfdb.PdfDao
 import com.rayoai.data.local.pdfdb.PdfDatabase
+import com.rayoai.data.remote.GithubApiService
 import com.rayoai.data.repository.UserPreferencesRepositoryImpl
 import com.rayoai.data.repository.VisionRepositoryImpl
 import com.rayoai.domain.repository.UserPreferencesRepository
@@ -22,6 +23,9 @@ import dagger.Provides
 import dagger.hilt.InstallIn
 import dagger.hilt.android.qualifiers.ApplicationContext
 import dagger.hilt.components.SingletonComponent
+import okhttp3.OkHttpClient
+import retrofit2.Retrofit
+import retrofit2.converter.gson.GsonConverterFactory
 import javax.inject.Singleton
 
 @Module
@@ -77,5 +81,35 @@ object AppModule {
     @Provides
     fun providePdfDao(database: PdfDatabase): PdfDao {
         return database.pdfDao()
+    }
+
+    @Provides
+    @Singleton
+    fun provideOkHttpClient(): OkHttpClient {
+        return OkHttpClient.Builder()
+            .addInterceptor { chain ->
+                val request = chain.request().newBuilder()
+                    .header("User-Agent", "RayoAI")
+                    .header("Accept", "application/vnd.github+json")
+                    .build()
+                chain.proceed(request)
+            }
+            .build()
+    }
+
+    @Provides
+    @Singleton
+    fun provideRetrofit(client: OkHttpClient): Retrofit {
+        return Retrofit.Builder()
+            .baseUrl("https://api.github.com/")
+            .client(client)
+            .addConverterFactory(GsonConverterFactory.create())
+            .build()
+    }
+
+    @Provides
+    @Singleton
+    fun provideGithubApiService(retrofit: Retrofit): GithubApiService {
+        return retrofit.create(GithubApiService::class.java)
     }
 }

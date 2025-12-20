@@ -35,6 +35,7 @@ import com.rayoai.presentation.ui.screens.history.HistoryScreen
 import com.rayoai.presentation.ui.screens.home.HomeScreen
 import com.rayoai.presentation.ui.screens.settings.SettingsScreen
 import com.rayoai.presentation.ui.screens.welcome.WelcomeScreen
+import com.rayoai.presentation.ui.updates.UpdateFlowDialog
 import com.rayoai.R
 
 import androidx.activity.compose.BackHandler
@@ -78,6 +79,8 @@ fun AppNavigation(imageUri: Uri?, startDestination: String, pdfUri: Uri? = null)
     val navBackStackEntry by navController.currentBackStackEntryAsState()
     val currentDestination = navBackStackEntry?.destination
     val activity = (LocalContext.current as? Activity)
+
+    UpdateFlowDialog()
 
     
 

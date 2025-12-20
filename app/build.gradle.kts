@@ -66,7 +66,10 @@ android {
         jvmTarget = "17"
     }
 
-    buildFeatures { compose = true }
+    buildFeatures {
+        compose = true
+        buildConfig = true
+    }
 
     // Kotlin 1.9.24  + Compose Compiler 1.5.14
     composeOptions {
@@ -140,6 +143,11 @@ dependencies {
 
     // Gson
     implementation("com.google.code.gson:gson:2.13.2")
+
+    // Retrofit
+    implementation("com.squareup.retrofit2:retrofit:2.11.0")
+    implementation("com.squareup.retrofit2:converter-gson:2.11.0")
+    implementation("com.squareup.okhttp3:okhttp:4.12.0")
 
     // Testing
     testImplementation("junit:junit:4.13.2")

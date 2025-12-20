@@ -22,6 +22,7 @@ import androidx.hilt.navigation.compose.hiltViewModel
 import androidx.navigation.NavController
 import com.rayoai.R
 import com.rayoai.domain.model.GeminiModelConfig
+import com.rayoai.domain.model.UpdateChannel
 import com.rayoai.domain.repository.ThemeMode
 import com.rayoai.presentation.ui.components.SecureTextField
 import com.rayoai.presentation.ui.navigation.Screen
@@ -40,6 +41,7 @@ fun SettingsScreen(
     val uiState by viewModel.uiState.collectAsState()
     var apiKey by remember { mutableStateOf("") }
     var isModelMenuExpanded by remember { mutableStateOf(false) }
+    var isUpdateChannelMenuExpanded by remember { mutableStateOf(false) }
     val snackbarHostState = remember { SnackbarHostState() }
     val focusManager = LocalFocusManager.current
     val modelOptions = listOf(
@@ -48,6 +50,11 @@ fun SettingsScreen(
         "gemini-2.5-pro" to stringResource(R.string.model_gemini_25_pro),
         "gemini-3-pro" to stringResource(R.string.model_gemini_3_pro),
         "gemini-3" to stringResource(R.string.model_gemini_3)
+    )
+    val updateChannelOptions = listOf(
+        UpdateChannel.STABLE to stringResource(R.string.update_channel_stable),
+        UpdateChannel.BETA to stringResource(R.string.update_channel_beta),
+        UpdateChannel.ALL to stringResource(R.string.update_channel_all)
     )
 
     val apiKeySavedMsg = stringResource(R.string.settings_api_key_saved_message)
@@ -166,6 +173,44 @@ fun SettingsScreen(
                 modifier = Modifier.fillMaxWidth()
             )
 
+            Spacer(modifier = Modifier.height(16.dp))
+
+            // Canal de actualizaciones
+            Text(stringResource(R.string.settings_update_channel_label), style = MaterialTheme.typography.titleMedium)
+            Spacer(modifier = Modifier.height(8.dp))
+            val selectedChannelLabel = updateChannelOptions.firstOrNull { it.first == uiState.currentUpdateChannel }?.second
+                ?: uiState.currentUpdateChannel.name
+            Box {
+                OutlinedTextField(
+                    value = selectedChannelLabel,
+                    onValueChange = {},
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .clickable { isUpdateChannelMenuExpanded = true },
+                    label = { Text(stringResource(R.string.settings_update_channel_hint)) },
+                    readOnly = true,
+                    trailingIcon = {
+                        Icon(
+                            imageVector = Icons.Filled.ArrowDropDown,
+                            contentDescription = null
+                        )
+                    }
+                )
+                DropdownMenu(
+                    expanded = isUpdateChannelMenuExpanded,
+                    onDismissRequest = { isUpdateChannelMenuExpanded = false }
+                ) {
+                    updateChannelOptions.forEach { (value, label) ->
+                        DropdownMenuItem(
+                            text = { Text(label) },
+                            onClick = {
+                                viewModel.saveUpdateChannel(value)
+                                isUpdateChannelMenuExpanded = false
+                            }
+                        )
+                    }
+                }
+            }
 
             Spacer(modifier = Modifier.height(16.dp))
 

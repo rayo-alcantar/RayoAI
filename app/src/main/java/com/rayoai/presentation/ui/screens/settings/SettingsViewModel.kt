@@ -2,7 +2,9 @@ package com.rayoai.presentation.ui.screens.settings
 
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
+import com.rayoai.data.local.UpdatePreferences
 import com.rayoai.domain.model.GeminiModelConfig
+import com.rayoai.domain.model.UpdateChannel
 import com.rayoai.domain.repository.ThemeMode
 import com.rayoai.domain.repository.UserPreferencesRepository
 import dagger.hilt.android.lifecycle.HiltViewModel
@@ -23,12 +25,14 @@ data class SettingsUiState(
     val currentTextScale: Float = 1.0f,
     val currentAutoDescribeOnShare: Boolean = false,
     val maxImagesInChat: String = "3",
+    val currentUpdateChannel: UpdateChannel = UpdateChannel.STABLE,
     val navigateTo: String? = null
 )
 
 @HiltViewModel
 class SettingsViewModel @Inject constructor(
-    val userPreferencesRepository: UserPreferencesRepository // Repositorio de preferencias del usuario.
+    val userPreferencesRepository: UserPreferencesRepository, // Repositorio de preferencias del usuario.
+    private val updatePreferences: UpdatePreferences
 ) : ViewModel() {
 
     // Estado mutable de la UI, expuesto como un StateFlow inmutable para la UI.
@@ -60,6 +64,11 @@ class SettingsViewModel @Inject constructor(
         viewModelScope.launch {
             userPreferencesRepository.maxImagesInChat.collect { count ->
                 _uiState.update { it.copy(maxImagesInChat = count.toString()) }
+            }
+        }
+        viewModelScope.launch {
+            updatePreferences.updateChannel.collect { channel ->
+                _uiState.update { it.copy(currentUpdateChannel = channel) }
             }
         }
     }
@@ -116,6 +125,10 @@ class SettingsViewModel @Inject constructor(
         viewModelScope.launch {
             userPreferencesRepository.saveAutoDescribeOnShare(enabled)
         }
+    }
+
+    fun saveUpdateChannel(channel: UpdateChannel) {
+        updatePreferences.setUpdateChannel(channel)
     }
 
     fun onMaxImagesInChatChanged(text: String) {
