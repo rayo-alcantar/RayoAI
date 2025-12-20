@@ -14,7 +14,11 @@ import androidx.compose.material3.NavigationBarItem
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.res.stringResource
@@ -79,8 +83,18 @@ fun AppNavigation(imageUri: Uri?, startDestination: String, pdfUri: Uri? = null)
     val navBackStackEntry by navController.currentBackStackEntryAsState()
     val currentDestination = navBackStackEntry?.destination
     val activity = (LocalContext.current as? Activity)
+    var pendingPdfUri by remember { mutableStateOf<Uri?>(null) }
 
     UpdateFlowDialog()
+
+    LaunchedEffect(pdfUri) {
+        if (pdfUri != null) {
+            pendingPdfUri = pdfUri
+            navController.navigate(Screen.ScanPdf.route) {
+                launchSingleTop = true
+            }
+        }
+    }
 
     
 
@@ -150,7 +164,8 @@ fun AppNavigation(imageUri: Uri?, startDestination: String, pdfUri: Uri? = null)
             }
             composable(Screen.ScanPdf.route) {
                 com.rayoai.presentation.ui.screens.tools.ScanPdfScreen(
-                    incomingPdfUri = pdfUri,
+                    incomingPdfUri = pendingPdfUri,
+                    onPdfConsumed = { pendingPdfUri = null },
                     onNavigateBack = { navController.popBackStack() }
                 )
             }

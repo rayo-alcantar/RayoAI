@@ -4,6 +4,7 @@ import android.content.Intent
 import android.net.Uri
 import android.os.Bundle
 import androidx.activity.ComponentActivity
+import android.content.ClipData
 import com.rayoai.presentation.ui.MainActivity
 
 /**
@@ -25,7 +26,9 @@ class SharingActivity : ComponentActivity() {
                             val mainIntent = Intent(this, MainActivity::class.java).apply {
                                 action = Intent.ACTION_SEND
                                 putExtra(Intent.EXTRA_STREAM, imageUri)
-                                flags = Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_CLEAR_TASK
+                                addFlags(Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_CLEAR_TASK)
+                                addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION)
+                                clipData = ClipData.newUri(contentResolver, "shared_image", imageUri)
                             }
                             startActivity(mainIntent)
                         }
@@ -36,7 +39,9 @@ class SharingActivity : ComponentActivity() {
                                 action = Intent.ACTION_SEND
                                 putExtra(Intent.EXTRA_STREAM, pdfUri)
                                 putExtra("EXTRA_IS_PDF", true)
-                                flags = Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_CLEAR_TASK
+                                addFlags(Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_CLEAR_TASK)
+                                addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION)
+                                clipData = ClipData.newUri(contentResolver, "shared_pdf", pdfUri)
                             }
                             startActivity(mainIntent)
                         }

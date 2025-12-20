@@ -72,7 +72,7 @@ class ScanPdfViewModel @Inject constructor(
                 isLoading = true
                 status = "Cargando documento..."
 
-                val images = renderFirstPages(context.contentResolver, uri, maxPages = 3)
+                val images = renderAllPages(context.contentResolver, uri)
 
                 status = "Analizando con Gemini..."
                 val apiKey = userPreferencesRepository.apiKey.first() ?: ""
@@ -109,21 +109,23 @@ class ScanPdfViewModel @Inject constructor(
         }
     }
 
-    private fun renderFirstPages(resolver: ContentResolver, uri: Uri, maxPages: Int): List<Bitmap> {
+    private fun renderAllPages(resolver: ContentResolver, uri: Uri): List<Bitmap> {
         val pfd = resolver.openFileDescriptor(uri, "r") ?: return emptyList()
-        PdfRenderer(pfd).use { renderer ->
-            val count = minOf(renderer.pageCount, maxPages)
-            val bitmaps = mutableListOf<Bitmap>()
-            repeat(count) { index ->
-                renderer.openPage(index).use { page ->
-                    val width = 1080
-                    val height = (width.toFloat() / page.width * page.height).toInt()
-                    val bmp = Bitmap.createBitmap(width, height, Bitmap.Config.ARGB_8888)
-                    page.render(bmp, null, null, PdfRenderer.Page.RENDER_MODE_FOR_DISPLAY)
-                    bitmaps.add(bmp)
+        return pfd.use { descriptor ->
+            PdfRenderer(descriptor).use { renderer ->
+                val count = renderer.pageCount
+                val bitmaps = mutableListOf<Bitmap>()
+                repeat(count) { index ->
+                    renderer.openPage(index).use { page ->
+                        val width = 1080
+                        val height = (width.toFloat() / page.width * page.height).toInt()
+                        val bmp = Bitmap.createBitmap(width, height, Bitmap.Config.ARGB_8888)
+                        page.render(bmp, null, null, PdfRenderer.Page.RENDER_MODE_FOR_DISPLAY)
+                        bitmaps.add(bmp)
+                    }
                 }
+                bitmaps
             }
-            return bitmaps
         }
     }
 
@@ -137,10 +139,12 @@ class ScanPdfViewModel @Inject constructor(
 fun ScanPdfScreen(
     incomingPdfUri: Uri? = null,
     onNavigateBack: () -> Unit,
+    onPdfConsumed: () -> Unit = {},
     viewModel: ScanPdfViewModel = hiltViewModel()
 ) {
     val context = LocalContext.current
     val clipboard = LocalClipboardManager.current
+    var hasConsumedIncoming by remember { mutableStateOf(false) }
 
     // Launcher para seleccionar PDF
     val launcher = rememberLauncherForActivityResult(
@@ -159,14 +163,16 @@ fun ScanPdfScreen(
 
     // Si viene un PDF compartido desde otra app
     LaunchedEffect(incomingPdfUri) {
-        incomingPdfUri?.let {
+        if (incomingPdfUri != null && !hasConsumedIncoming) {
+            hasConsumedIncoming = true
             try {
                 context.contentResolver.takePersistableUriPermission(
-                    it,
+                    incomingPdfUri,
                     Intent.FLAG_GRANT_READ_URI_PERMISSION
                 )
             } catch (_: Exception) {}
-            viewModel.analyze(context, it)
+            viewModel.analyze(context, incomingPdfUri)
+            onPdfConsumed()
         }
     }
 
