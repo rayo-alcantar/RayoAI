@@ -20,6 +20,7 @@ import javax.inject.Inject
  */
 data class SettingsUiState(
     val isApiKeySaved: Boolean = false,
+    val apiKeyInput: String = "",
     val currentDefaultModel: String = GeminiModelConfig.DEFAULT_MODEL,
     val currentThemeMode: ThemeMode = ThemeMode.SYSTEM,
     val currentTextScale: Float = 1.0f,
@@ -47,6 +48,11 @@ class SettingsViewModel @Inject constructor(
             }
         }
         viewModelScope.launch {
+            userPreferencesRepository.apiKey.collect { key ->
+                _uiState.update { it.copy(apiKeyInput = key.orEmpty()) }
+            }
+        }
+        viewModelScope.launch {
             userPreferencesRepository.defaultModel.collect { model ->
                 _uiState.update { it.copy(currentDefaultModel = model) }
             }
@@ -71,6 +77,10 @@ class SettingsViewModel @Inject constructor(
                 _uiState.update { it.copy(currentUpdateChannel = channel) }
             }
         }
+    }
+
+    fun onApiKeyChanged(value: String) {
+        _uiState.update { it.copy(apiKeyInput = value) }
     }
 
     /**

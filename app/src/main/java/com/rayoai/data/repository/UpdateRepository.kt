@@ -17,10 +17,55 @@ class UpdateRepository @Inject constructor(
     private val owner = "rayo-alcantar"
     private val repo = "rayoai_for_android"
 
+    data class UpdateCheckResponse(
+        val updateInfo: UpdateInfo?,
+        val hasStable: Boolean,
+        val hasBeta: Boolean,
+        val channel: UpdateChannel
+    )
+
     suspend fun checkForUpdate(): UpdateInfo? {
+        return checkForUpdateVerbose().updateInfo
+    }
+
+    suspend fun checkForUpdateVerbose(): UpdateCheckResponse {
         val releases = githubApiService.getReleases(owner, repo)
         val channel = updatePreferences.getUpdateChannel()
-        val candidate = selectCandidate(releases, channel) ?: return null
+        val (stable, beta) = splitReleases(releases)
+        val candidate = selectCandidateFromLists(stable, beta, channel)
+        val updateInfo = candidate?.let { buildUpdateInfoIfNew(it) }
+        return UpdateCheckResponse(
+            updateInfo = updateInfo,
+            hasStable = stable.isNotEmpty(),
+            hasBeta = beta.isNotEmpty(),
+            channel = channel
+        )
+    }
+
+    private fun splitReleases(releases: List<GithubRelease>): Pair<List<GithubRelease>, List<GithubRelease>> {
+        val valid = releases.filter { release ->
+            !release.draft && release.assets.any { it.name?.endsWith(".apk", ignoreCase = true) == true }
+        }
+        val stable = valid.filter { !it.isPrerelease }
+        val beta = valid.filter { it.isPrerelease }
+        return stable to beta
+    }
+
+    private fun selectCandidateFromLists(
+        stable: List<GithubRelease>,
+        beta: List<GithubRelease>,
+        channel: UpdateChannel
+    ): GithubRelease? {
+        val bestStable = bestRelease(stable)
+        val bestBeta = bestRelease(beta)
+        return when (channel) {
+            UpdateChannel.STABLE -> bestStable
+            UpdateChannel.BETA -> bestBeta
+            UpdateChannel.ALL -> selectNewest(bestStable, bestBeta)
+        }
+    }
+
+    private fun buildUpdateInfoIfNew(candidate: GithubRelease): UpdateInfo? {
         val candidateVersion = candidate.tagName
         val currentVersion = BuildConfig.VERSION_NAME
         if (compareVersions(candidateVersion, currentVersion) <= 0) {
@@ -34,24 +79,6 @@ class UpdateRepository @Inject constructor(
             changelog = candidate.body?.trim().orEmpty(),
             apkUrl = apkUrl
         )
-    }
-
-    private fun selectCandidate(
-        releases: List<GithubRelease>,
-        channel: UpdateChannel
-    ): GithubRelease? {
-        val valid = releases.filter { release ->
-            !release.draft && release.assets.any { it.name?.endsWith(".apk", ignoreCase = true) == true }
-        }
-        val stable = valid.filter { !it.isPrerelease }
-        val beta = valid.filter { it.isPrerelease }
-        val bestStable = bestRelease(stable)
-        val bestBeta = bestRelease(beta)
-        return when (channel) {
-            UpdateChannel.STABLE -> bestStable
-            UpdateChannel.BETA -> bestBeta
-            UpdateChannel.ALL -> selectNewest(bestStable, bestBeta)
-        }
     }
 
     private fun bestRelease(releases: List<GithubRelease>): GithubRelease? {

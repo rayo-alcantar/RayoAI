@@ -43,6 +43,7 @@
     <string name="model_gemini_20_flash">Gemini 2.0 Flash (predeterminado)</string>
     <string name="model_gemini_25_flash">Gemini 2.5 Flash</string>
     <string name="model_gemini_25_pro">Gemini 2.5 Pro</string>
+    <string name="model_gemini_3_flash">Gemini 3 Flash</string>
     <string name="model_gemini_3_pro">Gemini 3 Pro</string>
     <string name="model_gemini_3">Gemini 3</string>
     <string name="settings_api_key_instructions_button">Ver instrucciones para obtener API key</string>
@@ -160,4 +161,9 @@ Tarjeta: 4152314082325278</string>
     <string name="update_install_ready_text">Pulsa para instalar la nueva version.</string>
     <string name="update_channel_name">Actualizaciones de RayoAI</string>
     <string name="update_channel_description">Notificaciones para instalar nuevas versiones.</string>
+    <string name="update_check_now">Buscar actualizaciones</string>
+    <string name="update_checking">Buscando actualizaciones...</string>
+    <string name="update_check_no_updates">No hay actualizaciones disponibles.</string>
+    <string name="update_check_failed">No se pudo comprobar actualizaciones.</string>
+    <string name="update_check_beta_available">Hay una version beta disponible. Cambia el canal de actualizaciones.</string>
 </resources>

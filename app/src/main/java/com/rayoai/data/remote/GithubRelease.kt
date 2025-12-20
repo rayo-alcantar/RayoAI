@@ -5,16 +5,21 @@ import com.google.gson.annotations.SerializedName
 data class GithubRelease(
     @SerializedName("tag_name")
     val tagName: String,
-    val name: String?,
-    val body: String?,
+    @SerializedName("name")
+    val name: String? = null,
+    @SerializedName("body")
+    val body: String? = null,
     @SerializedName("prerelease")
     val isPrerelease: Boolean,
-    val draft: Boolean,
-    val assets: List<GithubAsset>
+    @SerializedName("draft")
+    val draft: Boolean = false,
+    @SerializedName("assets")
+    val assets: List<GithubAsset> = emptyList()
 )
 
 data class GithubAsset(
-    val name: String?,
+    @SerializedName("name")
+    val name: String? = null,
     @SerializedName("browser_download_url")
-    val browserDownloadUrl: String?
+    val browserDownloadUrl: String? = null
 )

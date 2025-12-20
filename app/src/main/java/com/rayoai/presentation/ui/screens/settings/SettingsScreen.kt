@@ -12,6 +12,7 @@ import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalFocusManager
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.semantics.Role
@@ -26,11 +27,14 @@ import com.rayoai.domain.model.UpdateChannel
 import com.rayoai.domain.repository.ThemeMode
 import com.rayoai.presentation.ui.components.SecureTextField
 import com.rayoai.presentation.ui.navigation.Screen
+import com.rayoai.presentation.ui.updates.UpdateCheckResult
+import com.rayoai.presentation.ui.updates.UpdateCheckViewModel
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.ArrowDropDown
 import androidx.compose.material3.DropdownMenu
 import androidx.compose.material3.DropdownMenuItem
 import androidx.compose.material3.Icon
+import androidx.activity.ComponentActivity
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -39,7 +43,9 @@ fun SettingsScreen(
     navController: NavController
 ) {
     val uiState by viewModel.uiState.collectAsState()
-    var apiKey by remember { mutableStateOf("") }
+    val activity = LocalContext.current as ComponentActivity
+    val updateViewModel: UpdateCheckViewModel = hiltViewModel(activity)
+    val updateUiState by updateViewModel.uiState.collectAsState()
     var isModelMenuExpanded by remember { mutableStateOf(false) }
     var isUpdateChannelMenuExpanded by remember { mutableStateOf(false) }
     val snackbarHostState = remember { SnackbarHostState() }
@@ -48,6 +54,7 @@ fun SettingsScreen(
         GeminiModelConfig.DEFAULT_MODEL to stringResource(R.string.model_gemini_20_flash),
         "gemini-2.5-flash" to stringResource(R.string.model_gemini_25_flash),
         "gemini-2.5-pro" to stringResource(R.string.model_gemini_25_pro),
+        "gemini-3-flash" to stringResource(R.string.model_gemini_3_flash),
         "gemini-3-pro" to stringResource(R.string.model_gemini_3_pro),
         "gemini-3" to stringResource(R.string.model_gemini_3)
     )
@@ -58,11 +65,34 @@ fun SettingsScreen(
     )
 
     val apiKeySavedMsg = stringResource(R.string.settings_api_key_saved_message)
+    val updateNoUpdatesMsg = stringResource(R.string.update_check_no_updates)
+    val updateFailedMsg = stringResource(R.string.update_check_failed)
+    val updateBetaAvailableMsg = stringResource(R.string.update_check_beta_available)
 
     LaunchedEffect(uiState.isApiKeySaved) {
         if (uiState.isApiKeySaved) {
             snackbarHostState.showSnackbar(apiKeySavedMsg)
             viewModel.clearApiKeySavedStatus()
+        }
+    }
+
+    LaunchedEffect(updateUiState.lastCheckResult) {
+        when (val result = updateUiState.lastCheckResult) {
+            UpdateCheckResult.UpToDate -> {
+                snackbarHostState.showSnackbar(updateNoUpdatesMsg)
+                updateViewModel.clearCheckResult()
+            }
+            UpdateCheckResult.BetaAvailable -> {
+                snackbarHostState.showSnackbar(updateBetaAvailableMsg)
+                updateViewModel.clearCheckResult()
+            }
+            is UpdateCheckResult.Error -> {
+                val message = result.message?.takeIf { it.isNotBlank() }
+                    ?: updateFailedMsg
+                snackbarHostState.showSnackbar(message)
+                updateViewModel.clearCheckResult()
+            }
+            null -> Unit
         }
     }
 
@@ -94,14 +124,14 @@ fun SettingsScreen(
             Text(stringResource(R.string.settings_api_key_label), style = MaterialTheme.typography.titleMedium)
             Spacer(modifier = Modifier.height(8.dp))
             SecureTextField(
-                value = apiKey,
-                onValueChange = { apiKey = it },
+                value = uiState.apiKeyInput,
+                onValueChange = { viewModel.onApiKeyChanged(it) },
                 label = stringResource(R.string.settings_api_key_hint),
                 modifier = Modifier.fillMaxWidth()
             )
             Spacer(modifier = Modifier.height(8.dp))
             Button(
-                onClick = { viewModel.saveApiKey(apiKey) },
+                onClick = { viewModel.saveApiKey(uiState.apiKeyInput) },
                 modifier = Modifier.fillMaxWidth()
             ) {
                 Text(stringResource(R.string.settings_api_key_save))
@@ -112,6 +142,60 @@ fun SettingsScreen(
                 modifier = Modifier.fillMaxWidth()
             ) {
                 Text(stringResource(R.string.settings_api_key_instructions_button))
+            }
+
+            Spacer(modifier = Modifier.height(16.dp))
+
+            // Canal de actualizaciones
+            Text(stringResource(R.string.settings_update_channel_label), style = MaterialTheme.typography.titleMedium)
+            Spacer(modifier = Modifier.height(8.dp))
+            val selectedChannelLabel = updateChannelOptions.firstOrNull { it.first == uiState.currentUpdateChannel }?.second
+                ?: uiState.currentUpdateChannel.name
+            Box {
+                OutlinedTextField(
+                    value = selectedChannelLabel,
+                    onValueChange = {},
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .clickable { isUpdateChannelMenuExpanded = true },
+                    label = { Text(stringResource(R.string.settings_update_channel_hint)) },
+                    readOnly = true,
+                    trailingIcon = {
+                        Icon(
+                            imageVector = Icons.Filled.ArrowDropDown,
+                            contentDescription = null
+                        )
+                    }
+                )
+                DropdownMenu(
+                    expanded = isUpdateChannelMenuExpanded,
+                    onDismissRequest = { isUpdateChannelMenuExpanded = false }
+                ) {
+                    updateChannelOptions.forEach { (value, label) ->
+                        DropdownMenuItem(
+                            text = { Text(label) },
+                            onClick = {
+                                viewModel.saveUpdateChannel(value)
+                                isUpdateChannelMenuExpanded = false
+                            }
+                        )
+                    }
+                }
+            }
+
+            Spacer(modifier = Modifier.height(16.dp))
+
+            val checkUpdatesLabel = if (updateUiState.isChecking) {
+                stringResource(R.string.update_checking)
+            } else {
+                stringResource(R.string.update_check_now)
+            }
+            OutlinedButton(
+                onClick = { updateViewModel.checkForUpdates(manual = true) },
+                modifier = Modifier.fillMaxWidth(),
+                enabled = !updateUiState.isChecking
+            ) {
+                Text(checkUpdatesLabel)
             }
 
             Spacer(modifier = Modifier.height(16.dp))
@@ -175,45 +259,6 @@ fun SettingsScreen(
 
             Spacer(modifier = Modifier.height(16.dp))
 
-            // Canal de actualizaciones
-            Text(stringResource(R.string.settings_update_channel_label), style = MaterialTheme.typography.titleMedium)
-            Spacer(modifier = Modifier.height(8.dp))
-            val selectedChannelLabel = updateChannelOptions.firstOrNull { it.first == uiState.currentUpdateChannel }?.second
-                ?: uiState.currentUpdateChannel.name
-            Box {
-                OutlinedTextField(
-                    value = selectedChannelLabel,
-                    onValueChange = {},
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .clickable { isUpdateChannelMenuExpanded = true },
-                    label = { Text(stringResource(R.string.settings_update_channel_hint)) },
-                    readOnly = true,
-                    trailingIcon = {
-                        Icon(
-                            imageVector = Icons.Filled.ArrowDropDown,
-                            contentDescription = null
-                        )
-                    }
-                )
-                DropdownMenu(
-                    expanded = isUpdateChannelMenuExpanded,
-                    onDismissRequest = { isUpdateChannelMenuExpanded = false }
-                ) {
-                    updateChannelOptions.forEach { (value, label) ->
-                        DropdownMenuItem(
-                            text = { Text(label) },
-                            onClick = {
-                                viewModel.saveUpdateChannel(value)
-                                isUpdateChannelMenuExpanded = false
-                            }
-                        )
-                    }
-                }
-            }
-
-            Spacer(modifier = Modifier.height(16.dp))
-
             // Sección Tema
             Text(stringResource(R.string.settings_theme_label), style = MaterialTheme.typography.titleMedium)
             Spacer(modifier = Modifier.height(8.dp))
@@ -264,19 +309,6 @@ fun SettingsScreen(
 
             Spacer(modifier = Modifier.height(24.dp))
 
-            // Auto-describir al compartir
-            Row(
-                modifier = Modifier.fillMaxWidth(),
-                verticalAlignment = Alignment.CenterVertically
-            ) {
-                Text(stringResource(R.string.settings_autodescribe_label), style = MaterialTheme.typography.titleMedium)
-                Spacer(modifier = Modifier.weight(1f))
-                Switch(
-                    checked = uiState.currentAutoDescribeOnShare,
-                    onCheckedChange = { viewModel.saveAutoDescribeOnShare(it) }
-                )
-            }
-            Spacer(modifier = Modifier.height(16.dp))
         }
     }
 }

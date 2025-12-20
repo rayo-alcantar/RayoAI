@@ -15,6 +15,7 @@ object GeminiModelConfig {
         DEFAULT_MODEL,
         "gemini-2.5-flash",
         "gemini-2.5-pro",
+        "gemini-3-flash",
         "gemini-3-pro",
         "gemini-3"
     )
@@ -26,6 +27,7 @@ object GeminiModelConfig {
         "gemini-2.5-pro",
         "gemini-2.5-flash",
         "gemini-2.5",
+        "gemini-3-flash",
         "gemini-3-pro",
         "gemini-3",
         DEFAULT_MODEL

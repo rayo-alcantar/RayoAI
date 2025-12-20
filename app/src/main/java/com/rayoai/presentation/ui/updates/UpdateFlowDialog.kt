@@ -30,11 +30,12 @@ import androidx.hilt.navigation.compose.hiltViewModel
 import androidx.lifecycle.Lifecycle
 import androidx.lifecycle.LifecycleEventObserver
 import com.rayoai.R
+import androidx.activity.ComponentActivity
 
 @Composable
-fun UpdateFlowDialog(
-    viewModel: UpdateCheckViewModel = hiltViewModel()
-) {
+fun UpdateFlowDialog() {
+    val activity = LocalContext.current as ComponentActivity
+    val viewModel: UpdateCheckViewModel = hiltViewModel(activity)
     val uiState by viewModel.uiState.collectAsState()
     val updateInfo = uiState.updateAvailable ?: return
     val context = LocalContext.current
