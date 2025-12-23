@@ -14,6 +14,7 @@ import androidx.compose.foundation.lazy.items
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Delete
 import androidx.compose.material.icons.filled.PictureAsPdf
+import androidx.compose.material.icons.filled.VideoLibrary
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Button
 import androidx.compose.material3.Card
@@ -38,6 +39,7 @@ import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.unit.dp
 import androidx.hilt.navigation.compose.hiltViewModel
 import com.rayoai.domain.model.PdfDocument
+import com.rayoai.domain.model.VideoDocument
 import java.text.SimpleDateFormat
 import java.util.Date
 import java.util.Locale
@@ -45,11 +47,15 @@ import java.util.Locale
 @Composable
 fun ToolsScreen(
     onScanPdf: () -> Unit,
+    onScanVideo: () -> Unit,
     onOpenProcessed: (PdfDocument) -> Unit,
+    onOpenVideo: (VideoDocument) -> Unit,
     viewModel: ToolsViewModel = hiltViewModel()
 ) {
     val pdfDocs by viewModel.pdfDocuments.collectAsState()
+    val videoDocs by viewModel.videoDocuments.collectAsState()
     var toDelete by remember { mutableStateOf<PdfDocument?>(null) }
+    var videoToDelete by remember { mutableStateOf<VideoDocument?>(null) }
 
     if (toDelete != null) {
         AlertDialog(
@@ -64,6 +70,23 @@ fun ToolsScreen(
             },
             dismissButton = {
                 Button(onClick = { toDelete = null }) { Text(text = "Cancelar") }
+            }
+        )
+    }
+
+    if (videoToDelete != null) {
+        AlertDialog(
+            onDismissRequest = { videoToDelete = null },
+            title = { Text(text = "Eliminar video") },
+            text = { Text(text = "¿Deseas eliminar este video procesado?") },
+            confirmButton = {
+                Button(onClick = {
+                    videoToDelete?.let { viewModel.deleteVideo(it) }
+                    videoToDelete = null
+                }) { Text(text = "Eliminar") }
+            },
+            dismissButton = {
+                Button(onClick = { videoToDelete = null }) { Text(text = "Cancelar") }
             }
         )
     }
@@ -100,6 +123,28 @@ fun ToolsScreen(
                 }
             }
 
+            item {
+                Card(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .semantics {
+                            role = Role.Button
+                            contentDescription = "Escanear Video"
+                        }
+                        .clickable(onClick = onScanVideo),
+                    colors = CardDefaults.cardColors(MaterialTheme.colorScheme.secondaryContainer)
+                ) {
+                    Column(Modifier.padding(16.dp)) {
+                        Icon(
+                            imageVector = Icons.Filled.VideoLibrary,
+                            contentDescription = null
+                        )
+                        Text(text = "Escanear Video", style = MaterialTheme.typography.titleMedium)
+                        Text(text = "Analiza videos con IA (máx 2 GB)")
+                    }
+                }
+            }
+
             items(pdfDocs) { doc ->
                 Card(
                     modifier = Modifier
@@ -117,6 +162,33 @@ fun ToolsScreen(
                         )
                         IconButton(onClick = { toDelete = doc }) {
                             Icon(Icons.Filled.Delete, contentDescription = "Eliminar documento")
+                        }
+                    }
+                }
+            }
+
+            items(videoDocs) { video ->
+                Card(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .clickable { onOpenVideo(video) }
+                ) {
+                    Column(Modifier.padding(16.dp)) {
+                        Text(text = video.name, style = MaterialTheme.typography.titleMedium)
+                        Text(
+                            text = SimpleDateFormat(
+                                "dd/MM/yyyy HH:mm",
+                                Locale.getDefault()
+                            ).format(Date(video.timestamp)),
+                            style = MaterialTheme.typography.bodySmall
+                        )
+                        val sizeMB = video.sizeBytes / (1024 * 1024)
+                        Text(
+                            text = "Tamaño: $sizeMB MB",
+                            style = MaterialTheme.typography.bodySmall
+                        )
+                        IconButton(onClick = { videoToDelete = video }) {
+                            Icon(Icons.Filled.Delete, contentDescription = "Eliminar video")
                         }
                     }
                 }

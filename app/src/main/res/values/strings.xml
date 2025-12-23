@@ -172,4 +172,16 @@ Tarjeta: 4152314082325278</string>
     <string name="error_dialog_title">Error</string>
     <string name="error_dialog_copy">Copiar</string>
     <string name="error_dialog_close">Cerrar</string>
+    
+    <!-- Funcionalidad de Videos -->
+    <string name="scan_video">Escanear Video</string>
+    <string name="select_video">Seleccionar Video</string>
+    <string name="analyzing_video">Analizando video…</string>
+    <string name="video_analysis_result">Resultado del Análisis</string>
+    <string name="video_duration">Duración: %1$s</string>
+    <string name="video_size">Tamaño: %1$d MB</string>
+    <string name="upload_progress">Subiendo: %1$d%%</string>
+    <string name="copy_content">Copiar contenido</string>
+    <string name="video_not_found">Video no encontrado</string>
 </resources>
+

@@ -36,11 +36,12 @@ data class ContentDto(
 )
 
 /**
- * Una parte del contenido, puede ser texto o datos inline (como imágenes).
+ * Una parte del contenido, puede ser texto, datos inline (como imágenes) o archivos subidos.
  */
 data class PartDto(
     @SerializedName("text") val text: String? = null,
-    @SerializedName("inline_data") val inlineData: InlineDataDto? = null
+    @SerializedName("inline_data") val inlineData: InlineDataDto? = null,
+    @SerializedName("file_data") val fileData: FileDataDto? = null
 )
 
 /**

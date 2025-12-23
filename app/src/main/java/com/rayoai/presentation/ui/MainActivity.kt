@@ -46,8 +46,15 @@ class MainActivity : ComponentActivity() {
             }
         }
 
-        val imageUri: Uri? = if (intent?.getBooleanExtra("EXTRA_IS_PDF", false) == true) null else intent?.getParcelableExtra(Intent.EXTRA_STREAM)
-        val pdfUri: Uri? = if (intent?.getBooleanExtra("EXTRA_IS_PDF", false) == true) intent.getParcelableExtra(Intent.EXTRA_STREAM) else null
+        val imageUri: Uri? = if (intent?.getBooleanExtra("EXTRA_IS_PDF", false) == true) null 
+            else if (intent?.getBooleanExtra("EXTRA_IS_VIDEO", false) == true) null 
+            else intent?.getParcelableExtra(Intent.EXTRA_STREAM)
+        
+        val pdfUri: Uri? = if (intent?.getBooleanExtra("EXTRA_IS_PDF", false) == true) 
+            intent.getParcelableExtra(Intent.EXTRA_STREAM) else null
+        
+        val videoUri: Uri? = if (intent?.getBooleanExtra("EXTRA_IS_VIDEO", false) == true) 
+            intent.getParcelableExtra(Intent.EXTRA_STREAM) else null
 
         setContent {
             val tts = remember { textToSpeech }
@@ -64,7 +71,12 @@ class MainActivity : ComponentActivity() {
                         } else {
                             Screen.Home.route
                         }
-                        AppNavigation(imageUri = imageUri, startDestination = startDestination, pdfUri = pdfUri)
+                        AppNavigation(
+                            imageUri = imageUri, 
+                            startDestination = startDestination, 
+                            pdfUri = pdfUri,
+                            videoUri = videoUri
+                        )
                     }
                 }
             }

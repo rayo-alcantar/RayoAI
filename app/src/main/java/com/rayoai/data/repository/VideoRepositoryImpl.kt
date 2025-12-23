@@ -1,0 +1,166 @@
+package com.rayoai.data.repository
+
+import android.content.Context
+import android.net.Uri
+import android.provider.OpenableColumns
+import com.rayoai.core.ResultWrapper
+import com.rayoai.data.remote.GeminiApiService
+import com.rayoai.data.remote.GeminiFilesApiService
+import com.rayoai.data.remote.dto.*
+import com.rayoai.domain.repository.UserPreferencesRepository
+import com.rayoai.domain.repository.VideoRepository
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.delay
+import kotlinx.coroutines.flow.firstOrNull
+import kotlinx.coroutines.withContext
+import okhttp3.MediaType.Companion.toMediaTypeOrNull
+import okhttp3.RequestBody.Companion.toRequestBody
+import javax.inject.Inject
+
+/**
+ * Implementación del repositorio de videos que usa Google Gemini Files API.
+ */
+class VideoRepositoryImpl @Inject constructor(
+    private val geminiFilesApiService: GeminiFilesApiService,
+    private val geminiApiService: GeminiApiService,
+    private val userPreferencesRepository: UserPreferencesRepository
+) : VideoRepository {
+
+    override suspend fun uploadAndAnalyzeVideo(
+        uri: Uri,
+        context: Context,
+        systemPrompt: String
+    ): ResultWrapper<String> = withContext(Dispatchers.IO) {
+        try {
+            val apiKey = userPreferencesRepository.apiKey.firstOrNull()
+                ?: return@withContext ResultWrapper.Error("API Key no configurada")
+
+            // 1. Obtener información del video
+            val (fileName, sizeBytes, mimeType) = getVideoInfo(context, uri)
+
+            // Validar tamaño (máximo 2 GB)
+            if (sizeBytes > 2_000_000_000L) {
+                return@withContext ResultWrapper.Error("El video es demasiado grande (máximo 2 GB)")
+            }
+
+            // 2. Iniciar upload resumable
+            val uploadResponse = geminiFilesApiService.startResumableUpload(
+                contentLength = sizeBytes,
+                contentType = mimeType,
+                apiKey = apiKey,
+                metadata = FileMetadata(FileInfo(fileName))
+            )
+
+            // 3. Extraer URL de upload de los headers
+            val uploadUrl = uploadResponse.headers()["x-goog-upload-url"]
+                ?: return@withContext ResultWrapper.Error("No se recibió URL de upload")
+
+            // 4. Leer bytes del video
+            val videoBytes = context.contentResolver.openInputStream(uri)?.use {
+                it.readBytes()
+            } ?: return@withContext ResultWrapper.Error("No se pudo leer el video")
+
+            // 5. Subir bytes del video
+            val requestBody = videoBytes.toRequestBody(mimeType.toMediaTypeOrNull())
+
+            val uploadResult = geminiFilesApiService.uploadFileBytes(
+                uploadUrl = uploadUrl,
+                contentLength = sizeBytes,
+                offset = 0,
+                file = requestBody
+            )
+
+            // 6. Esperar a que el archivo esté activo (puede estar en estado PROCESSING)
+            var fileState = uploadResult.file
+            var attempts = 0
+            val maxAttempts = 60  // Máximo 1 minuto de espera
+
+            while (fileState.state != "ACTIVE" && attempts < maxAttempts) {
+                if (fileState.state == "FAILED") {
+                    return@withContext ResultWrapper.Error("El procesamiento del video falló")
+                }
+
+                delay(1000)  // Esperar 1 segundo
+                attempts++
+
+                fileState = try {
+                    geminiFilesApiService.getFile(
+                        fileName = uploadResult.file.name,
+                        apiKey = apiKey
+                    )
+                } catch (e: Exception) {
+                    // Si falla al consultar, asumir que aún está procesando
+                    fileState
+                }
+            }
+
+            if (fileState.state != "ACTIVE") {
+                return@withContext ResultWrapper.Error("Timeout esperando que el video esté listo")
+            }
+
+            // 7. Analizar el video con Gemini
+            val request = GeminiRequest(
+                systemInstruction = SystemInstruction(
+                    parts = listOf(PartDto(text = systemPrompt))
+                ),
+                contents = listOf(
+                    ContentDto(
+                        role = "user",
+                        parts = listOf(
+                            PartDto(text = "Describe detalladamente este video."),
+                            PartDto(
+                                fileData = FileDataDto(
+                                    mimeType = mimeType,
+                                    fileUri = fileState.uri
+                                )
+                            )
+                        )
+                    )
+                )
+            )
+
+            val response = geminiApiService.generateContent(
+                apiKey = apiKey,
+                model = "gemini-2.0-flash-exp",
+                request = request
+            )
+
+            if (!response.isSuccessful || response.body() == null) {
+                return@withContext ResultWrapper.Error("Error en la API: ${response.message()}")
+            }
+
+            val description = response.body()!!.candidates?.firstOrNull()
+                ?.content?.parts?.firstOrNull()
+                ?.text
+                ?: return@withContext ResultWrapper.Error("No se recibió respuesta del modelo")
+
+            ResultWrapper.Success(description)
+
+        } catch (e: Exception) {
+            ResultWrapper.Error("Error al procesar video: ${e.message}")
+        }
+    }
+
+    /**
+     * Obtiene información del video: nombre, tamaño y tipo MIME.
+     */
+    private fun getVideoInfo(context: Context, uri: Uri): Triple<String, Long, String> {
+        var fileName = "video.mp4"
+        var sizeBytes = 0L
+        var mimeType = "video/mp4"
+
+        context.contentResolver.query(uri, null, null, null, null)?.use { cursor ->
+            if (cursor.moveToFirst()) {
+                val nameIndex = cursor.getColumnIndex(OpenableColumns.DISPLAY_NAME)
+                if (nameIndex != -1) fileName = cursor.getString(nameIndex)
+
+                val sizeIndex = cursor.getColumnIndex(OpenableColumns.SIZE)
+                if (sizeIndex != -1) sizeBytes = cursor.getLong(sizeIndex)
+            }
+        }
+
+        mimeType = context.contentResolver.getType(uri) ?: "video/mp4"
+
+        return Triple(fileName, sizeBytes, mimeType)
+    }
+}

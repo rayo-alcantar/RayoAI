@@ -12,10 +12,15 @@ import com.rayoai.data.local.db.MIGRATION_1_2
 import com.rayoai.data.local.db.MIGRATION_2_3
 import com.rayoai.data.local.pdfdb.PdfDao
 import com.rayoai.data.local.pdfdb.PdfDatabase
+import com.rayoai.data.local.videodb.VideoDao
+import com.rayoai.data.local.videodb.VideoDatabase
+import com.rayoai.data.remote.GeminiFilesApiService
 import com.rayoai.data.remote.GithubApiService
 import com.rayoai.data.repository.UserPreferencesRepositoryImpl
+import com.rayoai.data.repository.VideoRepositoryImpl
 import com.rayoai.data.repository.VisionRepositoryImpl
 import com.rayoai.domain.repository.UserPreferencesRepository
+import com.rayoai.domain.repository.VideoRepository
 import com.rayoai.domain.repository.VisionRepository
 import dagger.Binds
 import dagger.Module
@@ -54,6 +59,10 @@ abstract class DataModule {
     @Binds
     @Singleton
     abstract fun bindUserPreferencesRepository(impl: UserPreferencesRepositoryImpl): UserPreferencesRepository
+
+    @Binds
+    @Singleton
+    abstract fun bindVideoRepository(impl: VideoRepositoryImpl): VideoRepository
 }
 
 @Module
@@ -96,6 +105,21 @@ object AppModule {
     @Provides
     fun providePdfDao(database: PdfDatabase): PdfDao {
         return database.pdfDao()
+    }
+
+    @Provides
+    @Singleton
+    fun provideVideoDatabase(@ApplicationContext context: Context): VideoDatabase {
+        return Room.databaseBuilder(
+            context,
+            VideoDatabase::class.java,
+            "rayo_ai_video_db"
+        ).build()
+    }
+
+    @Provides
+    fun provideVideoDao(database: VideoDatabase): VideoDao {
+        return database.videoDao()
     }
 
     @Provides
@@ -154,5 +178,16 @@ object AppModule {
         @GeminiRetrofit retrofit: Retrofit
     ): com.rayoai.data.remote.GeminiApiService {
         return retrofit.create(com.rayoai.data.remote.GeminiApiService::class.java)
+    }
+
+    /**
+     * Servicio de API para Files API de Gemini.
+     */
+    @Provides
+    @Singleton
+    fun provideGeminiFilesApiService(
+        @GeminiRetrofit retrofit: Retrofit
+    ): GeminiFilesApiService {
+        return retrofit.create(GeminiFilesApiService::class.java)
     }
 }

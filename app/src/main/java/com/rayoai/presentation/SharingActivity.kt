@@ -46,6 +46,19 @@ class SharingActivity : ComponentActivity() {
                             startActivity(mainIntent)
                         }
                     }
+                    type?.startsWith("video/") == true -> {
+                        (intent.getParcelableExtra<Uri>(Intent.EXTRA_STREAM))?.let { videoUri ->
+                            val mainIntent = Intent(this, MainActivity::class.java).apply {
+                                action = Intent.ACTION_SEND
+                                putExtra(Intent.EXTRA_STREAM, videoUri)
+                                putExtra("EXTRA_IS_VIDEO", true)
+                                addFlags(Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_CLEAR_TASK)
+                                addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION)
+                                clipData = ClipData.newUri(contentResolver, "shared_video", videoUri)
+                            }
+                            startActivity(mainIntent)
+                        }
+                    }
                 }
             }
         }

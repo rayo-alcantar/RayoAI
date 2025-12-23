@@ -58,6 +58,10 @@ sealed class Screen(val route: String, val baseRoute: String, val labelRes: Int?
     object ViewPdf : Screen("view_pdf?id={id}", "tools") {
         fun createRoute(id: Long) = "view_pdf?id=$id"
     }
+    object ScanVideo : Screen("scan_video", "tools")
+    object ViewVideo : Screen("view_video?id={id}", "tools") {
+        fun createRoute(id: Long) = "view_video?id=$id"
+    }
     object About : Screen("about?showDonationDialog={showDonationDialog}", "about", R.string.tab_about, Icons.Default.Info) {
         fun createRoute(showDonationDialog: Boolean = false) = "about?showDonationDialog=$showDonationDialog"
     }
@@ -78,12 +82,13 @@ private fun NavDestination?.isSameRouteAs(baseRoute: String): Boolean {
 }
 
 @Composable
-fun AppNavigation(imageUri: Uri?, startDestination: String, pdfUri: Uri? = null) {
+fun AppNavigation(imageUri: Uri?, startDestination: String, pdfUri: Uri? = null, videoUri: Uri? = null) {
     val navController = rememberNavController()
     val navBackStackEntry by navController.currentBackStackEntryAsState()
     val currentDestination = navBackStackEntry?.destination
     val activity = (LocalContext.current as? Activity)
     var pendingPdfUri by remember { mutableStateOf<Uri?>(null) }
+    var pendingVideoUri by remember { mutableStateOf<Uri?>(null) }
 
     UpdateFlowDialog()
 
@@ -91,6 +96,15 @@ fun AppNavigation(imageUri: Uri?, startDestination: String, pdfUri: Uri? = null)
         if (pdfUri != null) {
             pendingPdfUri = pdfUri
             navController.navigate(Screen.ScanPdf.route) {
+                launchSingleTop = true
+            }
+        }
+    }
+
+    LaunchedEffect(videoUri) {
+        if (videoUri != null) {
+            pendingVideoUri = videoUri
+            navController.navigate(Screen.ScanVideo.route) {
                 launchSingleTop = true
             }
         }
@@ -157,8 +171,12 @@ fun AppNavigation(imageUri: Uri?, startDestination: String, pdfUri: Uri? = null)
             composable(Screen.Tools.route) {
                 com.rayoai.presentation.ui.screens.tools.ToolsScreen(
                     onScanPdf = { navController.navigate(Screen.ScanPdf.route) },
+                    onScanVideo = { navController.navigate(Screen.ScanVideo.route) },
                     onOpenProcessed = { doc ->
                         navController.navigate(Screen.ViewPdf.createRoute(doc.id))
+                    },
+                    onOpenVideo = { video ->
+                        navController.navigate(Screen.ViewVideo.createRoute(video.id))
                     }
                 )
             }
@@ -176,6 +194,23 @@ fun AppNavigation(imageUri: Uri?, startDestination: String, pdfUri: Uri? = null)
                 val id = backStackEntry.arguments?.getLong("id") ?: 0L
                 com.rayoai.presentation.ui.screens.tools.PdfResultScreen(
                     docId = id,
+                    onNavigateBack = { navController.popBackStack() }
+                )
+            }
+            composable(Screen.ScanVideo.route) {
+                com.rayoai.presentation.ui.screens.tools.ScanVideoScreen(
+                    incomingVideoUri = pendingVideoUri,
+                    onVideoConsumed = { pendingVideoUri = null },
+                    onNavigateBack = { navController.popBackStack() }
+                )
+            }
+            composable(
+                route = Screen.ViewVideo.route,
+                arguments = listOf(navArgument("id") { type = NavType.LongType })
+            ) { backStackEntry ->
+                val id = backStackEntry.arguments?.getLong("id") ?: 0L
+                com.rayoai.presentation.ui.screens.tools.VideoResultScreen(
+                    videoId = id,
                     onNavigateBack = { navController.popBackStack() }
                 )
             }

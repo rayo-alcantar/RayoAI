@@ -3,8 +3,11 @@ package com.rayoai.presentation.ui.screens.tools
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.rayoai.domain.model.PdfDocument
+import com.rayoai.domain.model.VideoDocument
 import com.rayoai.domain.usecase.pdf.DeletePdfDocumentUseCase
 import com.rayoai.domain.usecase.pdf.GetPdfDocumentsUseCase
+import com.rayoai.domain.usecase.video.DeleteVideoDocumentUseCase
+import com.rayoai.domain.usecase.video.GetVideoDocumentsUseCase
 import dagger.hilt.android.lifecycle.HiltViewModel
 import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
@@ -15,14 +18,23 @@ import javax.inject.Inject
 @HiltViewModel
 class ToolsViewModel @Inject constructor(
     getPdfDocumentsUseCase: GetPdfDocumentsUseCase,
-    private val deletePdfDocumentUseCase: DeletePdfDocumentUseCase
+    private val deletePdfDocumentUseCase: DeletePdfDocumentUseCase,
+    getVideoDocumentsUseCase: GetVideoDocumentsUseCase,
+    private val deleteVideoDocumentUseCase: DeleteVideoDocumentUseCase
 ) : ViewModel() {
 
     val pdfDocuments: StateFlow<List<PdfDocument>> = getPdfDocumentsUseCase()
         .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), emptyList())
 
+    val videoDocuments: StateFlow<List<VideoDocument>> = getVideoDocumentsUseCase()
+        .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), emptyList())
+
     fun delete(doc: PdfDocument) {
         viewModelScope.launch { deletePdfDocumentUseCase(doc.id) }
+    }
+
+    fun deleteVideo(doc: VideoDocument) {
+        viewModelScope.launch { deleteVideoDocumentUseCase(doc.id) }
     }
 }
 
