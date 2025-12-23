@@ -36,6 +36,9 @@
     <init>(...);
 }
 
+# Mantener todas las clases DTO de Gemini para serialización correcta
+-keep class com.rayoai.data.remote.dto.** { *; }
+
 # Mantener el uso de genéricos (para que Gson pueda deserializar listas)
 -keepattributes Signature
 

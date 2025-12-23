@@ -26,7 +26,22 @@ import dagger.hilt.components.SingletonComponent
 import okhttp3.OkHttpClient
 import retrofit2.Retrofit
 import retrofit2.converter.gson.GsonConverterFactory
+import javax.inject.Qualifier
 import javax.inject.Singleton
+
+/**
+ * Calificador para identificar la instancia de Retrofit usada para GitHub API.
+ */
+@Qualifier
+@Retention(AnnotationRetention.BINARY)
+annotation class GithubRetrofit
+
+/**
+ * Calificador para identificar la instancia de Retrofit usada para Gemini API.
+ */
+@Qualifier
+@Retention(AnnotationRetention.BINARY)
+annotation class GeminiRetrofit
 
 @Module
 @InstallIn(SingletonComponent::class)
@@ -99,6 +114,7 @@ object AppModule {
 
     @Provides
     @Singleton
+    @GithubRetrofit
     fun provideRetrofit(client: OkHttpClient): Retrofit {
         return Retrofit.Builder()
             .baseUrl("https://api.github.com/")
@@ -109,7 +125,34 @@ object AppModule {
 
     @Provides
     @Singleton
-    fun provideGithubApiService(retrofit: Retrofit): GithubApiService {
+    fun provideGithubApiService(@GithubRetrofit retrofit: Retrofit): GithubApiService {
         return retrofit.create(GithubApiService::class.java)
+    }
+
+    // ============ GEMINI API ============
+
+    /**
+     * Retrofit dedicado para la API de Gemini.
+     * Usa una base URL diferente a la de GitHub.
+     */
+    @Provides
+    @Singleton
+    @GeminiRetrofit
+    fun provideGeminiRetrofit(): Retrofit {
+        return Retrofit.Builder()
+            .baseUrl("https://generativelanguage.googleapis.com/")
+            .addConverterFactory(GsonConverterFactory.create())
+            .build()
+    }
+
+    /**
+     * Servicio de API para Google Gemini.
+     */
+    @Provides
+    @Singleton
+    fun provideGeminiApiService(
+        @GeminiRetrofit retrofit: Retrofit
+    ): com.rayoai.data.remote.GeminiApiService {
+        return retrofit.create(com.rayoai.data.remote.GeminiApiService::class.java)
     }
 }

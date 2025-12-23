@@ -1,0 +1,370 @@
+# Documentación Técnica de RayoAI
+
+Este documento detalla la arquitectura interna, el flujo de datos y los componentes clave de la aplicación RayoAI, con el objetivo de facilitar la migración de la lógica de consumo de la API de Gemini.
+
+## 1. Arquitectura General (Clean Architecture)
+
+La aplicación sigue los principios de **Clean Architecture**, dividiendo el código en tres capas principales: `presentation`, `domain` y `data`.
+
+- **`app/src/main/java/com/rayoai/presentation`**: Contiene la UI (Jetpack Compose) y los ViewModels. Es responsable de mostrar los datos y de capturar la interacción del usuario.
+- **`app/src/main/java/com/rayoai/domain`**: Es el núcleo de la aplicación. Contiene la lógica de negocio pura (Casos de Uso), las definiciones de los modelos de datos y las interfaces de los repositorios. Esta capa no tiene dependencias de Android.
+- **`app/src/main/java/com/rayoai/data`**: Implementa las interfaces de repositorio definidas en la capa de `domain`. Se encarga de la obtención de datos, ya sea de fuentes remotas (API de Gemini) o locales (Base de datos Room, DataStore).
+
+La inyección de dependencias se gestiona con **Hilt**, que se encarga de construir y proveer las instancias de cada clase donde se necesiten.
+
+## 2. Capa de Dominio (`domain`)
+
+Esta capa define el "qué" hace la aplicación, pero no el "cómo".
+
+### Modelos (`domain/model`)
+Son clases de datos (data classes) que representan las entidades del negocio.
+
+- `Capture.kt`: Representa una sesión de chat/análisis guardada.
+- `ChatMessage.kt`: Representa un único mensaje en el chat (sea del usuario o del modelo).
+- `GeminiModelConfig.kt`: Objeto que centraliza la configuración de los modelos de Gemini disponibles.
+
+### Repositorios (`domain/repository`)
+Son interfaces que definen el contrato para la obtención y manipulación de datos.
+
+- **`VisionRepository.kt`**: Es la interfaz clave para la migración. Define las operaciones relacionadas con el modelo Gemini, como `generateContent`.
+- **`UserPreferencesRepository.kt`**: Define cómo se accede y se modifican las preferencias del usuario (API Key, modelo preferido, tema, etc.).
+
+### Casos de Uso (`domain/usecase`)
+Encapsulan una única pieza de lógica de negocio. Son invocados por los ViewModels.
+
+- **`DescribeImageUseCase.kt`**: Orquesta la descripción inicial de una imagen. Construye un *prompt de sistema* muy detallado y luego llama a `visionRepository.generateContent`.
+- **`ContinueChatUseCase.kt`**: Gestiona los mensajes de seguimiento en una conversación, manteniendo el contexto del chat. También llama a `visionRepository.generateContent`.
+
+## 3. Capa de Datos (`data`)
+
+Esta capa es la implementación concreta de los contratos definidos en la capa de dominio.
+
+### Implementación de Repositorios (`data/repository`)
+
+- **`VisionRepositoryImpl.kt`**: Implementa `VisionRepository`. Aquí reside la lógica de interacción directa con la API de Gemini.
+- **`UserPreferencesRepositoryImpl.kt`**: Implementa `UserPreferencesRepository` usando Jetpack DataStore para la persistencia de preferencias.
+
+### Interacción con API Gemini (`VisionRepositoryImpl.kt`)
+
+El método `generateContent` en `VisionRepositoryImpl.kt` es el corazón de la interacción con Gemini.
+
+1.  **SDK Utilizado**: La aplicación utiliza el SDK oficial de Google AI para clientes de IA generativa: `com.google.ai.client.generativeai.GenerativeModel`.
+2.  **Construcción de Contenido**: Se crea una lista de `Content` que representa el historial del chat, alternando los roles "user" y "model". Finalmente, se añade el prompt y las imágenes actuales.
+3.  **Instanciación del Modelo**:
+    ```kotlin
+    val generativeModel = GenerativeModel(
+        modelName = modelName,
+        apiKey = apiKey
+    )
+    ```
+4.  **Llamada a la API**:
+    ```kotlin
+    val response = generativeModel.generateContent(*contents.toTypedArray())
+    ```
+5.  **Procesamiento de Respuesta**: La respuesta se extrae de `response.text` o, si este es nulo, se reconstruye a partir de `response.candidates`.
+
+### Mecanismo de Fallback de Modelos
+
+RayoAI implementa un sistema de fallback robusto para asegurar la disponibilidad del servicio.
+
+1.  **Prioridad de Modelos**: En `VisionRepositoryImpl.kt`, la función `buildModelPriority` crea una lista de modelos a intentar. Primero añade el modelo preferido por el usuario y luego una lista de modelos de fallback predefinida en `GeminiModelConfig.fallbackOrder`.
+2.  **Ejecución en Bucle**: El método `generateContent` itera sobre esta lista priorizada. Intenta la llamada con el primer modelo; si falla (por cualquier excepción que no sea `CancellationException`), intenta con el siguiente de la lista, y así sucesivamente.
+3.  **Manejo de Errores**: La operación completa solo se considera un error si todos los modelos de la cadena de fallback fallan. El resultado se envuelve en un `ResultWrapper<T>` que encapsula los estados de `Loading`, `Success` y `Error`.
+
+**`GeminiModelConfig.kt`**:
+```kotlin
+object GeminiModelConfig {
+    const val DEFAULT_MODEL = "gemini-2.0-flash"
+
+    val selectableModels = listOf(...)
+
+    val fallbackOrder = listOf(
+        "gemini-2.5-pro",
+        "gemini-2.5-flash",
+        "gemini-2.5",
+        "gemini-3-flash",
+        "gemini-3-pro",
+        "gemini-3",
+        DEFAULT_MODEL
+    )
+}
+```
+
+### Gestión de Configuración (API Key y preferencias)
+
+- **Jetpack DataStore**: `UserPreferencesRepositoryImpl` utiliza `DataStore<Preferences>` para guardar todas las preferencias del usuario en un archivo (`user_prefs`) dentro del almacenamiento interno de la aplicación.
+- **Seguridad de la API Key**: La API Key se guarda en el DataStore. **No se utiliza Jetpack Security Crypto para encriptar el DataStore en sí**. La seguridad se basa en que el archivo de preferencias está en el almacenamiento interno de la app, inaccesible para otras apps en dispositivos no rooteados. La UI (`SecureTextField.kt`) ofusca la entrada de la clave, pero se almacena como texto plano en el archivo de preferencias.
+
+### Persistencia Local (Room)
+La app usa la base de datos Room para guardar el historial de chats (`CaptureEntity`).
+- `RayoAIDatabase.kt`: Define la base de datos.
+- `CaptureDao.kt`: DAO (Data Access Object) con los métodos para interactuar con la tabla de capturas (CRUD).
+
+## 4. Inyección de Dependencias (Hilt)
+
+Hilt es fundamental para conectar todas las capas.
+
+- **`di/AppModule.kt`**: Provee las dependencias singleton como la base de datos Room, el DataStore, y Retrofit (para las actualizaciones de la app desde GitHub).
+- **`di/DataModule.kt`**: Usa la anotación `@Binds` para indicar a Hilt qué implementación concreta debe usar cuando se solicita una interfaz de repositorio (ej. inyectar `VisionRepositoryImpl` cuando se pide `VisionRepository`).
+
+## 5. Capa de Presentación (`presentation`)
+
+### ViewModels (`HomeViewModel.kt`)
+
+- **Lógica de UI**: El ViewModel se encarga de la lógica de la pantalla principal. No interactúa directamente con los repositorios, sino con los **Casos de Uso** (`DescribeImageUseCase`, `ContinueChatUseCase`).
+- **Gestión de Estado**: Utiliza `StateFlow` para exponer un `HomeUiState` que representa el estado completo de la UI. La vista (Composable) observa este flujo y se redibuja cuando el estado cambia.
+- **Manejo de API Key**: El ViewModel obtiene la API Key desde `UserPreferencesRepository`, la mantiene en el `UiState` y la pasa a los casos de uso antes de ejecutar una operación que requiera una llamada a la API.
+
+## 6. Flujo de una Llamada a la API (End-to-End)
+
+1.  **Usuario**: Captura una imagen y escribe un prompt en la `HomeScreen`.
+2.  **`HomeScreen` (Composable)**: Notifica al `HomeViewModel` del evento (ej. `describeImage(bitmap)`).
+3.  **`HomeViewModel`**:
+    a. Actualiza el `UiState` a `isLoading = true`.
+    b. Obtiene la API Key y el modelo preferido del `userPreferencesRepository`.
+    c. Llama al `DescribeImageUseCase` con la imagen, el prompt, la API key y el modelo.
+4.  **`DescribeImageUseCase`**:
+    a. Construye el prompt de sistema.
+    b. Llama al método `generateContent` del `VisionRepository`.
+5.  **`VisionRepositoryImpl`**:
+    a. Construye la lista de `Content` para la API de Gemini.
+    b. Construye la lista de modelos priorizados (preferido + fallbacks).
+    c. Entra en un bucle para llamar a la API de Gemini con el SDK `GenerativeModel`.
+    d. Si tiene éxito, emite `ResultWrapper.Success` con la respuesta. Si todos los modelos fallan, emite `ResultWrapper.Error`.
+6.  **`HomeViewModel`**: Recibe el `Flow` del caso de uso, y para cada `ResultWrapper` actualiza el `UiState` (ej. `isLoading = false`, poblar la respuesta o mostrar un error).
+7.  **`HomeScreen` (Composable)**: El cambio en el `UiState` provoca una recomposición, mostrando la respuesta de la IA o un mensaje de error.
+
+---
+
+## 7. Código Relevante
+
+A continuación se adjunta el contenido de los archivos más importantes para entender la lógica de negocio y la interacción con la API.
+
+### `app/src/main/java/com/rayoai/domain/repository/VisionRepository.kt`
+```kotlin
+package com.rayoai.domain.repository
+
+import android.graphics.Bitmap
+import com.rayoai.core.ResultWrapper
+import com.rayoai.domain.model.Capture
+import com.rayoai.domain.model.ChatMessage
+import kotlinx.coroutines.flow.Flow
+
+interface VisionRepository {
+    fun generateContent(
+        apiKey: String,
+        prompt: String,
+        images: List<Bitmap> = emptyList(),
+        history: List<ChatMessage>,
+        model: String
+    ): Flow<ResultWrapper<String>>
+
+    fun getHistory(showHidden: Boolean): Flow<List<Capture>>
+
+    suspend fun updateChatHiddenState(id: Long, isHidden: Boolean)
+
+    suspend fun deleteCapture(capture: Capture)
+
+    suspend fun deleteAllCaptures()
+}
+```
+
+### `app/src/main/java/com/rayoai/data/repository/VisionRepositoryImpl.kt`
+```kotlin
+package com.rayoai.data.repository
+
+import android.graphics.Bitmap
+import android.net.Uri
+import com.google.ai.client.generativeai.GenerativeModel
+import com.google.ai.client.generativeai.type.Content
+import com.google.ai.client.generativeai.type.content
+import com.rayoai.core.ResultWrapper
+import com.rayoai.data.local.ImageStorageManager
+import com.rayoai.data.local.db.CaptureDao
+import com.rayoai.domain.model.Capture
+import com.rayoai.domain.model.ChatMessage
+import com.rayoai.domain.model.GeminiModelConfig
+import com.rayoai.domain.repository.VisionRepository
+import kotlinx.coroutines.CancellationException
+import kotlinx.coroutines.flow.Flow
+import kotlinx.coroutines.flow.flow
+import kotlinx.coroutines.flow.map
+import javax.inject.Inject
+
+class VisionRepositoryImpl @Inject constructor(
+    private val captureDao: CaptureDao,
+    private val imageStorageManager: ImageStorageManager
+) : VisionRepository {
+
+    override fun generateContent(
+        apiKey: String,
+        prompt: String,
+        images: List<Bitmap>,
+        history: List<ChatMessage>,
+        model: String
+    ): Flow<ResultWrapper<String>> = flow {
+        emit(ResultWrapper.Loading)
+
+        val contents = mutableListOf<Content>()
+
+        history.forEach { chatMessage ->
+            val participant = if (chatMessage.isFromUser) "user" else "model"
+            contents.add(content(participant) { text(chatMessage.content) })
+        }
+
+        val currentContent = content {
+            images.forEach { image ->
+                image(image)
+            }
+            text(prompt)
+        }
+        contents.add(currentContent)
+
+        val modelPriority = buildModelPriority(model)
+        var lastError: String? = null
+
+        for (modelName in modelPriority) {
+            try {
+                val responseText = generateWithModel(apiKey, modelName, contents)
+                if (!responseText.isNullOrBlank()) {
+                    emit(ResultWrapper.Success(responseText))
+                    return@flow
+                }
+            } catch (e: CancellationException) {
+                throw e
+            } catch (e: Exception) {
+                lastError = "${modelName}: ${e.localizedMessage ?: "Unknown error"}"
+            }
+        }
+
+        emit(ResultWrapper.Error(lastError ?: "No se pudo obtener respuesta de los modelos configurados."))
+    }
+
+    private fun buildModelPriority(preferredModel: String): List<String> {
+        val normalizedPreferred = preferredModel.ifBlank { GeminiModelConfig.DEFAULT_MODEL }
+        return (listOf(normalizedPreferred) + GeminiModelConfig.fallbackOrder).distinct()
+    }
+
+    private suspend fun generateWithModel(
+        apiKey: String,
+        modelName: String,
+        contents: List<Content>
+    ): String? {
+        val generativeModel = GenerativeModel(
+            modelName = modelName,
+            apiKey = apiKey
+        )
+        val response = generativeModel.generateContent(*contents.toTypedArray())
+        val directText = response.text?.takeIf { it.isNotBlank() }
+        if (!directText.isNullOrBlank()) return directText
+
+        return response.candidates.firstOrNull()
+            ?.content
+            ?.parts
+            ?.joinToString(separator = "") { part ->
+                when (part) {
+                    is com.google.ai.client.generativeai.type.TextPart -> part.text
+                    else -> ""
+                }
+            }
+            ?.takeIf { it.isNotBlank() }
+    }
+    // ... otros métodos de la interfaz ...
+}
+```
+
+### `app/src/main/java/com/rayoai/domain/usecase/DescribeImageUseCase.kt`
+```kotlin
+package com.rayoai.domain.usecase
+
+import android.graphics.Bitmap
+import com.rayoai.core.ResultWrapper
+import com.rayoai.domain.model.ChatMessage
+import com.rayoai.domain.model.GeminiModelConfig
+import com.rayoai.domain.repository.VisionRepository
+import kotlinx.coroutines.flow.Flow
+import javax.inject.Inject
+
+class DescribeImageUseCase @Inject constructor(
+    private val visionRepository: VisionRepository
+) {
+    // NOTA: El prompt del sistema es muy largo y se ha omitido por brevedad,
+    // pero es una parte CRÍTICA de la lógica. Se construye dinámicamente
+    // con el idioma del dispositivo.
+    private fun createSystemPrompt(languageCode: String): String {
+        return "Always respond in ${languageCode}. [...]" 
+    }
+
+    operator fun invoke(
+        apiKey: String,
+        image: Bitmap,
+        userPrePrompt: String,
+        history: List<ChatMessage> = emptyList(),
+        languageCode: String,
+        model: String = GeminiModelConfig.DEFAULT_MODEL
+    ): Flow<ResultWrapper<String>> {
+        val systemPrompt = createSystemPrompt(languageCode)
+        val finalPrompt = if (userPrePrompt.isNotBlank()) {
+            "${systemPrompt}\n\nUser's request: $userPrePrompt".trim()
+        } else {
+            systemPrompt
+        }
+        return visionRepository.generateContent(apiKey, finalPrompt, listOf(image), history, model)
+    }
+}
+```
+
+### `app/src/main/java/com/rayoai/presentation/ui/screens/home/HomeViewModel.kt`
+```kotlin
+@HiltViewModel
+class HomeViewModel @Inject constructor(
+    private val describeImageUseCase: DescribeImageUseCase,
+    private val continueChatUseCase: ContinueChatUseCase,
+    private val userPreferencesRepository: UserPreferencesRepository,
+    // ... otras dependencias
+) : ViewModel() {
+
+    private val _uiState = MutableStateFlow(HomeUiState())
+    val uiState: StateFlow<HomeUiState> = _uiState.asStateFlow()
+
+    init {
+        // ... Recolecta el API Key y el modelo desde userPreferencesRepository ...
+    }
+
+    fun describeImage(image: Bitmap) {
+        viewModelScope.launch {
+            val apiKey = userPreferencesRepository.apiKey.first()
+            if (apiKey.isNullOrBlank()) {
+                _uiState.update { it.copy(error = "API Key no configurada...") }
+                return@launch
+            }
+            // ...
+            try {
+                val languageCode = Locale.getDefault().language
+                val model = _uiState.value.defaultModel
+                describeImageUseCase(apiKey, image, prePrompt, languageCode, model).collect { result ->
+                    when (result) {
+                        is ResultWrapper.Loading -> { ... }
+                        is ResultWrapper.Success -> {
+                            // ... Actualiza el estado con la respuesta ...
+                        }
+                        is ResultWrapper.Error -> {
+                            // ... Actualiza el estado con el error ...
+                        }
+                    }
+                }
+            } catch (e: Exception) {
+                // ...
+            }
+        }
+    }
+
+    fun sendChatMessage(message: String) {
+        viewModelScope.launch {
+            val apiKey = userPreferencesRepository.apiKey.first()
+            // ... Lógica similar a describeImage pero llamando a continueChatUseCase ...
+        }
+    }
+    // ...
+}
+```

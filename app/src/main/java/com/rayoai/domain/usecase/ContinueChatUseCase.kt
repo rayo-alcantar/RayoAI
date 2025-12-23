@@ -39,10 +39,18 @@ class ContinueChatUseCase @Inject constructor(
         languageCode: String,
         model: String = GeminiModelConfig.DEFAULT_MODEL
     ): Flow<ResultWrapper<String>> {
+        // Generamos el system prompt basado en el idioma
         val systemPrompt = createSystemPrompt(languageCode)
-        val fullHistory = listOf(
-            ChatMessage(content = systemPrompt, isFromUser = false)
-        ) + history
-        return visionRepository.generateContent(apiKey, prompt, images, fullHistory, model)
+        
+        // El historial NO debe incluir el system prompt como mensaje
+        // El system prompt se pasa separadamente en el parámetro systemPrompt
+        return visionRepository.generateContent(
+            apiKey = apiKey,
+            prompt = prompt,
+            systemPrompt = systemPrompt,
+            images = images,
+            history = history, // Historial limpio sin system prompt
+            model = model
+        )
     }
 }

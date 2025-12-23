@@ -26,7 +26,8 @@ class DescribeImageUseCase @Inject constructor(
      * Invoca la descripción de una imagen.
      * @param apiKey La clave de API para autenticar la llamada al modelo Gemini.
      * @param image La imagen [Bitmap] a describir.
-     * @param history El historial de chat opcional para mantener el contexto (aunque para la descripción inicial suele estar vacío).
+     * @param userPrePrompt Solicitud específica del usuario (si está vacía, se usa una descripción genérica).
+     * @param history El historial de chat opcional para mantener el contexto.
      * @param languageCode El código de idioma para la respuesta.
      * @param model El código del modelo a utilizar (ej. gemini-2.0-flash).
      * @return Un [Flow] que emite el estado de la operación ([ResultWrapper.Loading], [ResultWrapper.Success], [ResultWrapper.Error]).
@@ -39,13 +40,23 @@ class DescribeImageUseCase @Inject constructor(
         languageCode: String,
         model: String = GeminiModelConfig.DEFAULT_MODEL
     ): Flow<ResultWrapper<String>> {
+        // Generamos el system prompt basado en el idioma
         val systemPrompt = createSystemPrompt(languageCode)
-        val finalPrompt = if (userPrePrompt.isNotBlank()) {
-            "$systemPrompt\n\nUser's request: $userPrePrompt".trim()
-        } else {
-            systemPrompt
+        
+        // El prompt del usuario va separado, no concatenado con el system prompt
+        val userPrompt = userPrePrompt.ifBlank { 
+            "Describe this image in detail." 
         }
-        // Delega la llamada al repositorio de visión para interactuar con el modelo Gemini.
-        return visionRepository.generateContent(apiKey, finalPrompt, listOf(image), history, model)
+        
+        // Pasamos el system prompt por separado al repositorio
+        // Esto soluciona el error 400 de la API REST
+        return visionRepository.generateContent(
+            apiKey = apiKey,
+            prompt = userPrompt,
+            systemPrompt = systemPrompt,
+            images = listOf(image),
+            history = history,
+            model = model
+        )
     }
 }
