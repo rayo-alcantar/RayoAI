@@ -16,6 +16,7 @@ import javax.inject.Inject
 import javax.inject.Singleton
 
 import android.graphics.ImageDecoder
+import android.util.Log
 
 /**
  * Clase para gestionar el almacenamiento de imágenes en el almacenamiento interno de la aplicación.
@@ -102,10 +103,20 @@ class ImageStorageManager @Inject constructor(
             if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.P) {
                 ImageDecoder.decodeBitmap(ImageDecoder.createSource(context.contentResolver, uri))
             } else {
+                @Suppress("DEPRECATION")
                 MediaStore.Images.Media.getBitmap(context.contentResolver, uri)
             }
+        } catch (e: SecurityException) {
+            Log.e("ImageStorageManager", "SecurityException loading image from URI: $uri - permission may have expired", e)
+            null
+        } catch (e: java.io.FileNotFoundException) {
+            Log.e("ImageStorageManager", "FileNotFoundException loading image from URI: $uri - file may have been deleted", e)
+            null
         } catch (e: IOException) {
-            e.printStackTrace()
+            Log.e("ImageStorageManager", "IOException loading image from URI: $uri", e)
+            null
+        } catch (e: Exception) {
+            Log.e("ImageStorageManager", "Unexpected error loading image from URI: $uri", e)
             null
         }
     }

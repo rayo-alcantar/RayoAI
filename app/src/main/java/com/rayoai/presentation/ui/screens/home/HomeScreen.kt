@@ -91,8 +91,17 @@ fun HomeScreen(
                     val source = ImageDecoder.createSource(context.contentResolver, it)
                     ImageDecoder.decodeBitmap(source)
                 } else {
+                    @Suppress("DEPRECATION")
                     MediaStore.Images.Media.getBitmap(context.contentResolver, it)
                 }
+            } catch (e: SecurityException) {
+                Log.e("HomeScreen", "SecurityException loading shared image - permission may have expired", e)
+                viewModel.setError(context.getString(R.string.error_security_shared_image))
+                null
+            } catch (e: java.io.FileNotFoundException) {
+                Log.e("HomeScreen", "FileNotFoundException loading shared image - file may have been deleted", e)
+                viewModel.setError(context.getString(R.string.error_loading_shared_image))
+                null
             } catch (e: Exception) {
                 Log.e("HomeScreen", "Error loading shared image", e)
                 viewModel.setError(context.getString(R.string.error_loading_shared_image))

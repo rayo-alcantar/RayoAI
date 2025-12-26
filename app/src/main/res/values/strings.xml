@@ -99,6 +99,7 @@ Tarjeta: 4152314082325278</string>
     <string name="capturing_in">Capturando en: %1$d...</string>
     <string name="take_photo">Tomar Foto</string>
     <string name="error_loading_shared_image">Error al cargar la imagen compartida.</string>
+    <string name="error_security_shared_image">No se pudo acceder a la imagen compartida. El permiso pudo haber expirado.</string>
     <string name="error_loading_gallery_image">Error al cargar la imagen de la galería.</string>
     <string name="tts_lang_not_supported">Idioma no soportado para Text-to-Speech.</string>
     <string name="tts_init_error">Error al inicializar Text-to-Speech.</string>

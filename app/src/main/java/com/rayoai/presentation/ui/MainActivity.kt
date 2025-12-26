@@ -2,7 +2,9 @@ package com.rayoai.presentation.ui
 
 import android.content.Intent
 import android.net.Uri
+import android.os.Build
 import android.os.Bundle
+import android.os.Parcelable
 import android.speech.tts.TextToSpeech
 import android.util.Log
 import androidx.activity.ComponentActivity
@@ -32,6 +34,24 @@ class MainActivity : ComponentActivity() {
 
     private var textToSpeech: TextToSpeech? = null
 
+    /**
+     * Helper function para obtener Parcelable de manera compatible con todas las versiones de Android.
+     * En Android 13+ (API 33), getParcelableExtra(String) está deprecado y puede causar crashes.
+     */
+    private inline fun <reified T : Parcelable> Intent.getParcelableExtraCompat(key: String): T? {
+        return try {
+            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
+                getParcelableExtra(key, T::class.java)
+            } else {
+                @Suppress("DEPRECATION")
+                getParcelableExtra(key)
+            }
+        } catch (e: Exception) {
+            Log.e("MainActivity", "Error getting parcelable extra: $key", e)
+            null
+        }
+    }
+
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
 
@@ -46,15 +66,18 @@ class MainActivity : ComponentActivity() {
             }
         }
 
-        val imageUri: Uri? = if (intent?.getBooleanExtra("EXTRA_IS_PDF", false) == true) null 
-            else if (intent?.getBooleanExtra("EXTRA_IS_VIDEO", false) == true) null 
-            else intent?.getParcelableExtra(Intent.EXTRA_STREAM)
+        // Obtener URIs de manera segura usando la función helper compatible
+        val isPdf = intent?.getBooleanExtra("EXTRA_IS_PDF", false) == true
+        val isVideo = intent?.getBooleanExtra("EXTRA_IS_VIDEO", false) == true
         
-        val pdfUri: Uri? = if (intent?.getBooleanExtra("EXTRA_IS_PDF", false) == true) 
-            intent.getParcelableExtra(Intent.EXTRA_STREAM) else null
+        val imageUri: Uri? = if (isPdf || isVideo) null 
+            else intent?.getParcelableExtraCompat(Intent.EXTRA_STREAM)
         
-        val videoUri: Uri? = if (intent?.getBooleanExtra("EXTRA_IS_VIDEO", false) == true) 
-            intent.getParcelableExtra(Intent.EXTRA_STREAM) else null
+        val pdfUri: Uri? = if (isPdf) 
+            intent?.getParcelableExtraCompat(Intent.EXTRA_STREAM) else null
+        
+        val videoUri: Uri? = if (isVideo) 
+            intent?.getParcelableExtraCompat(Intent.EXTRA_STREAM) else null
 
         setContent {
             val tts = remember { textToSpeech }
@@ -90,3 +113,4 @@ class MainActivity : ComponentActivity() {
         }
     }
 }
+
