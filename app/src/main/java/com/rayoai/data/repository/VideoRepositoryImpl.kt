@@ -121,7 +121,7 @@ class VideoRepositoryImpl @Inject constructor(
 
             val response = geminiApiService.generateContent(
                 apiKey = apiKey,
-                model = "gemini-2.0-flash-exp",
+                model = "gemini-2.5-flash-exp",
                 request = request
             )
 

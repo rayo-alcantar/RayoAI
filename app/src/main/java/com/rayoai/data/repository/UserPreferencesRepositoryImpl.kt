@@ -40,7 +40,14 @@ class UserPreferencesRepositoryImpl @Inject constructor(
     }
 
     override val defaultModel: Flow<String> = dataStore.data.map {
-        it[PreferencesKeys.DEFAULT_MODEL] ?: GeminiModelConfig.DEFAULT_MODEL
+        val savedModel = it[PreferencesKeys.DEFAULT_MODEL] ?: GeminiModelConfig.DEFAULT_MODEL
+        
+        // Migración automática: si el usuario tiene 2.0-flash, cambiarlo a 2.5-flash
+        if (savedModel.contains("2.0-flash") || savedModel.contains("2.0")) {
+            "gemini-2.5-flash"
+        } else {
+            savedModel
+        }
     }
 
     override val themeMode: Flow<ThemeMode> = dataStore.data.map {

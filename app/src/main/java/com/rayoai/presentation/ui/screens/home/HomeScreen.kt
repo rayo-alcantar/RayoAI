@@ -53,6 +53,7 @@ import com.rayoai.presentation.ui.components.ChatBubble
 import com.rayoai.presentation.ui.navigation.Screen
 import android.media.MediaPlayer
 import androidx.camera.core.CameraSelector
+import androidx.camera.core.ImageCapture
 import android.content.ClipData
 import android.content.ClipboardManager
 import androidx.compose.foundation.lazy.rememberLazyListState
@@ -253,7 +254,8 @@ fun HomeScreen(
                                     viewModel.setCapturing(false) // nuevo
                                 },
                                 isCapturing = uiState.isCapturing,
-                                cameraSelector = uiState.currentCameraSelector
+                                cameraSelector = uiState.currentCameraSelector,
+                                flashMode = uiState.flashMode
                             )
                         } else {
                             Column(
@@ -417,38 +419,75 @@ fun HomeScreen(
                                 )
                             }
 
-                            Button(
-                                onClick = {
-                                    if (cameraPermissionState.status.isGranted) {
-                                        if (uiState.isTimerEnabled && uiState.timerSeconds > 0) {
-                                            scope.launch {
-                                                isCountingDown = true
-                                                for (i in uiState.timerSeconds downTo 1) {
-                                                    countdownValue = i
-                                                    delay(1000)
+                            val flashAutoDesc = stringResource(R.string.flash_mode_auto)
+                            val flashOnDesc = stringResource(R.string.flash_mode_on)
+                            val flashOffDesc = stringResource(R.string.flash_mode_off)
+
+                            Row(
+                                modifier = Modifier.fillMaxWidth(),
+                                horizontalArrangement = Arrangement.spacedBy(8.dp),
+                                verticalAlignment = Alignment.CenterVertically
+                            ) {
+                                // Spacer izquierdo para equilibrar el botón de flash
+                                Spacer(modifier = Modifier.width(72.dp))
+
+                                // Botón Tomar Foto - centrado
+                                Button(
+                                    onClick = {
+                                        if (cameraPermissionState.status.isGranted) {
+                                            if (uiState.isTimerEnabled && uiState.timerSeconds > 0) {
+                                                scope.launch {
+                                                    isCountingDown = true
+                                                    for (i in uiState.timerSeconds downTo 1) {
+                                                        countdownValue = i
+                                                        delay(1000)
+                                                    }
+                                                    isCountingDown = false
+                                                    textToSpeech?.speak("foto", TextToSpeech.QUEUE_FLUSH, null, null)
+                                                    viewModel.triggerImageCapture()
                                                 }
-                                                isCountingDown = false
-                                                textToSpeech?.speak("foto", TextToSpeech.QUEUE_FLUSH, null, null)
+                                            } else {
                                                 viewModel.triggerImageCapture()
                                             }
                                         } else {
-                                            viewModel.triggerImageCapture()
-                                        }
-                                    } else {
-                                        cameraPermissionState.launchPermissionRequest()
-                                    }
-                                },
-                                modifier = Modifier
-                                    .fillMaxWidth()
-                                    .height(56.dp)
-                                    .semantics {
-                                        if (uiState.isLoading) {
-                                            stateDescription = context.getString(R.string.loading_description)
+                                            cameraPermissionState.launchPermissionRequest()
                                         }
                                     },
-                                enabled = !uiState.isLoading && !isCountingDown
-                            ) {
-                                Text(stringResource(R.string.take_photo), style = MaterialTheme.typography.titleMedium)
+                                    modifier = Modifier
+                                        .weight(1f)
+                                        .height(56.dp)
+                                        .semantics {
+                                            if (uiState.isLoading) {
+                                                stateDescription = context.getString(R.string.loading_description)
+                                            }
+                                        },
+                                    enabled = !uiState.isLoading && !isCountingDown
+                                ) {
+                                    Text(stringResource(R.string.take_photo), style = MaterialTheme.typography.titleMedium)
+                                }
+
+                                // Botón de Flash - a la derecha
+                                val currentFlashDesc = when (uiState.flashMode) {
+                                    ImageCapture.FLASH_MODE_ON -> flashOnDesc
+                                    ImageCapture.FLASH_MODE_OFF -> flashOffDesc
+                                    else -> flashAutoDesc
+                                }
+                                OutlinedButton(
+                                    onClick = { viewModel.toggleFlashMode() },
+                                    modifier = Modifier
+                                        .width(72.dp)
+                                        .height(56.dp)
+                                        .semantics { contentDescription = currentFlashDesc }
+                                ) {
+                                    Text(
+                                        text = when (uiState.flashMode) {
+                                            ImageCapture.FLASH_MODE_ON -> "On"
+                                            ImageCapture.FLASH_MODE_OFF -> "Off"
+                                            else -> "Auto"
+                                        },
+                                        style = MaterialTheme.typography.labelMedium
+                                    )
+                                }
                             }
                         }
                     }

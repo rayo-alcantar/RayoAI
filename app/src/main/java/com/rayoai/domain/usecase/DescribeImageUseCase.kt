@@ -29,7 +29,7 @@ class DescribeImageUseCase @Inject constructor(
      * @param userPrePrompt Solicitud específica del usuario (si está vacía, se usa una descripción genérica).
      * @param history El historial de chat opcional para mantener el contexto.
      * @param languageCode El código de idioma para la respuesta.
-     * @param model El código del modelo a utilizar (ej. gemini-2.0-flash).
+     * @param model El código del modelo a utilizar (ej. gemini-2.5-flash).
      * @return Un [Flow] que emite el estado de la operación ([ResultWrapper.Loading], [ResultWrapper.Success], [ResultWrapper.Error]).
      */
     operator fun invoke(

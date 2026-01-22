@@ -10,7 +10,7 @@ Este archivo contiene información relevante para el agente Gemini CLI para oper
 *   **Framework UI:** Jetpack Compose.
 *   **Inyección de Dependencias:** Hilt.
 *   **Persistencia Local:** Room (Base de datos), Jetpack DataStore (Preferencias).
-*   **API de IA:** Google Gemini 2.0 Flash.
+*   **API de IA:** Google Gemini 2.5 Flash.
 *   **Gestión de Cámara:** CameraX.
 *   **Gestión de Permisos:** Accompanist Permissions.
 *   **Seguridad:** Jetpack Security Crypto (para API Key).

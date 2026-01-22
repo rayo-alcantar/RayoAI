@@ -13,6 +13,7 @@ import com.rayoai.domain.repository.UserPreferencesRepository
 import com.rayoai.domain.usecase.SaveCaptureUseCase
 import dagger.hilt.android.lifecycle.HiltViewModel
 import androidx.camera.core.CameraSelector
+import androidx.camera.core.ImageCapture
 import kotlinx.coroutines.flow.MutableSharedFlow
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.SharedFlow
@@ -50,6 +51,7 @@ data class HomeUiState(
     val currentImageUri: Uri? = null,
     val currentCaptureId: Long? = null,
     val currentCameraSelector: CameraSelector = CameraSelector.DEFAULT_BACK_CAMERA,
+    val flashMode: Int = ImageCapture.FLASH_MODE_AUTO,
     val isTimerEnabled: Boolean = false,
     val timerSeconds: Int = 0,
     val isCountingDown: Boolean = false,
@@ -365,6 +367,17 @@ class HomeViewModel @Inject constructor(
                 CameraSelector.DEFAULT_BACK_CAMERA
             }
             currentState.copy(currentCameraSelector = newSelector)
+        }
+    }
+
+    fun toggleFlashMode() {
+        _uiState.update { currentState ->
+            val newFlashMode = when (currentState.flashMode) {
+                ImageCapture.FLASH_MODE_AUTO -> ImageCapture.FLASH_MODE_ON
+                ImageCapture.FLASH_MODE_ON -> ImageCapture.FLASH_MODE_OFF
+                else -> ImageCapture.FLASH_MODE_AUTO
+            }
+            currentState.copy(flashMode = newFlashMode)
         }
     }
 

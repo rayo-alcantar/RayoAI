@@ -188,9 +188,16 @@ fun ChatSection(
                 verticalArrangement = Arrangement.spacedBy(8.dp)
             ) {
                 items(chatMessages) { message ->
+                    val isLastAiMessage = chatMessages.last() == message && !message.isFromUser
+                    val baseModifier = if (chatMessages.last() == message) Modifier.focusRequester(focusRequester) else Modifier
+                    val accessibilityModifier = if (isLastAiMessage) {
+                        baseModifier.semantics { liveRegion = LiveRegionMode.Assertive }
+                    } else {
+                        baseModifier
+                    }
                     ChatBubble(
                         message = message,
-                        modifier = if (chatMessages.last() == message) Modifier.focusRequester(focusRequester) else Modifier
+                        modifier = accessibilityModifier
                     )
                 }
             }

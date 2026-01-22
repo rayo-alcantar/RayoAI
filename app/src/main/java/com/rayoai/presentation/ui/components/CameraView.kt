@@ -52,15 +52,16 @@ fun CameraView(
     onImageCaptured: (Bitmap) -> Unit,
     onError: (String) -> Unit,
     isCapturing: Boolean,
-    cameraSelector: CameraSelector
+    cameraSelector: CameraSelector,
+    flashMode: Int = ImageCapture.FLASH_MODE_AUTO
 ) {
     val context = LocalContext.current
     val lifecycleOwner = LocalLifecycleOwner.current
     // Controlador de la cámara que gestiona el ciclo de vida y las operaciones de la cámara.
     val cameraController = remember { LifecycleCameraController(context) }
-    LaunchedEffect(cameraController, cameraSelector) {
+    LaunchedEffect(cameraController, cameraSelector, flashMode) {
         cameraController.cameraSelector = cameraSelector
-        cameraController.imageCaptureFlashMode = ImageCapture.FLASH_MODE_AUTO
+        cameraController.imageCaptureFlashMode = flashMode
     }
     // Estado del permiso de la cámara utilizando Accompanist Permissions.
     val permissionState = rememberPermissionState(permission = Manifest.permission.CAMERA)

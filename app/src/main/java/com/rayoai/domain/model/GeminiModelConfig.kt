@@ -2,18 +2,17 @@ package com.rayoai.domain.model
 
 /**
  * Centraliza los modelos usados por la app.
- * Se expone un modelo predeterminado (Gemini 2.0 Flash) y un orden de
+ * Se expone un modelo predeterminado (Gemini 2.5 Flash) y un orden de
  * candidatos para intentar de forma secuencial.
  */
 object GeminiModelConfig {
-    const val DEFAULT_MODEL = "gemini-2.0-flash"
+    const val DEFAULT_MODEL = "gemini-2.5-flash"
 
     /**
         Modelos visibles para el selector de ajustes.
      */
     val selectableModels = listOf(
         DEFAULT_MODEL,
-        "gemini-2.5-flash",
         "gemini-2.5-pro",
         "gemini-3-flash",
         "gemini-3-pro",
@@ -29,7 +28,6 @@ object GeminiModelConfig {
         "gemini-2.5",
         "gemini-3-flash",
         "gemini-3-pro",
-        "gemini-3",
-        DEFAULT_MODEL
+        "gemini-3"
     )
 }

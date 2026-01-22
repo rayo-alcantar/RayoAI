@@ -51,8 +51,7 @@ fun SettingsScreen(
     val snackbarHostState = remember { SnackbarHostState() }
     val focusManager = LocalFocusManager.current
     val modelOptions = listOf(
-        GeminiModelConfig.DEFAULT_MODEL to stringResource(R.string.model_gemini_20_flash),
-        "gemini-2.5-flash" to stringResource(R.string.model_gemini_25_flash),
+        GeminiModelConfig.DEFAULT_MODEL to stringResource(R.string.model_gemini_25_flash),
         "gemini-2.5-pro" to stringResource(R.string.model_gemini_25_pro),
         "gemini-3-flash" to stringResource(R.string.model_gemini_3_flash),
         "gemini-3-pro" to stringResource(R.string.model_gemini_3_pro),

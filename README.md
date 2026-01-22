@@ -4,11 +4,11 @@
 
 ## 🚀 Visión General
 
-RayoAI es una aplicación móvil Android diseñada para apoyar a personas ciegas o con baja visión, proporcionándoles descripciones detalladas de su entorno a través de la inteligencia artificial. Utilizando el modelo multimodal Google Gemini 2.0 Flash, la aplicación permite a los usuarios capturar imágenes o seleccionarlas de su galería para obtener descripciones de texto precisas y concisas, que luego pueden ser escuchadas, copiadas o compartidas. Además, ofrece una experiencia de chat conversacional sobre la imagen, permitiendo explorar detalles específicos.
+RayoAI es una aplicación móvil Android diseñada para apoyar a personas ciegas o con baja visión, proporcionándoles descripciones detalladas de su entorno a través de la inteligencia artificial. Utilizando el modelo multimodal Google Gemini 2.5 Flash, la aplicación permite a los usuarios capturar imágenes o seleccionarlas de su galería para obtener descripciones de texto precisas y concisas, que luego pueden ser escuchadas, copiadas o compartidas. Además, ofrece una experiencia de chat conversacional sobre la imagen, permitiendo explorar detalles específicos.
 
 ## ✨ Características Principales
 
-- **Descripción de Imágenes con IA:** Integra Google Gemini 2.0 Flash para generar descripciones de texto ricas y contextuales de cualquier imagen.
+- **Descripción de Imágenes con IA:** Integra Google Gemini 2.5 Flash para generar descripciones de texto ricas y contextuales de cualquier imagen.
 - **Captura de Imágenes Flexible:** Permite tomar fotos con la cámara (frontal/trasera, con temporizador opcional) o cargar desde la galería/compartir de otras apps.
 - **Chat Conversacional:** Continúa la conversación sobre una imagen ya descrita, profundizando en detalles específicos.
 - **Accesibilidad Prioritaria:** Diseñada desde cero con los principios de WCAG 2.2 AA, asegurando una navegación completa con TalkBack, alto contraste, y escalado de texto.
@@ -75,7 +75,7 @@ La aplicación sigue una arquitectura limpia y modular para facilitar el manteni
 - **Kotlin:** Lenguaje de programación principal.
 - **Jetpack Compose:** Toolkit moderno para construir UI nativas de Android.
 - **Material 3:** Sistema de diseño para una interfaz de usuario moderna y accesible.
-- **Google Gemini 2.0 Flash API:** Para la descripción multimodal de imágenes.
+- **Google Gemini 2.5 Flash API:** Para la descripción multimodal de imágenes.
 - **CameraX:** Para la integración de la cámara.
 - **Room Persistence Library:** Para la base de datos local de historial.
 - **Jetpack DataStore:** Para almacenar preferencias de usuario de forma asíncrona y segura.
