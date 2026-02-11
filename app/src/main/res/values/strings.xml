@@ -189,5 +189,10 @@ Tarjeta: 4152314082325278</string>
     <string name="flash_mode_on">Flash activado</string>
     <string name="flash_mode_off">Flash desactivado</string>
     <string name="flash_toggle_button">Cambiar modo de flash</string>
+    
+    <!-- Timer Control -->
+    <string name="timer_off">Temporizador desactivado</string>
+    <string name="timer_seconds">Temporizador %1$d segundos</string>
+    <string name="timer_toggle_description">Cambiar temporizador</string>
 </resources>
 

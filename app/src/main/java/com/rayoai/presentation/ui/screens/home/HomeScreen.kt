@@ -337,60 +337,6 @@ fun HomeScreen(
                                 )
                             }
 
-                            Row(
-                                modifier = Modifier.fillMaxWidth(),
-                                verticalAlignment = Alignment.CenterVertically,
-                                horizontalArrangement = Arrangement.SpaceBetween
-                            ) {
-                                Row(
-                                    verticalAlignment = Alignment.CenterVertically,
-                                    modifier = Modifier.weight(1f)
-                                ) {
-                                    Checkbox(
-                                        checked = uiState.isTimerEnabled,
-                                        onCheckedChange = { viewModel.setTimerEnabled(it) }
-                                    )
-                                    Text(stringResource(R.string.timer), style = MaterialTheme.typography.titleMedium)
-                                }
-
-                                if (uiState.isTimerEnabled) {
-                                    var expanded by remember { mutableStateOf(false) }
-                                    val timerOptions = listOf(2, 3, 5, 10, 15)
-                                    val selectedOptionText = if (uiState.timerSeconds > 0) "${uiState.timerSeconds}s" else stringResource(R.string.select)
-
-                                    ExposedDropdownMenuBox(
-                                        expanded = expanded,
-                                        onExpandedChange = { expanded = !expanded },
-                                        modifier = Modifier.weight(1f)
-                                    ) {
-                                        OutlinedTextField(
-                                            value = selectedOptionText,
-                                            onValueChange = { },
-                                            readOnly = true,
-                                            label = { Text(stringResource(R.string.seconds)) },
-                                            trailingIcon = { ExposedDropdownMenuDefaults.TrailingIcon(expanded = expanded) },
-                                            modifier = Modifier
-                                                .menuAnchor()
-                                                .fillMaxWidth()
-                                        )
-
-                                        ExposedDropdownMenu(
-                                            expanded = expanded,
-                                            onDismissRequest = { expanded = false }
-                                        ) {
-                                            timerOptions.forEach { selectionOption ->
-                                                DropdownMenuItem(
-                                                    text = { Text(selectionOption.toString()) },
-                                                    onClick = {
-                                                        viewModel.setTimerSeconds(selectionOption)
-                                                        expanded = false
-                                                    }
-                                                )
-                                            }
-                                        }
-                                    }
-                                }
-                            }
 
                             var isCountingDown by remember { mutableStateOf(false) }
                             var countdownValue by remember { mutableStateOf(0) }
@@ -428,8 +374,28 @@ fun HomeScreen(
                                 horizontalArrangement = Arrangement.spacedBy(8.dp),
                                 verticalAlignment = Alignment.CenterVertically
                             ) {
-                                // Spacer izquierdo para equilibrar el botón de flash
-                                Spacer(modifier = Modifier.width(72.dp))
+                                // Botón de Temporizador (Izquierda)
+                                val timerDesc = if (uiState.timerSeconds > 0) {
+                                    stringResource(R.string.timer_seconds, uiState.timerSeconds)
+                                } else {
+                                    stringResource(R.string.timer_off)
+                                }
+                                
+                                OutlinedButton(
+                                    onClick = { viewModel.toggleTimer() },
+                                    modifier = Modifier
+                                        .width(72.dp)
+                                        .height(56.dp)
+                                        .semantics { 
+                                            contentDescription = timerDesc
+                                            stateDescription = timerDesc // Anuncia el estado al cambiar
+                                        }
+                                ) {
+                                    Text(
+                                        text = if (uiState.timerSeconds > 0) "${uiState.timerSeconds}s" else "Off",
+                                        style = MaterialTheme.typography.labelMedium
+                                    )
+                                }
 
                                 // Botón Tomar Foto - centrado
                                 Button(

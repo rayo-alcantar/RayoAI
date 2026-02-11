@@ -163,6 +163,23 @@ class HomeViewModel @Inject constructor(
         _uiState.update { it.copy(isTimerEnabled = enabled) }
     }
 
+    fun toggleTimer() {
+        _uiState.update { currentState ->
+            val nextSeconds = when (currentState.timerSeconds) {
+                0 -> 3
+                3 -> 5
+                5 -> 10
+                10 -> 15
+                else -> 0
+            }
+            currentState.copy(
+                timerSeconds = nextSeconds,
+                isTimerEnabled = nextSeconds > 0
+            )
+        }
+    }
+
+    // Deprecated: Logic moved to toggleTimer, keeping for compatibility if needed but prefer toggleTimer
     fun setTimerSeconds(seconds: Int) {
         _uiState.update { it.copy(timerSeconds = seconds) }
     }
