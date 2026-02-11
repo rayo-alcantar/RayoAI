@@ -194,5 +194,6 @@ Tarjeta: 4152314082325278</string>
     <string name="timer_off">Temporizador desactivado</string>
     <string name="timer_seconds">Temporizador %1$d segundos</string>
     <string name="timer_toggle_description">Cambiar temporizador</string>
+    <string name="retry_action">Reintentar</string>
 </resources>
 

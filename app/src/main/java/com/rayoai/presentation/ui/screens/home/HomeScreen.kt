@@ -534,17 +534,25 @@ fun HomeScreen(
             title = { Text(stringResource(R.string.error_dialog_title)) },
             text = { Text(errorMessage) },
             confirmButton = {
-                Button(
-                    onClick = {
-                        clipboard.setText(AnnotatedString(errorMessage))
-                        viewModel.clearError()
-                    }
+                Row(
+                    horizontalArrangement = Arrangement.spacedBy(8.dp)
                 ) {
-                    Text(stringResource(R.string.error_dialog_copy))
+                    TextButton(
+                        onClick = {
+                            clipboard.setText(AnnotatedString(errorMessage))
+                        }
+                    ) {
+                        Text(stringResource(R.string.error_dialog_copy))
+                    }
+                    Button(
+                        onClick = { viewModel.retryLastAction() }
+                    ) {
+                        Text(stringResource(R.string.retry_action))
+                    }
                 }
             },
             dismissButton = {
-                TextButton(onClick = { viewModel.clearError() }) {
+                TextButton(onClick = { viewModel.cancelRetry() }) {
                     Text(stringResource(R.string.error_dialog_close))
                 }
             }

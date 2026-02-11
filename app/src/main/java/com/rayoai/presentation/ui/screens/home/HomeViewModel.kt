@@ -38,6 +38,12 @@ sealed class HomeScreenState { // Forcing re-evaluation
     ) : HomeScreenState()
 }
 
+enum class FailedActionType {
+    NONE,
+    SEND_MESSAGE,
+    DESCRIBE_IMAGE
+}
+
 data class HomeUiState(
     val screenState: HomeScreenState = HomeScreenState.Initial,
     val isLoading: Boolean = false,
@@ -63,7 +69,10 @@ data class HomeUiState(
     val maxImagesInChat: Int = 3,
     val isCapturing: Boolean = false,
     val showPrePromptInput: Boolean = false,
-    val prePromptText: String = ""
+    val prePromptText: String = "",
+    val failedActionType: FailedActionType = FailedActionType.NONE,
+    val failedMessageContent: String? = null,
+    val isNewCapture: Boolean = false
 )
 
 
@@ -257,13 +266,27 @@ class HomeViewModel @Inject constructor(
                         }
                         is ResultWrapper.Error -> {
                             Log.e("HomeViewModel", "Error describing image: ${result.message}")
-                            _uiState.update { it.copy(isLoading = false, error = result.message) }
+                            _uiState.update {
+                                it.copy(
+                                    isLoading = false,
+                                    error = result.message,
+                                    failedActionType = FailedActionType.DESCRIBE_IMAGE,
+                                    isNewCapture = true // Assuming describeImage is called after capture mostly
+                                )
+                            }
                         }
                     }
                 }
             } catch (e: Exception) {
                 Log.e("HomeViewModel", "An unexpected error occurred in describeImageUseCase", e)
-                _uiState.update { it.copy(isLoading = false, error = "An unexpected error occurred.") }
+                _uiState.update {
+                    it.copy(
+                        isLoading = false,
+                        error = "An unexpected error occurred.",
+                        failedActionType = FailedActionType.DESCRIBE_IMAGE,
+                        isNewCapture = true
+                    )
+                }
             }
         }
     }
@@ -322,7 +345,9 @@ class HomeViewModel @Inject constructor(
                                 it.copy(
                                     isLoading = false,
                                     isAiTyping = false,
-                                    error = result.message
+                                    error = result.message,
+                                    failedActionType = FailedActionType.SEND_MESSAGE,
+                                    failedMessageContent = message
                                 )
                             }
                         }
@@ -330,7 +355,15 @@ class HomeViewModel @Inject constructor(
                 }
             } catch (e: Exception) {
                 Log.e("HomeViewModel", "An unexpected error occurred in continueChatUseCase", e)
-                _uiState.update { it.copy(isLoading = false, isAiTyping = false, error = "An unexpected error occurred.") }
+                _uiState.update {
+                    it.copy(
+                        isLoading = false,
+                        isAiTyping = false,
+                        error = "An unexpected error occurred.",
+                        failedActionType = FailedActionType.SEND_MESSAGE,
+                        failedMessageContent = message
+                    )
+                }
             }
         }
     }
@@ -340,7 +373,60 @@ class HomeViewModel @Inject constructor(
     }
 
     fun clearError() {
-        _uiState.update { it.copy(error = null) }
+        _uiState.update { 
+            it.copy(
+                error = null,
+                failedActionType = FailedActionType.NONE,
+                failedMessageContent = null,
+                isNewCapture = false
+            ) 
+        }
+    }
+    
+    fun retryLastAction() {
+        val state = _uiState.value
+        when (state.failedActionType) {
+            FailedActionType.SEND_MESSAGE -> {
+                state.failedMessageContent?.let { sendChatMessage(it) }
+            }
+            FailedActionType.DESCRIBE_IMAGE -> {
+                state.currentImageBitmap?.let { describeImage(it) }
+            }
+            FailedActionType.NONE -> {
+                 // No action to retry
+            }
+        }
+        // Clear failed state after triggering retry (or keep it until success? 
+        // Better to clear it so if it fails again it gets set again.
+        // But describeImage/sendChatMessage will set loading, so it should be fine.
+    }
+
+    fun cancelRetry() {
+        viewModelScope.launch {
+            val state = _uiState.value
+            if (state.failedActionType == FailedActionType.DESCRIBE_IMAGE && state.isNewCapture) {
+                // Cleanup abandoned image
+                state.currentImageUri?.let { uri ->
+                     // Best effort to delete. ImageStorageManager might need a delete method that takes a single URI
+                     // or we can use content resolver directly or reuse existing deleteImages.
+                     // The existing deleteImages takes a list.
+                     imageStorageManager.deleteImages(listOf(uri))
+                }
+                
+                // Return to camera state
+                _uiState.update {
+                    it.copy(
+                        currentImageBitmap = null,
+                        currentImageUri = null,
+                        currentImageDescription = null,
+                        chatMessages = emptyList(), // Clear the "Imagen capturada" message
+                        selectedImageUris = emptyList(),
+                        screenState = HomeScreenState.Initial
+                    )
+                }
+            }
+            clearError()
+        }
     }
 
     fun setLoading(loading: Boolean) {
