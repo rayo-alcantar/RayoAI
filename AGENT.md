@@ -69,5 +69,9 @@ This file serves as the primary source of truth for AI agents (Antigravity, Gemi
 ## 📝 Workflow for Agents
 1.  **Read Context**: before editing, read related files in `domain` and `data` to understand the flow.
 2.  **Plan**: If changing UI, check `strings.xml` first.
-3.  **Implement**: Follow the Coding Rules strictly.
 4.  **Verify**: Ensure strict type safety and null safety (Kotlin).
+5.  **Release & Deploy**:
+    -   Upon user confirmation of success, ask if they want to create release notes (in **Spanish**) and run deployment.
+    -   If yes:
+        1.  Create/Overwrite `release-notes.txt` with a summary of changes in Spanish.
+        2.  Run `deploy.bat` (this script handles the GitHub release).
