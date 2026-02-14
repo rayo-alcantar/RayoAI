@@ -88,7 +88,7 @@ class UpdateCheckViewModel @Inject constructor(
         val updateInfo = _uiState.value.updateAvailable ?: return
         if (_uiState.value.isDownloading) return
         UpdateInstaller.downloadUpdate(context, updateInfo, updatePreferences)
-        _uiState.update { it.copy(isDownloading = true, updateAvailable = null) }
+        _uiState.update { it.copy(isDownloading = true) }
     }
 
     fun dismissUpdate() {
