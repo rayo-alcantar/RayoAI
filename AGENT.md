@@ -1,6 +1,9 @@
 # RayoAI - Agent Context & Rules
 
 This file serves as the primary source of truth for AI agents (Antigravity, Gemini CLI, etc.) working on the RayoAI project.
+You have access to Engram persistent memory via MCP tools (mem_save, mem_search, mem_session_summary, etc.).
+- Save proactively after significant work — don't wait to be asked.
+- After any compaction or context reset, call mem_context to recover session state before continuing.
 
 ## 🚀 Project Overview
 

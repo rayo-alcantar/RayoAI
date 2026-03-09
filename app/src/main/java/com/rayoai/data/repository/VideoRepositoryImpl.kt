@@ -99,6 +99,9 @@ class VideoRepositoryImpl @Inject constructor(
             }
 
             // 7. Analizar el video con Gemini
+            val model = userPreferencesRepository.defaultModel.firstOrNull()
+                ?: com.rayoai.domain.model.GeminiModelConfig.DEFAULT_MODEL
+
             val request = GeminiRequest(
                 systemInstruction = SystemInstruction(
                     parts = listOf(PartDto(text = systemPrompt))
@@ -116,23 +119,39 @@ class VideoRepositoryImpl @Inject constructor(
                             )
                         )
                     )
+                ),
+                generationConfig = GenerationConfigDto(
+                    thinkingConfig = ThinkingConfigDto(
+                        includeThoughts = true,
+                        thinkingLevel = "MINIMAL"
+                    )
                 )
             )
 
             val response = geminiApiService.generateContent(
                 apiKey = apiKey,
-                model = "gemini-2.5-flash-exp",
+                model = model,
                 request = request
             )
 
             if (!response.isSuccessful || response.body() == null) {
-                return@withContext ResultWrapper.Error("Error en la API: ${response.message()}")
+                return@withContext ResultWrapper.Error("Error en la API: ${response.code()} - ${response.message()}")
             }
 
-            val description = response.body()!!.candidates?.firstOrNull()
-                ?.content?.parts?.firstOrNull()
-                ?.text
-                ?: return@withContext ResultWrapper.Error("No se recibió respuesta del modelo")
+            // Extraer texto de la respuesta (Gemini 3.1 puede devolver múltiples partes)
+            val candidate = response.body()!!.candidates?.firstOrNull()
+            val parts = candidate?.content?.parts
+            
+            // Algoritmo de extracción para Gemini 3.1:
+            // 1. Recorrer partes. 2. Ignorar "thought": true. 3. Concatenar texto.
+            val description = parts?.filter { it.thought != true }
+                ?.mapNotNull { it.text }
+                ?.joinToString("")
+
+            if (description.isNullOrBlank()) {
+                val finishReason = candidate?.finishReason ?: "UNKNOWN"
+                return@withContext ResultWrapper.Error("No se recibió respuesta del modelo (Motivo: $finishReason)")
+            }
 
             ResultWrapper.Success(description)
 

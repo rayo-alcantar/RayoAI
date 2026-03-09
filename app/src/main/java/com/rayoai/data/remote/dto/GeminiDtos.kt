@@ -40,6 +40,7 @@ data class ContentDto(
  */
 data class PartDto(
     @SerializedName("text") val text: String? = null,
+    @SerializedName("thought") val thought: Boolean? = null,
     @SerializedName("inline_data") val inlineData: InlineDataDto? = null,
     @SerializedName("file_data") val fileData: FileDataDto? = null
 )
@@ -59,7 +60,16 @@ data class GenerationConfigDto(
     @SerializedName("temperature") val temperature: Float? = null,
     @SerializedName("topK") val topK: Int? = null,
     @SerializedName("topP") val topP: Float? = null,
-    @SerializedName("maxOutputTokens") val maxOutputTokens: Int? = null
+    @SerializedName("maxOutputTokens") val maxOutputTokens: Int? = null,
+    @SerializedName("thinking_config") val thinkingConfig: ThinkingConfigDto? = null
+)
+
+/**
+ * Configuración para el modo de razonamiento (Thinking) en Gemini 3.1.
+ */
+data class ThinkingConfigDto(
+    @SerializedName("include_thoughts") val includeThoughts: Boolean = true,
+    @SerializedName("thinking_level") val thinkingLevel: String = "MINIMAL"
 )
 
 // ============ RESPONSE MODELS ============

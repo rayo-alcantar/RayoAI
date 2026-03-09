@@ -94,7 +94,12 @@ class VisionRepositoryImpl @Inject constructor(
         val request = GeminiRequest(
             systemInstruction = systemInstructionDto,
             contents = contentsDto,
-            generationConfig = null // Podemos agregar configuraciones en el futuro
+            generationConfig = GenerationConfigDto(
+                thinkingConfig = ThinkingConfigDto(
+                    includeThoughts = true, // Se pueden incluir pensamientos para debugging futuro si es necesario, pero se filtran al parsear
+                    thinkingLevel = "MINIMAL" // Recomendado para visión rápida
+                )
+            )
         )
 
         // 5. Lógica de Fallback de Modelos (mantiene compatibilidad con lógica original)
@@ -110,16 +115,23 @@ class VisionRepositoryImpl @Inject constructor(
                 )
 
                 if (response.isSuccessful && response.body() != null) {
-                    // Extraer texto de la respuesta
+                    // Extraer texto de la respuesta (Gemini 3.1 puede devolver múltiples partes)
                     val candidate = response.body()!!.candidates?.firstOrNull()
-                    val text = candidate?.content?.parts?.firstOrNull()?.text
+                    val parts = candidate?.content?.parts
+                    
+                    // Algoritmo de extracción para Gemini 3.1:
+                    // 1. Recorrer partes. 2. Ignorar "thought": true. 3. Concatenar texto.
+                    val text = parts?.filter { it.thought != true }
+                        ?.mapNotNull { it.text }
+                        ?.joinToString("")
 
                     if (!text.isNullOrBlank()) {
                         emit(ResultWrapper.Success(text))
                         return@flow // Éxito, salimos del flujo
                     } else {
-                        // Respuesta vacía, intentar siguiente modelo
-                        lastError = "$modelName: Empty response from API"
+                        // Respuesta vacía o bloqueada
+                        val finishReason = candidate?.finishReason ?: "UNKNOWN"
+                        lastError = "$modelName: Empty response (Reason: $finishReason)"
                     }
                 } else {
                     // Error HTTP (400, 429, etc.)
