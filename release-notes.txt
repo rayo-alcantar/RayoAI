@@ -1,11 +1,11 @@
-# RayoAI - Versión 3.2.5
+RayoAI - Versión 3.2.5
 
-## 🚀 Novedades en esta versión:
+🚀 Novedades en esta versión:
 
-*   **Migración a Gemini 3.1:** Hemos actualizado el motor de inteligencia artificial a la familia Gemini 3.1 (Flash Lite, Pro y Flash Preview), ofreciendo respuestas más rápidas y precisas.
-*   **Modo de Razonamiento (Thinking):** Se ha implementado soporte para los nuevos modelos de razonamiento. Ahora RayoAI puede realizar análisis más profundos filtrando automáticamente los pensamientos internos del modelo para mostrarte solo la respuesta final.
-*   **Mejoras en el Análisis de Video:** El escaneo de video ahora utiliza tu modelo predeterminado configurado en los ajustes, aprovechando las capacidades de Gemini 3.1 para descripciones de video más detalladas.
-*   **Optimización de Latencia:** Configuración optimizada para una descripción visual más veloz en dispositivos móviles.
-*   **Actualización de Ajustes:** Nuevos modelos disponibles en el selector de ajustes para que elijas el que mejor se adapte a tus necesidades.
+*   Migración a Gemini 3.1: Hemos actualizado el motor de inteligencia artificial a la familia Gemini 3.1 (Flash Lite, Pro y Flash Preview), ofreciendo respuestas más rápidas y precisas.
+*   Modo de Razonamiento (Thinking): Se ha implementado soporte para los nuevos modelos de razonamiento. Ahora RayoAI puede realizar análisis más profundos filtrando automáticamente los pensamientos internos del modelo para mostrarte solo la respuesta final.
+*   Mejoras en el Análisis de Video: El escaneo de video ahora utiliza tu modelo predeterminado configurado en los ajustes, aprovechando las capacidades de Gemini 3.1 para descripciones de video más detalladas.
+*   Optimización de Latencia: Configuración optimizada para una descripción visual más veloz en dispositivos móviles.
+*   Actualización de Ajustes: Nuevos modelos disponibles en el selector de ajustes para que elijas el que mejor se adapte a tus necesidades.
 
-¡Gracias por usar RayoAI! Si te gusta la app, considera dejarnos una calificación en la Play Store.
+¡Gracias por usar RayoAI! Si te gusta la app, considera dejarnos una calificación en la Play Store o hacer una donación.
