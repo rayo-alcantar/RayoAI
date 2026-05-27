@@ -48,6 +48,7 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.semantics.clearAndSetSemantics
 import androidx.compose.ui.semantics.LiveRegionMode
 import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.semantics.contentDescription
@@ -95,12 +96,42 @@ private fun LightDetectorCard() {
 
     var isDetecting by remember { mutableStateOf(false) }
     var lux by remember { mutableStateOf<Float?>(null) }
+    var announcedLevel by remember { mutableStateOf<LightLevel?>(null) }
+    var announcedLux by remember { mutableStateOf<Float?>(null) }
+    var accessibleStatus by remember { mutableStateOf("Detector de luz detenido") }
     val level = if (lightSensor == null) LightLevel.UNAVAILABLE else lightLevelForLux(lux)
     val buttonText = if (isDetecting) "Detectando... tocar para detener" else "Detectar luz"
     val statusText = when {
         lightSensor == null -> LightLevel.UNAVAILABLE.label
         isDetecting -> "${level.label}. ${lux?.toInt() ?: 0} lux"
         else -> "Usa vibraciones para ubicar fuentes de luz"
+    }
+    val accessibleText = if (isDetecting) accessibleStatus else "Detector de luz detenido"
+
+    LaunchedEffect(isDetecting, level, lux) {
+        if (!isDetecting) {
+            announcedLevel = null
+            announcedLux = null
+            accessibleStatus = "Detector de luz detenido"
+            return@LaunchedEffect
+        }
+
+        val currentLux = lux
+        val previousLux = announcedLux
+        val significantLuxChange = currentLux != null && previousLux != null &&
+                kotlin.math.abs(currentLux - previousLux) >= when (level) {
+                    LightLevel.HIGH -> 500f
+                    LightLevel.MEDIUM -> 150f
+                    LightLevel.LOW -> 20f
+                    LightLevel.NONE -> 1f
+                    LightLevel.UNAVAILABLE -> Float.MAX_VALUE
+                }
+
+        if (level != announcedLevel || significantLuxChange) {
+            announcedLevel = level
+            announcedLux = currentLux
+            accessibleStatus = level.label
+        }
     }
 
     DisposableEffect(isDetecting, lightSensor) {
@@ -140,8 +171,8 @@ private fun LightDetectorCard() {
             .fillMaxWidth()
             .semantics {
                 role = Role.Button
-                contentDescription = "$buttonText. $statusText"
-                stateDescription = statusText
+                contentDescription = "$buttonText. $accessibleText"
+                stateDescription = accessibleText
                 liveRegion = LiveRegionMode.Polite
             }
             .clickable(enabled = lightSensor != null) {
@@ -161,7 +192,10 @@ private fun LightDetectorCard() {
             Spacer(modifier = Modifier.width(12.dp))
             Column {
                 Text(text = buttonText, style = MaterialTheme.typography.titleMedium)
-                Text(text = statusText)
+                Text(
+                    text = statusText,
+                    modifier = Modifier.clearAndSetSemantics {}
+                )
             }
         }
     }
