@@ -47,6 +47,7 @@ import androidx.compose.ui.graphics.asImageBitmap
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.platform.LocalClipboardManager
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.semantics.*
 import androidx.compose.ui.text.style.TextAlign
@@ -272,23 +273,11 @@ fun HomeScreen(
                                 )
                             }
 
-                            Surface(
-                                modifier = Modifier.size(44.dp),
-                                shape = CircleShape,
-                                color = MaterialTheme.colorScheme.primaryContainer,
-                                contentColor = MaterialTheme.colorScheme.onPrimaryContainer
-                            ) {
-                                Box(contentAlignment = Alignment.Center) {
-                                    Text(
-                                        text = "R",
-                                        style = MaterialTheme.typography.titleLarge,
-                                        fontWeight = FontWeight.Bold,
-                                        modifier = Modifier.semantics {
-                                            contentDescription = context.getString(R.string.app_name)
-                                        }
-                                    )
-                                }
-                            }
+                            Image(
+                                painter = painterResource(id = R.drawable.logo_rayoai),
+                                contentDescription = stringResource(id = R.string.app_name),
+                                modifier = Modifier.size(52.dp)
+                            )
 
                             FilledIconButton(
                                 onClick = {
