@@ -183,9 +183,6 @@ fun AppNavigation(imageUri: Uri?, startDestination: String, pdfUri: Uri? = null,
                 com.rayoai.presentation.ui.screens.tools.ToolsScreen(
                     onScanPdf = { navController.navigate(Screen.ScanPdf.route) },
                     onScanVideo = { navController.navigate(Screen.ScanVideo.route) },
-                    onOpenProcessed = { doc ->
-                        navController.navigate(Screen.ViewPdf.createRoute(doc.id))
-                    },
                     onOpenVideo = { video ->
                         navController.navigate(Screen.ViewVideo.createRoute(video.id))
                     }
@@ -195,7 +192,10 @@ fun AppNavigation(imageUri: Uri?, startDestination: String, pdfUri: Uri? = null,
                 com.rayoai.presentation.ui.screens.tools.ScanPdfScreen(
                     incomingPdfUri = pendingPdfUri,
                     onPdfConsumed = { pendingPdfUri = null },
-                    onNavigateBack = { navController.popBackStack() }
+                    onNavigateBack = { navController.popBackStack() },
+                    onOpenProcessed = { doc ->
+                        navController.navigate(Screen.ViewPdf.createRoute(doc.id))
+                    }
                 )
             }
             composable(

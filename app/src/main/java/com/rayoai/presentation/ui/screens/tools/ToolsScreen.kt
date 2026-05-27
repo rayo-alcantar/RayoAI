@@ -58,7 +58,6 @@ import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.semantics.stateDescription
 import androidx.compose.ui.unit.dp
 import androidx.hilt.navigation.compose.hiltViewModel
-import com.rayoai.domain.model.PdfDocument
 import com.rayoai.domain.model.VideoDocument
 import kotlinx.coroutines.delay
 import java.text.SimpleDateFormat
@@ -224,31 +223,11 @@ private fun Context.appVibrator(): Vibrator {
 fun ToolsScreen(
     onScanPdf: () -> Unit,
     onScanVideo: () -> Unit,
-    onOpenProcessed: (PdfDocument) -> Unit,
     onOpenVideo: (VideoDocument) -> Unit,
     viewModel: ToolsViewModel = hiltViewModel()
 ) {
-    val pdfDocs by viewModel.pdfDocuments.collectAsState()
     val videoDocs by viewModel.videoDocuments.collectAsState()
-    var toDelete by remember { mutableStateOf<PdfDocument?>(null) }
     var videoToDelete by remember { mutableStateOf<VideoDocument?>(null) }
-
-    if (toDelete != null) {
-        AlertDialog(
-            onDismissRequest = { toDelete = null },
-            title = { Text(text = "Eliminar documento") },
-            text = { Text(text = "¿Deseas eliminar este documento procesado?") },
-            confirmButton = {
-                Button(onClick = {
-                    toDelete?.let { viewModel.delete(it) }
-                    toDelete = null
-                }) { Text(text = "Eliminar") }
-            },
-            dismissButton = {
-                Button(onClick = { toDelete = null }) { Text(text = "Cancelar") }
-            }
-        )
-    }
 
     if (videoToDelete != null) {
         AlertDialog(
@@ -321,28 +300,6 @@ fun ToolsScreen(
                         )
                         Text(text = "Escanear Video", style = MaterialTheme.typography.titleMedium)
                         Text(text = "Analiza videos con IA (máx 2 GB)")
-                    }
-                }
-            }
-
-            items(pdfDocs) { doc ->
-                Card(
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .clickable { onOpenProcessed(doc) }
-                ) {
-                    Column(Modifier.padding(16.dp)) {
-                        Text(text = doc.name, style = MaterialTheme.typography.titleMedium)
-                        Text(
-                            text = SimpleDateFormat(
-                                "dd/MM/yyyy HH:mm",
-                                Locale.getDefault()
-                            ).format(Date(doc.timestamp)),
-                            style = MaterialTheme.typography.bodySmall
-                        )
-                        IconButton(onClick = { toDelete = doc }) {
-                            Icon(Icons.Filled.Delete, contentDescription = "Eliminar documento")
-                        }
                     }
                 }
             }
