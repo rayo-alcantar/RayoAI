@@ -38,7 +38,8 @@ class VisionRepositoryImpl @Inject constructor(
         systemPrompt: String?,
         images: List<Bitmap>,
         history: List<ChatMessage>,
-        model: String
+        model: String,
+        responseMimeType: String?
     ): Flow<ResultWrapper<String>> = flow {
         emit(ResultWrapper.Loading)
 
@@ -95,6 +96,8 @@ class VisionRepositoryImpl @Inject constructor(
             systemInstruction = systemInstructionDto,
             contents = contentsDto,
             generationConfig = GenerationConfigDto(
+                maxOutputTokens = if (responseMimeType == "application/json") 8192 else null,
+                responseMimeType = responseMimeType,
                 thinkingConfig = ThinkingConfigDto(
                     includeThoughts = true, // Se pueden incluir pensamientos para debugging futuro si es necesario, pero se filtran al parsear
                     thinkingLevel = "MINIMAL" // Recomendado para visión rápida

@@ -23,7 +23,8 @@ interface VisionRepository {
         systemPrompt: String? = null,
         images: List<Bitmap> = emptyList(),
         history: List<ChatMessage>,
-        model: String
+        model: String,
+        responseMimeType: String? = null
     ): Flow<ResultWrapper<String>>
 
     fun getHistory(showHidden: Boolean): Flow<List<Capture>>

@@ -8,14 +8,14 @@ import android.content.Intent
 import android.graphics.Bitmap
 import android.graphics.pdf.PdfRenderer
 import android.net.Uri
+import android.webkit.WebView
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
+import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.padding
-import androidx.compose.foundation.rememberScrollState
-import androidx.compose.foundation.verticalScroll
 import androidx.compose.material3.Button
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.Scaffold
@@ -28,23 +28,27 @@ import androidx.compose.runtime.getValue
 import androidx.compose.runtime.setValue
 import androidx.compose.runtime.remember
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.platform.LocalClipboardManager
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.semantics.role
 import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.unit.dp
+import androidx.compose.ui.viewinterop.AndroidView
 import androidx.hilt.navigation.compose.hiltViewModel
 import com.rayoai.domain.model.GeminiModelConfig
 import com.rayoai.domain.repository.UserPreferencesRepository
-import com.rayoai.domain.usecase.ExtractTextFromImagesUseCase
+import com.rayoai.domain.model.AccessiblePdfDocument
+import com.rayoai.domain.usecase.AccessiblePdfHtmlRenderer
+import com.rayoai.domain.usecase.ExtractAccessiblePdfUseCase
 import com.rayoai.domain.usecase.pdf.SavePdfDocumentUseCase
 import com.rayoai.core.ResultWrapper
 import dagger.hilt.android.lifecycle.HiltViewModel
+import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.flow.firstOrNull
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.withContext
 import java.util.Locale
 import javax.inject.Inject
 import androidx.lifecycle.ViewModel
@@ -52,7 +56,7 @@ import androidx.lifecycle.viewModelScope
 
 @HiltViewModel
 class ScanPdfViewModel @Inject constructor(
-    private val extractTextFromImagesUseCase: ExtractTextFromImagesUseCase,
+    private val extractAccessiblePdfUseCase: ExtractAccessiblePdfUseCase,
     private val savePdfDocumentUseCase: SavePdfDocumentUseCase,
     private val userPreferencesRepository: UserPreferencesRepository
 ) : ViewModel() {
@@ -60,10 +64,16 @@ class ScanPdfViewModel @Inject constructor(
     var status by mutableStateOf<String?>(null)
         private set
 
-    var resultText by mutableStateOf<String?>(null)
+    var resultHtml by mutableStateOf<String?>(null)
         private set
 
     var isLoading by mutableStateOf(false)
+        private set
+
+    var suggestedFileName by mutableStateOf("rayoai_pdf_accesible.pdf")
+        private set
+
+    var exportStatus by mutableStateOf<String?>(null)
         private set
 
     fun analyze(context: Context, uri: Uri) {
@@ -71,8 +81,13 @@ class ScanPdfViewModel @Inject constructor(
             try {
                 isLoading = true
                 status = "Cargando documento..."
+                resultHtml = null
+                exportStatus = null
 
-                val images = renderAllPages(context.contentResolver, uri)
+                val pageCount = getPageCount(context.contentResolver, uri)
+                if (pageCount <= 0) {
+                    throw IllegalStateException("No se pudieron leer paginas del PDF")
+                }
 
                 status = "Analizando con Gemini..."
                 val apiKey = userPreferencesRepository.apiKey.first() ?: ""
@@ -80,28 +95,44 @@ class ScanPdfViewModel @Inject constructor(
                 val model = userPreferencesRepository.defaultModel.firstOrNull()
                     ?: GeminiModelConfig.DEFAULT_MODEL
 
-                extractTextFromImagesUseCase(apiKey, images, language, model).collect { res ->
-                    when (res) {
-                        is ResultWrapper.Loading -> status = "Procesando texto..."
-                        is ResultWrapper.Success -> {
-                            resultText = res.data
-                            status = "Listo"
-                            isLoading = false
-
-                            val name = getDisplayName(context.contentResolver, uri) ?: "Documento PDF"
-                            savePdfDocumentUseCase(
-                                name,
-                                uri.toString(),
-                                res.data,
-                                System.currentTimeMillis()
-                            )
-                        }
-                        is ResultWrapper.Error -> {
-                            status = res.message ?: "Error desconocido"
-                            isLoading = false
-                        }
+                val fragments = mutableListOf<AccessiblePdfDocument>()
+                val chunkSize = 1
+                var startPage = 0
+                while (startPage < pageCount) {
+                    val endPage = minOf(startPage + chunkSize - 1, pageCount - 1)
+                    val rangeLabel = "paginas ${startPage + 1}-${endPage + 1} de $pageCount"
+                    status = "Procesando $rangeLabel..."
+                    val images = renderPages(context.contentResolver, uri, startPage, endPage)
+                    try {
+                        val rawJson = extractRange(
+                            apiKey = apiKey,
+                            images = images,
+                            pageRange = rangeLabel,
+                            language = language,
+                            isFirstRange = startPage == 0,
+                            model = model
+                        )
+                        fragments.add(AccessiblePdfHtmlRenderer.parseJson(rawJson))
+                    } finally {
+                        images.forEach { it.recycle() }
                     }
+                    startPage = endPage + 1
                 }
+
+                val accessibleDocument = AccessiblePdfHtmlRenderer.merge(fragments)
+                val html = AccessiblePdfHtmlRenderer.renderHtml(accessibleDocument)
+                resultHtml = html
+                status = "Listo"
+                isLoading = false
+
+                val name = getDisplayName(context.contentResolver, uri) ?: "Documento PDF"
+                suggestedFileName = buildSuggestedPdfFileName(name)
+                savePdfDocumentUseCase(
+                    name,
+                    uri.toString(),
+                    html,
+                    System.currentTimeMillis()
+                )
             } catch (e: Exception) {
                 status = e.message
                 isLoading = false
@@ -109,13 +140,68 @@ class ScanPdfViewModel @Inject constructor(
         }
     }
 
-    private fun renderAllPages(resolver: ContentResolver, uri: Uri): List<Bitmap> {
-        val pfd = resolver.openFileDescriptor(uri, "r") ?: return emptyList()
+    fun saveAccessiblePdf(context: Context, uri: Uri) {
+        val html = resultHtml ?: return
+        viewModelScope.launch {
+            try {
+                withContext(Dispatchers.IO) {
+                    AccessiblePdfExporter.savePdf(context.contentResolver, uri, html)
+                }
+                exportStatus = "PDF guardado"
+            } catch (e: Exception) {
+                exportStatus = e.message ?: "No se pudo guardar el PDF"
+            }
+        }
+    }
+
+    private suspend fun extractRange(
+        apiKey: String,
+        images: List<Bitmap>,
+        pageRange: String,
+        language: String,
+        isFirstRange: Boolean,
+        model: String
+    ): String {
+        var text: String? = null
+        var error: String? = null
+        extractAccessiblePdfUseCase(
+            apiKey = apiKey,
+            images = images,
+            pageRange = pageRange,
+            languageCode = language,
+            isFirstRange = isFirstRange,
+            model = model
+        ).collect { res ->
+            when (res) {
+                is ResultWrapper.Loading -> status = "Analizando $pageRange con Gemini..."
+                is ResultWrapper.Success -> text = res.data
+                is ResultWrapper.Error -> error = res.message ?: "Error desconocido"
+            }
+        }
+        error?.let { throw IllegalStateException(it) }
+        return text ?: throw IllegalStateException("Gemini no devolvio contenido para $pageRange")
+    }
+
+    private fun getPageCount(resolver: ContentResolver, uri: Uri): Int {
+        val pfd = resolver.openFileDescriptor(uri, "r") ?: return 0
         return pfd.use { descriptor ->
             PdfRenderer(descriptor).use { renderer ->
-                val count = renderer.pageCount
+                renderer.pageCount
+            }
+        }
+    }
+
+    private suspend fun renderPages(
+        resolver: ContentResolver,
+        uri: Uri,
+        startPage: Int,
+        endPage: Int
+    ): List<Bitmap> = withContext(Dispatchers.IO) {
+        val pfd = resolver.openFileDescriptor(uri, "r") ?: return@withContext emptyList()
+        pfd.use { descriptor ->
+            PdfRenderer(descriptor).use { renderer ->
                 val bitmaps = mutableListOf<Bitmap>()
-                repeat(count) { index ->
+                for (index in startPage..endPage) {
                     renderer.openPage(index).use { page ->
                         val width = 1080
                         val height = (width.toFloat() / page.width * page.height).toInt()
@@ -133,6 +219,11 @@ class ScanPdfViewModel @Inject constructor(
         // Puedes mejorar esto consultando MediaStore si lo necesitas.
         return uri.lastPathSegment
     }
+
+    private fun buildSuggestedPdfFileName(name: String): String {
+        val cleaned = name.substringAfterLast('/').substringBeforeLast('.').ifBlank { "documento" }
+        return "${cleaned}_accesible.pdf"
+    }
 }
 
 @Composable
@@ -143,8 +234,12 @@ fun ScanPdfScreen(
     viewModel: ScanPdfViewModel = hiltViewModel()
 ) {
     val context = LocalContext.current
-    val clipboard = LocalClipboardManager.current
     var hasConsumedIncoming by remember { mutableStateOf(false) }
+    val saveLauncher = rememberLauncherForActivityResult(
+        contract = ActivityResultContracts.CreateDocument("application/pdf")
+    ) { uri ->
+        uri?.let { viewModel.saveAccessiblePdf(context, it) }
+    }
 
     // Launcher para seleccionar PDF
     val launcher = rememberLauncherForActivityResult(
@@ -205,21 +300,43 @@ fun ScanPdfScreen(
                 viewModel.status?.let { Text(it) }
             }
 
-            viewModel.resultText?.let { text ->
-                Text(
-                    text = text,
+            viewModel.resultHtml?.let { html ->
+                Box(
                     modifier = Modifier
                         .weight(1f)
-                        .verticalScroll(rememberScrollState())
-                )
+                ) {
+                    AndroidView(
+                        factory = { webContext ->
+                            WebView(webContext).apply {
+                                settings.javaScriptEnabled = false
+                            }
+                        },
+                        update = { webView ->
+                            webView.loadDataWithBaseURL(
+                                null,
+                                html,
+                                "text/html",
+                                "UTF-8",
+                                null
+                            )
+                        },
+                        modifier = Modifier.fillMaxSize()
+                    )
+                }
             }
 
-            if (viewModel.resultText != null) {
-                Button(onClick = {
-                    clipboard.setText(androidx.compose.ui.text.AnnotatedString(viewModel.resultText ?: ""))
-                }) {
-                    Text("Copiar contenido")
+            if (viewModel.resultHtml != null) {
+                Button(
+                    onClick = { saveLauncher.launch(viewModel.suggestedFileName) },
+                    modifier = Modifier.semantics {
+                        role = Role.Button
+                        contentDescription = "Guardar PDF accesible"
+                    }
+                ) {
+                    Text("Guardar PDF accesible")
                 }
+
+                viewModel.exportStatus?.let { Text(it) }
 
                 Button(onClick = onNavigateBack) {
                     Text("Volver")

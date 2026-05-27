@@ -61,6 +61,7 @@ data class GenerationConfigDto(
     @SerializedName("topK") val topK: Int? = null,
     @SerializedName("topP") val topP: Float? = null,
     @SerializedName("maxOutputTokens") val maxOutputTokens: Int? = null,
+    @SerializedName("response_mime_type") val responseMimeType: String? = null,
     @SerializedName("thinking_config") val thinkingConfig: ThinkingConfigDto? = null
 )
 
