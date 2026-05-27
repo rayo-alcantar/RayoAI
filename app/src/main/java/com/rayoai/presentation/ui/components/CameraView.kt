@@ -82,6 +82,7 @@ fun CameraView(
                     // Crear y configurar la vista previa de CameraX.
                     PreviewView(it).apply {
                         layoutParams = LinearLayout.LayoutParams(MATCH_PARENT, MATCH_PARENT)
+                        implementationMode = PreviewView.ImplementationMode.COMPATIBLE
                         controller = cameraController
                         // Vincular el controlador de la cámara al ciclo de vida del Composable.
                         cameraController.bindToLifecycle(lifecycleOwner)

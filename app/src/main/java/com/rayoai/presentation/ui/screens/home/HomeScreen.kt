@@ -12,20 +12,30 @@ import android.util.Log
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.foundation.Image
+import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.*
+import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
+import androidx.compose.material.icons.filled.Cameraswitch
 import androidx.compose.material.icons.filled.ContentCopy
+import androidx.compose.material.icons.filled.Edit
+import androidx.compose.material.icons.filled.FlashAuto
+import androidx.compose.material.icons.filled.FlashOff
+import androidx.compose.material.icons.filled.FlashOn
 import androidx.compose.material.icons.filled.Image
+import androidx.compose.material.icons.filled.PhotoCamera
+import androidx.compose.material.icons.filled.PhotoLibrary
 import androidx.compose.material.icons.filled.Save
 import androidx.compose.material.icons.filled.Share
 import androidx.compose.material.icons.filled.SpeakerPhone
 import androidx.compose.material.icons.filled.Send
 import androidx.compose.material.icons.filled.Settings
+import androidx.compose.material.icons.filled.Timer
 import androidx.compose.material.icons.automirrored.filled.Send
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
@@ -41,6 +51,7 @@ import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.semantics.*
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.AnnotatedString
+import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.hilt.navigation.compose.hiltViewModel
 import androidx.navigation.NavController
@@ -196,21 +207,20 @@ fun HomeScreen(
         modifier = Modifier.fillMaxSize(),
         snackbarHost = { SnackbarHost(snackbarHostState) },
         topBar = {
-            TopAppBar(
-                title = { Text(stringResource(id = R.string.app_name)) },
-                navigationIcon = {
-                    if (uiState.screenState is HomeScreenState.ImageCaptured) {
+            if (uiState.screenState is HomeScreenState.ImageCaptured) {
+                TopAppBar(
+                    title = { Text(stringResource(id = R.string.app_name)) },
+                    navigationIcon = {
                         BackHandler {
                             viewModel.resetHomeScreenState()
                         }
                         IconButton(onClick = { viewModel.resetHomeScreenState() }) {
                             Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = stringResource(R.string.back))
                         }
-                    }
-                },
-                actions = {
-                }
-            )
+                    },
+                    actions = {}
+                )
+            }
         }
     ) { paddingValues ->
         Column(
@@ -241,6 +251,60 @@ fun HomeScreen(
                             .padding(horizontal = 16.dp),
                         horizontalAlignment = Alignment.CenterHorizontally
                     ) {
+                        Row(
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .height(88.dp)
+                                .padding(top = 12.dp, bottom = 12.dp),
+                            horizontalArrangement = Arrangement.SpaceBetween,
+                            verticalAlignment = Alignment.CenterVertically
+                        ) {
+                            FilledIconButton(
+                                onClick = { viewModel.toggleCamera() },
+                                modifier = Modifier.size(52.dp)
+                            ) {
+                                Icon(
+                                    Icons.Default.Cameraswitch,
+                                    contentDescription = if (uiState.currentCameraSelector == CameraSelector.DEFAULT_BACK_CAMERA)
+                                        stringResource(R.string.switch_to_front_camera)
+                                    else
+                                        stringResource(R.string.switch_to_back_camera)
+                                )
+                            }
+
+                            Surface(
+                                modifier = Modifier.size(44.dp),
+                                shape = CircleShape,
+                                color = MaterialTheme.colorScheme.primaryContainer,
+                                contentColor = MaterialTheme.colorScheme.onPrimaryContainer
+                            ) {
+                                Box(contentAlignment = Alignment.Center) {
+                                    Text(
+                                        text = "R",
+                                        style = MaterialTheme.typography.titleLarge,
+                                        fontWeight = FontWeight.Bold,
+                                        modifier = Modifier.semantics {
+                                            contentDescription = context.getString(R.string.app_name)
+                                        }
+                                    )
+                                }
+                            }
+
+                            FilledIconButton(
+                                onClick = {
+                                    galleryLauncher.launch(
+                                        PickVisualMediaRequest(ActivityResultContracts.PickVisualMedia.ImageOnly)
+                                    )
+                                },
+                                modifier = Modifier.size(52.dp)
+                            ) {
+                                Icon(
+                                    Icons.Default.PhotoLibrary,
+                                    contentDescription = stringResource(R.string.load_from_gallery)
+                                )
+                            }
+                        }
+
                         if (cameraPermissionState.status.isGranted) {
                             CameraView(
                                 modifier = Modifier
@@ -277,67 +341,10 @@ fun HomeScreen(
                         Column(
                             modifier = Modifier
                                 .fillMaxWidth()
-                                .padding(top = 16.dp, bottom = 16.dp),
+                                .padding(top = 12.dp, bottom = 16.dp),
                             horizontalAlignment = Alignment.CenterHorizontally,
                             verticalArrangement = Arrangement.spacedBy(8.dp)
                         ) {
-                            Button(
-                                onClick = {
-                                    viewModel.toggleCamera()
-                                },
-                                modifier = Modifier
-                                    .fillMaxWidth()
-                                    .height(56.dp)
-                            ) {
-                                Text(
-                                    if (uiState.currentCameraSelector == CameraSelector.DEFAULT_BACK_CAMERA)
-                                        stringResource(R.string.switch_to_front_camera)
-                                    else
-                                        stringResource(R.string.switch_to_back_camera),
-                                    style = MaterialTheme.typography.titleMedium
-                                )
-                            }
-
-                            Button(
-                                onClick = {
-                                    galleryLauncher.launch(
-                                        PickVisualMediaRequest(ActivityResultContracts.PickVisualMedia.ImageOnly)
-                                    )
-                                },
-                                modifier = Modifier
-                                    .fillMaxWidth()
-                                    .height(56.dp)
-                            ) {
-                                Text(stringResource(R.string.load_from_gallery), style = MaterialTheme.typography.titleMedium)
-                            }
-
-                            Button(
-                                onClick = { viewModel.togglePrePromptInput() },
-                                modifier = Modifier
-                                    .fillMaxWidth()
-                                    .height(56.dp)
-                            ) {
-                                Text(
-                                    text = stringResource(
-                                        id = if (uiState.showPrePromptInput) R.string.hide_pre_prompt_input else R.string.write_pre_prompt
-                                    ),
-                                    style = MaterialTheme.typography.titleMedium
-                                )
-                            }
-
-                            if (uiState.showPrePromptInput) {
-                                OutlinedTextField(
-                                    value = uiState.prePromptText,
-                                    onValueChange = { viewModel.onPrePromptTextChanged(it) },
-                                    label = { Text(stringResource(R.string.pre_prompt_hint)) },
-                                    modifier = Modifier
-                                        .fillMaxWidth()
-                                        .heightIn(min = 56.dp, max = 112.dp),
-                                    maxLines = 4
-                                )
-                            }
-
-
                             var isCountingDown by remember { mutableStateOf(false) }
                             var countdownValue by remember { mutableStateOf(0) }
 
@@ -371,7 +378,7 @@ fun HomeScreen(
 
                             Row(
                                 modifier = Modifier.fillMaxWidth(),
-                                horizontalArrangement = Arrangement.spacedBy(8.dp),
+                                horizontalArrangement = Arrangement.SpaceBetween,
                                 verticalAlignment = Alignment.CenterVertically
                             ) {
                                 // Botón de Temporizador (Izquierda)
@@ -380,21 +387,53 @@ fun HomeScreen(
                                 } else {
                                     stringResource(R.string.timer_off)
                                 }
+                                val prePromptDesc = stringResource(
+                                    id = if (uiState.showPrePromptInput) R.string.hide_pre_prompt_input else R.string.write_pre_prompt
+                                )
                                 
-                                OutlinedButton(
-                                    onClick = { viewModel.toggleTimer() },
-                                    modifier = Modifier
-                                        .width(72.dp)
-                                        .height(56.dp)
-                                        .semantics { 
-                                            contentDescription = timerDesc
-                                            stateDescription = timerDesc // Anuncia el estado al cambiar
-                                        }
+                                Column(
+                                    modifier = Modifier.width(72.dp),
+                                    horizontalAlignment = Alignment.CenterHorizontally,
+                                    verticalArrangement = Arrangement.spacedBy(8.dp)
                                 ) {
-                                    Text(
-                                        text = if (uiState.timerSeconds > 0) "${uiState.timerSeconds}s" else "Off",
-                                        style = MaterialTheme.typography.labelMedium
-                                    )
+                                    FilledIconButton(
+                                        onClick = { viewModel.toggleTimer() },
+                                        modifier = Modifier
+                                            .size(52.dp)
+                                            .semantics {
+                                                contentDescription = timerDesc
+                                                stateDescription = timerDesc
+                                            }
+                                    ) {
+                                        Box(contentAlignment = Alignment.Center) {
+                                            Icon(Icons.Default.Timer, contentDescription = null)
+                                            if (uiState.timerSeconds > 0) {
+                                                Text(
+                                                    text = "${uiState.timerSeconds}",
+                                                    style = MaterialTheme.typography.labelSmall,
+                                                    fontWeight = FontWeight.Bold,
+                                                    modifier = Modifier
+                                                        .align(Alignment.BottomCenter)
+                                                        .background(
+                                                            MaterialTheme.colorScheme.primary,
+                                                            CircleShape
+                                                        )
+                                                        .padding(horizontal = 3.dp)
+                                                )
+                                            }
+                                        }
+                                    }
+
+                                    FilledIconButton(
+                                        onClick = { viewModel.togglePrePromptInput() },
+                                        modifier = Modifier
+                                            .size(52.dp)
+                                            .semantics {
+                                                contentDescription = prePromptDesc
+                                            }
+                                    ) {
+                                        Icon(Icons.Default.Edit, contentDescription = null)
+                                    }
                                 }
 
                                 // Botón Tomar Foto - centrado
@@ -420,16 +459,28 @@ fun HomeScreen(
                                         }
                                     },
                                     modifier = Modifier
-                                        .weight(1f)
-                                        .height(56.dp)
+                                        .size(92.dp)
                                         .semantics {
+                                            contentDescription = context.getString(R.string.take_photo)
                                             if (uiState.isLoading) {
                                                 stateDescription = context.getString(R.string.loading_description)
                                             }
                                         },
-                                    enabled = !uiState.isLoading && !isCountingDown
+                                    enabled = !uiState.isLoading && !isCountingDown,
+                                    shape = CircleShape,
+                                    colors = ButtonDefaults.buttonColors(
+                                        containerColor = MaterialTheme.colorScheme.primary,
+                                        contentColor = MaterialTheme.colorScheme.onPrimary,
+                                        disabledContainerColor = MaterialTheme.colorScheme.surfaceVariant,
+                                        disabledContentColor = MaterialTheme.colorScheme.onSurfaceVariant
+                                    ),
+                                    contentPadding = PaddingValues(0.dp)
                                 ) {
-                                    Text(stringResource(R.string.take_photo), style = MaterialTheme.typography.titleMedium)
+                                    Icon(
+                                        Icons.Default.PhotoCamera,
+                                        contentDescription = null,
+                                        modifier = Modifier.size(40.dp)
+                                    )
                                 }
 
                                 // Botón de Flash - a la derecha
@@ -438,22 +489,38 @@ fun HomeScreen(
                                     ImageCapture.FLASH_MODE_OFF -> flashOffDesc
                                     else -> flashAutoDesc
                                 }
-                                OutlinedButton(
-                                    onClick = { viewModel.toggleFlashMode() },
-                                    modifier = Modifier
-                                        .width(72.dp)
-                                        .height(56.dp)
-                                        .semantics { contentDescription = currentFlashDesc }
+                                Box(
+                                    modifier = Modifier.width(72.dp),
+                                    contentAlignment = Alignment.Center
                                 ) {
-                                    Text(
-                                        text = when (uiState.flashMode) {
-                                            ImageCapture.FLASH_MODE_ON -> "On"
-                                            ImageCapture.FLASH_MODE_OFF -> "Off"
-                                            else -> "Auto"
-                                        },
-                                        style = MaterialTheme.typography.labelMedium
-                                    )
+                                    FilledIconButton(
+                                        onClick = { viewModel.toggleFlashMode() },
+                                        modifier = Modifier
+                                            .size(52.dp)
+                                            .semantics { contentDescription = currentFlashDesc }
+                                    ) {
+                                        Icon(
+                                            imageVector = when (uiState.flashMode) {
+                                                ImageCapture.FLASH_MODE_ON -> Icons.Default.FlashOn
+                                                ImageCapture.FLASH_MODE_OFF -> Icons.Default.FlashOff
+                                                else -> Icons.Default.FlashAuto
+                                            },
+                                            contentDescription = null
+                                        )
+                                    }
                                 }
+                            }
+
+                            if (uiState.showPrePromptInput) {
+                                OutlinedTextField(
+                                    value = uiState.prePromptText,
+                                    onValueChange = { viewModel.onPrePromptTextChanged(it) },
+                                    label = { Text(stringResource(R.string.pre_prompt_hint)) },
+                                    modifier = Modifier
+                                        .fillMaxWidth()
+                                        .heightIn(min = 56.dp, max = 112.dp),
+                                    maxLines = 4
+                                )
                             }
                         }
                     }
