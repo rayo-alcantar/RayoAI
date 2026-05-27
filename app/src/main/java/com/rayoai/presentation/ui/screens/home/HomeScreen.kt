@@ -11,6 +11,8 @@ import android.speech.tts.TextToSpeech
 import android.util.Log
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
+import androidx.compose.animation.core.Animatable
+import androidx.compose.animation.core.tween
 import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.*
@@ -44,6 +46,7 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.focus.FocusRequester
 import androidx.compose.ui.focus.focusRequester
 import androidx.compose.ui.graphics.asImageBitmap
+import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.platform.LocalClipboardManager
 import androidx.compose.ui.platform.LocalContext
@@ -336,6 +339,18 @@ fun HomeScreen(
                         ) {
                             var isCountingDown by remember { mutableStateOf(false) }
                             var countdownValue by remember { mutableStateOf(0) }
+                            var captureFlashTrigger by remember { mutableStateOf(0) }
+                            val captureFlashAlpha = remember { Animatable(0f) }
+
+                            LaunchedEffect(captureFlashTrigger) {
+                                if (captureFlashTrigger > 0) {
+                                    captureFlashAlpha.snapTo(0.95f)
+                                    captureFlashAlpha.animateTo(
+                                        targetValue = 0f,
+                                        animationSpec = tween(durationMillis = 420)
+                                    )
+                                }
+                            }
 
                             if (isCountingDown) {
                                 val countdownText = stringResource(R.string.capturing_in, countdownValue)
@@ -438,9 +453,11 @@ fun HomeScreen(
                                                     }
                                                     isCountingDown = false
                                                     textToSpeech?.speak("foto", TextToSpeech.QUEUE_FLUSH, null, null)
+                                                    captureFlashTrigger += 1
                                                     viewModel.triggerImageCapture()
                                                 }
                                             } else {
+                                                captureFlashTrigger += 1
                                                 viewModel.triggerImageCapture()
                                             }
                                         } else {
@@ -465,11 +482,42 @@ fun HomeScreen(
                                     ),
                                     contentPadding = PaddingValues(0.dp)
                                 ) {
-                                    Icon(
-                                        Icons.Default.PhotoCamera,
-                                        contentDescription = null,
-                                        modifier = Modifier.size(40.dp)
-                                    )
+                                    Box(
+                                        modifier = Modifier.fillMaxSize(),
+                                        contentAlignment = Alignment.Center
+                                    ) {
+                                        if (captureFlashAlpha.value > 0f) {
+                                            Surface(
+                                                modifier = Modifier
+                                                    .fillMaxSize()
+                                                    .graphicsLayer {
+                                                        alpha = captureFlashAlpha.value
+                                                        scaleX = 1f + (1f - captureFlashAlpha.value) * 0.8f
+                                                        scaleY = 1f + (1f - captureFlashAlpha.value) * 0.8f
+                                                    },
+                                                shape = CircleShape,
+                                                color = MaterialTheme.colorScheme.tertiary.copy(alpha = 0.35f),
+                                                contentColor = MaterialTheme.colorScheme.onTertiary
+                                            ) {}
+                                            Icon(
+                                                Icons.Default.FlashOn,
+                                                contentDescription = null,
+                                                modifier = Modifier
+                                                    .size(64.dp)
+                                                    .graphicsLayer {
+                                                        alpha = captureFlashAlpha.value
+                                                        scaleX = 0.7f + (1f - captureFlashAlpha.value) * 0.8f
+                                                        scaleY = 0.7f + (1f - captureFlashAlpha.value) * 0.8f
+                                                    },
+                                                tint = MaterialTheme.colorScheme.tertiary
+                                            )
+                                        }
+                                        Icon(
+                                            Icons.Default.PhotoCamera,
+                                            contentDescription = null,
+                                            modifier = Modifier.size(40.dp)
+                                        )
+                                    }
                                 }
 
                                 // Botón de Flash - a la derecha
