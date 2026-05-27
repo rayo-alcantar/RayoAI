@@ -1,6 +1,8 @@
 package com.rayoai.presentation.ui.screens.tools
 
 import android.content.ContentResolver
+import android.content.Context
+import android.content.Intent
 import android.graphics.Canvas
 import android.graphics.Color
 import android.graphics.Paint
@@ -10,7 +12,11 @@ import android.net.Uri
 import android.text.Layout
 import android.text.StaticLayout
 import android.text.TextPaint
+import androidx.core.content.FileProvider
 import com.rayoai.domain.usecase.AccessiblePdfHtmlRenderer
+import java.io.File
+import java.io.FileOutputStream
+import java.io.OutputStream
 
 object AccessiblePdfExporter {
     private const val PAGE_WIDTH = 595
@@ -18,6 +24,31 @@ object AccessiblePdfExporter {
     private const val MARGIN = 48
 
     fun savePdf(resolver: ContentResolver, uri: Uri, html: String) {
+        resolver.openOutputStream(uri)?.use { output ->
+            writePdf(output, html)
+        } ?: throw IllegalStateException("No se pudo abrir el destino del PDF")
+    }
+
+    fun createShareIntent(context: Context, html: String, fileName: String): Intent {
+        val dir = File(context.cacheDir, "shared_pdfs").apply { mkdirs() }
+        val file = File(dir, sanitizeFileName(fileName).ifBlank { "rayoai_pdf_accesible.pdf" })
+        FileOutputStream(file).use { output ->
+            writePdf(output, html)
+        }
+        val uri = FileProvider.getUriForFile(
+            context,
+            "${context.packageName}.fileprovider",
+            file
+        )
+        val shareIntent = Intent(Intent.ACTION_SEND).apply {
+            type = "application/pdf"
+            putExtra(Intent.EXTRA_STREAM, uri)
+            addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION)
+        }
+        return Intent.createChooser(shareIntent, "Compartir PDF accesible")
+    }
+
+    private fun writePdf(output: OutputStream, html: String) {
         val text = AccessiblePdfHtmlRenderer.renderPlainTextFromHtml(html)
         val document = PdfDocument()
         val paint = TextPaint(Paint.ANTI_ALIAS_FLAG).apply {
@@ -50,10 +81,16 @@ object AccessiblePdfExporter {
         }
 
         document.finishPage(page)
-        resolver.openOutputStream(uri)?.use { output ->
-            document.writeTo(output)
-        }
+        document.writeTo(output)
         document.close()
+    }
+
+    private fun sanitizeFileName(value: String): String {
+        val cleaned = value
+            .substringAfterLast('/')
+            .replace(Regex("[\\\\/:*?\"<>|]"), "_")
+            .trim()
+        return if (cleaned.endsWith(".pdf", ignoreCase = true)) cleaned else "${cleaned}_accesible.pdf"
     }
 
     private fun buildWrappedLines(text: String, paint: TextPaint, width: Int): List<String> {

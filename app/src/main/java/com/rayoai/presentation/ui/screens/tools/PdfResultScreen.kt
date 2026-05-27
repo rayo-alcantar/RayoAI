@@ -123,6 +123,18 @@ fun PdfResultScreen(
                         style = MaterialTheme.typography.titleMedium
                     )
 
+                    Button(
+                        onClick = { saveLauncher.launch(buildSuggestedPdfFileName(doc?.name ?: "documento")) },
+                        modifier = Modifier.semantics {
+                            role = Role.Button
+                            contentDescription = "Guardar PDF accesible"
+                        }
+                    ) {
+                        Text("Guardar PDF accesible")
+                    }
+
+                    exportStatus?.let { Text(it) }
+
                     Box(
                         modifier = Modifier
                             .weight(1f)
@@ -145,18 +157,6 @@ fun PdfResultScreen(
                             modifier = Modifier.fillMaxSize()
                         )
                     }
-
-                    Button(
-                        onClick = { saveLauncher.launch(buildSuggestedPdfFileName(doc?.name ?: "documento")) },
-                        modifier = Modifier.semantics {
-                            role = Role.Button
-                            contentDescription = "Guardar PDF accesible"
-                        }
-                    ) {
-                        Text("Guardar PDF accesible")
-                    }
-
-                    exportStatus?.let { Text(it) }
 
                     Button(
                         onClick = onNavigateBack,

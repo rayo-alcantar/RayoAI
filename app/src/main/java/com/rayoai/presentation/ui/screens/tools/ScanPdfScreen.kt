@@ -24,6 +24,7 @@ import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Delete
+import androidx.compose.material.icons.filled.Share
 import androidx.compose.material3.Button
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Card
@@ -31,6 +32,7 @@ import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
+import androidx.compose.foundation.layout.Row
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Text
 import androidx.compose.material3.TopAppBar
@@ -186,6 +188,24 @@ class ScanPdfViewModel @Inject constructor(
                 exportStatus = "PDF guardado"
             } catch (e: Exception) {
                 exportStatus = e.message ?: "No se pudo guardar el PDF"
+            }
+        }
+    }
+
+    fun share(doc: PdfDocument, context: Context) {
+        viewModelScope.launch {
+            try {
+                val intent = withContext(Dispatchers.IO) {
+                    AccessiblePdfExporter.createShareIntent(
+                        context = context,
+                        html = doc.content,
+                        fileName = buildSuggestedPdfFileName(doc.name)
+                    )
+                }
+                context.startActivity(intent)
+                exportStatus = "PDF listo para compartir"
+            } catch (e: Exception) {
+                exportStatus = e.message ?: "No se pudo compartir el PDF"
             }
         }
     }
@@ -398,6 +418,22 @@ fun ScanPdfScreen(
 
             viewModel.resultHtml?.let { html ->
                 item {
+                    Button(
+                        onClick = { saveLauncher.launch(viewModel.suggestedFileName) },
+                        modifier = Modifier.semantics {
+                            role = Role.Button
+                            contentDescription = "Guardar PDF accesible"
+                        }
+                    ) {
+                        Text("Guardar PDF accesible")
+                    }
+                }
+
+                viewModel.exportStatus?.let { status ->
+                    item { Text(status) }
+                }
+
+                item {
                     Box(
                         modifier = Modifier
                             .fillMaxWidth()
@@ -427,22 +463,6 @@ fun ScanPdfScreen(
             }
 
             if (viewModel.resultHtml != null) {
-                item {
-                    Button(
-                        onClick = { saveLauncher.launch(viewModel.suggestedFileName) },
-                        modifier = Modifier.semantics {
-                            role = Role.Button
-                            contentDescription = "Guardar PDF accesible"
-                        }
-                    ) {
-                        Text("Guardar PDF accesible")
-                    }
-                }
-
-                viewModel.exportStatus?.let { status ->
-                    item { Text(status) }
-                }
-
                 item {
                     Button(onClick = onNavigateBack) {
                         Text("Volver")
@@ -474,8 +494,13 @@ fun ScanPdfScreen(
                             ).format(Date(doc.timestamp)),
                             style = MaterialTheme.typography.bodySmall
                         )
-                        IconButton(onClick = { toDelete = doc }) {
-                            Icon(Icons.Filled.Delete, contentDescription = "Eliminar documento")
+                        Row {
+                            IconButton(onClick = { viewModel.share(doc, context) }) {
+                                Icon(Icons.Filled.Share, contentDescription = "Compartir PDF accesible")
+                            }
+                            IconButton(onClick = { toDelete = doc }) {
+                                Icon(Icons.Filled.Delete, contentDescription = "Eliminar documento")
+                            }
                         }
                     }
                 }
