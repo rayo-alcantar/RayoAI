@@ -55,6 +55,7 @@ import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.unit.dp
 import androidx.hilt.navigation.compose.hiltViewModel
 import androidx.navigation.NavController
+import com.rayoai.BuildConfig
 import com.rayoai.R
 import com.rayoai.domain.model.GeminiModelConfig
 import com.rayoai.domain.model.UpdateChannel
@@ -266,37 +267,39 @@ fun SettingsScreen(
                     }
                 }
 
-                val selectedChannelLabel = updateChannelOptions.firstOrNull { it.first == uiState.currentUpdateChannel }?.second
-                    ?: uiState.currentUpdateChannel.name
-                BoxedDropdownField(
-                    value = selectedChannelLabel,
-                    label = stringResource(R.string.settings_update_channel_hint),
-                    expanded = isUpdateChannelMenuExpanded,
-                    onExpand = { isUpdateChannelMenuExpanded = true },
-                    onDismiss = { isUpdateChannelMenuExpanded = false }
-                ) {
-                    updateChannelOptions.forEach { (value, label) ->
-                        DropdownMenuItem(
-                            text = { Text(label) },
-                            onClick = {
-                                viewModel.saveUpdateChannel(value)
-                                isUpdateChannelMenuExpanded = false
-                            }
-                        )
+                if (BuildConfig.GITHUB_UPDATES_ENABLED) {
+                    val selectedChannelLabel = updateChannelOptions.firstOrNull { it.first == uiState.currentUpdateChannel }?.second
+                        ?: uiState.currentUpdateChannel.name
+                    BoxedDropdownField(
+                        value = selectedChannelLabel,
+                        label = stringResource(R.string.settings_update_channel_hint),
+                        expanded = isUpdateChannelMenuExpanded,
+                        onExpand = { isUpdateChannelMenuExpanded = true },
+                        onDismiss = { isUpdateChannelMenuExpanded = false }
+                    ) {
+                        updateChannelOptions.forEach { (value, label) ->
+                            DropdownMenuItem(
+                                text = { Text(label) },
+                                onClick = {
+                                    viewModel.saveUpdateChannel(value)
+                                    isUpdateChannelMenuExpanded = false
+                                }
+                            )
+                        }
                     }
-                }
 
-                val checkUpdatesLabel = if (updateUiState.isChecking) {
-                    stringResource(R.string.update_checking)
-                } else {
-                    stringResource(R.string.update_check_now)
-                }
-                OutlinedButton(
-                    onClick = { updateViewModel.checkForUpdates(manual = true) },
-                    modifier = Modifier.fillMaxWidth(),
-                    enabled = !updateUiState.isChecking
-                ) {
-                    Text(checkUpdatesLabel)
+                    val checkUpdatesLabel = if (updateUiState.isChecking) {
+                        stringResource(R.string.update_checking)
+                    } else {
+                        stringResource(R.string.update_check_now)
+                    }
+                    OutlinedButton(
+                        onClick = { updateViewModel.checkForUpdates(manual = true) },
+                        modifier = Modifier.fillMaxWidth(),
+                        enabled = !updateUiState.isChecking
+                    ) {
+                        Text(checkUpdatesLabel)
+                    }
                 }
             }
 

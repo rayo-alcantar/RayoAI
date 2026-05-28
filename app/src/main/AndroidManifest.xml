@@ -10,7 +10,6 @@
     <uses-permission android:name="android.permission.WRITE_EXTERNAL_STORAGE" android:maxSdkVersion="29" />
     <uses-permission android:name="android.permission.READ_MEDIA_IMAGES" />
     <uses-permission android:name="android.permission.READ_MEDIA_VIDEO" />
-    <uses-permission android:name="android.permission.REQUEST_INSTALL_PACKAGES" />
     <uses-permission android:name="android.permission.POST_NOTIFICATIONS" />
 
     <application
@@ -79,14 +78,6 @@
                 android:resource="@xml/file_paths" />
         </provider>
 
-        <receiver
-            android:name=".presentation.ui.updates.UpdateDownloadReceiver"
-            android:exported="true"
-            android:permission="android.permission.SEND_DOWNLOAD_COMPLETED_INTENTS">
-            <intent-filter>
-                <action android:name="android.intent.action.DOWNLOAD_COMPLETE" />
-            </intent-filter>
-        </receiver>
     </application>
 
 </manifest>

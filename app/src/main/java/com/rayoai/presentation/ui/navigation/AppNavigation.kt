@@ -43,6 +43,7 @@ import com.rayoai.presentation.ui.screens.home.HomeScreen
 import com.rayoai.presentation.ui.screens.settings.SettingsScreen
 import com.rayoai.presentation.ui.screens.welcome.WelcomeScreen
 import com.rayoai.presentation.ui.updates.UpdateFlowDialog
+import com.rayoai.BuildConfig
 import com.rayoai.R
 
 import androidx.activity.compose.BackHandler
@@ -93,7 +94,9 @@ fun AppNavigation(imageUri: Uri?, startDestination: String, pdfUri: Uri? = null,
     var pendingPdfUri by remember { mutableStateOf<Uri?>(null) }
     var pendingVideoUri by remember { mutableStateOf<Uri?>(null) }
 
-    UpdateFlowDialog()
+    if (BuildConfig.GITHUB_UPDATES_ENABLED) {
+        UpdateFlowDialog()
+    }
 
     LaunchedEffect(pdfUri) {
         if (pdfUri != null) {
