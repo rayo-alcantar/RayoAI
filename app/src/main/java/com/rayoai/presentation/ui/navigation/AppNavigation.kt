@@ -62,6 +62,9 @@ sealed class Screen(val route: String, val baseRoute: String, val labelRes: Int?
     object ViewPdf : Screen("view_pdf?id={id}", "tools") {
         fun createRoute(id: Long) = "view_pdf?id=$id"
     }
+    object PdfChat : Screen("pdf_chat?id={id}", "tools") {
+        fun createRoute(id: Long) = "pdf_chat?id=$id"
+    }
     object ScanVideo : Screen("scan_video", "tools")
     object ViewVideo : Screen("view_video?id={id}", "tools") {
         fun createRoute(id: Long) = "view_video?id=$id"
@@ -198,6 +201,9 @@ fun AppNavigation(imageUri: Uri?, startDestination: String, pdfUri: Uri? = null,
                     onNavigateBack = { navController.popBackStack() },
                     onOpenProcessed = { doc ->
                         navController.navigate(Screen.ViewPdf.createRoute(doc.id))
+                    },
+                    onChatPdf = { doc ->
+                        navController.navigate(Screen.PdfChat.createRoute(doc.id))
                     }
                 )
             }
@@ -208,6 +214,14 @@ fun AppNavigation(imageUri: Uri?, startDestination: String, pdfUri: Uri? = null,
                 val id = backStackEntry.arguments?.getLong("id") ?: 0L
                 com.rayoai.presentation.ui.screens.tools.PdfResultScreen(
                     docId = id,
+                    onNavigateBack = { navController.popBackStack() }
+                )
+            }
+            composable(
+                route = Screen.PdfChat.route,
+                arguments = listOf(navArgument("id") { type = NavType.LongType })
+            ) {
+                com.rayoai.presentation.ui.screens.tools.PdfChatScreen(
                     onNavigateBack = { navController.popBackStack() }
                 )
             }

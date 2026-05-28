@@ -323,6 +323,7 @@ fun ScanPdfScreen(
     incomingPdfUri: Uri? = null,
     onNavigateBack: () -> Unit,
     onOpenProcessed: (PdfDocument) -> Unit,
+    onChatPdf: (PdfDocument) -> Unit,
     onPdfConsumed: () -> Unit = {},
     viewModel: ScanPdfViewModel = hiltViewModel()
 ) {
@@ -494,6 +495,17 @@ fun ScanPdfScreen(
                             ).format(Date(doc.timestamp)),
                             style = MaterialTheme.typography.bodySmall
                         )
+                        Button(
+                            onClick = { onChatPdf(doc) },
+                            modifier = Modifier
+                                .padding(top = 8.dp)
+                                .semantics {
+                                    role = Role.Button
+                                    contentDescription = "Chatear sobre este PDF"
+                                }
+                        ) {
+                            Text("Chatear sobre este PDF")
+                        }
                         Row {
                             IconButton(onClick = { viewModel.share(doc, context) }) {
                                 Icon(Icons.Filled.Share, contentDescription = "Compartir PDF accesible")

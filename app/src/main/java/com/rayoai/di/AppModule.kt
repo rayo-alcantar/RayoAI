@@ -11,7 +11,9 @@ import com.rayoai.data.local.db.RayoAIDatabase
 import com.rayoai.data.local.db.MIGRATION_1_2
 import com.rayoai.data.local.db.MIGRATION_2_3
 import com.rayoai.data.local.pdfdb.PdfDao
+import com.rayoai.data.local.pdfdb.PdfChatDao
 import com.rayoai.data.local.pdfdb.PdfDatabase
+import com.rayoai.data.local.pdfdb.PDF_MIGRATION_1_2
 import com.rayoai.data.local.videodb.VideoDao
 import com.rayoai.data.local.videodb.VideoDatabase
 import com.rayoai.data.remote.GeminiFilesApiService
@@ -99,12 +101,17 @@ object AppModule {
             context,
             PdfDatabase::class.java,
             "rayo_ai_pdf_db"
-        ).build()
+        ).addMigrations(PDF_MIGRATION_1_2).build()
     }
 
     @Provides
     fun providePdfDao(database: PdfDatabase): PdfDao {
         return database.pdfDao()
+    }
+
+    @Provides
+    fun providePdfChatDao(database: PdfDatabase): PdfChatDao {
+        return database.pdfChatDao()
     }
 
     @Provides
