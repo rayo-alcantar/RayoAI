@@ -1,6 +1,7 @@
 package com.rayoai.presentation.ui.screens.settings
 
 import android.content.Intent
+import android.net.Uri
 import android.provider.Settings
 import androidx.activity.ComponentActivity
 import androidx.compose.foundation.clickable
@@ -39,6 +40,7 @@ import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.material3.TopAppBar
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
@@ -49,11 +51,14 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalFocusManager
+import androidx.compose.ui.platform.LocalLifecycleOwner
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.input.ImeAction
 import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.unit.dp
 import androidx.hilt.navigation.compose.hiltViewModel
+import androidx.lifecycle.Lifecycle
+import androidx.lifecycle.LifecycleEventObserver
 import androidx.navigation.NavController
 import com.rayoai.BuildConfig
 import com.rayoai.R
@@ -73,6 +78,8 @@ fun SettingsScreen(
 ) {
     val uiState by viewModel.uiState.collectAsState()
     val activity = LocalContext.current as ComponentActivity
+    val context = LocalContext.current
+    val lifecycleOwner = LocalLifecycleOwner.current
     val updateViewModel: UpdateCheckViewModel = hiltViewModel(activity)
     val updateUiState by updateViewModel.uiState.collectAsState()
     val snackbarHostState = remember { SnackbarHostState() }
@@ -82,6 +89,7 @@ fun SettingsScreen(
     var isThemeMenuExpanded by remember { mutableStateOf(false) }
     var isUpdateChannelMenuExpanded by remember { mutableStateOf(false) }
     var showAccessibilitySetupDialog by remember { mutableStateOf(false) }
+    var pendingOpenAccessibilityAfterAppSettings by remember { mutableStateOf(false) }
 
     val modelOptions = listOf(
         GeminiModelConfig.DEFAULT_MODEL to stringResource(R.string.model_gemini_31_flash_lite),
@@ -134,6 +142,17 @@ fun SettingsScreen(
             }
             viewModel.onNavigationHandled()
         }
+    }
+
+    DisposableEffect(lifecycleOwner) {
+        val observer = LifecycleEventObserver { _, event ->
+            if (event == Lifecycle.Event.ON_RESUME && pendingOpenAccessibilityAfterAppSettings) {
+                pendingOpenAccessibilityAfterAppSettings = false
+                activity.startActivity(Intent(Settings.ACTION_ACCESSIBILITY_SETTINGS))
+            }
+        }
+        lifecycleOwner.lifecycle.addObserver(observer)
+        onDispose { lifecycleOwner.lifecycle.removeObserver(observer) }
     }
 
     Scaffold(
@@ -350,10 +369,11 @@ fun SettingsScreen(
                 Button(
                     onClick = {
                         showAccessibilitySetupDialog = false
-                        activity.startActivity(Intent(Settings.ACTION_ACCESSIBILITY_SETTINGS))
+                        pendingOpenAccessibilityAfterAppSettings = true
+                        openAppDetailsSettings(context)
                     }
                 ) {
-                    Text(stringResource(R.string.settings_accessibility_capture_open_settings))
+                    Text(stringResource(R.string.settings_accessibility_capture_open_app_settings))
                 }
             },
             dismissButton = {
@@ -363,6 +383,14 @@ fun SettingsScreen(
             }
         )
     }
+}
+
+private fun openAppDetailsSettings(context: android.content.Context) {
+    val intent = Intent(
+        Settings.ACTION_APPLICATION_DETAILS_SETTINGS,
+        Uri.parse("package:${context.packageName}")
+    ).addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
+    context.startActivity(intent)
 }
 
 @Composable

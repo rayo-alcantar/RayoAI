@@ -158,9 +158,10 @@ Tarjeta: 4152314082325278</string>
     <string name="settings_accessibility_capture_switch">Activar captura por accesibilidad</string>
     <string name="settings_accessibility_capture_summary">Usa dos veces la secuencia volumen arriba y volumen abajo para capturar la pantalla y enviarla a RayoAI.</string>
     <string name="settings_accessibility_capture_open_settings">Abrir ajustes de accesibilidad</string>
+    <string name="settings_accessibility_capture_open_app_settings">Abrir ficha de RayoAI</string>
     <string name="settings_accessibility_capture_disclosure">RayoAI solo toma capturas cuando pulsas el atajo o el botón de accesibilidad. La imagen se manda a Gemini para generar una descripción y se guarda en tu historial.</string>
-    <string name="settings_accessibility_capture_setup_title">Activa el servicio de RayoAI</string>
-    <string name="settings_accessibility_capture_setup_message">Para que el atajo funcione, abre Ajustes, entra a Accesibilidad, luego Aplicaciones instaladas, selecciona RayoAI y permite que se ejecute.</string>
+    <string name="settings_accessibility_capture_setup_title">Permite los ajustes restringidos</string>
+    <string name="settings_accessibility_capture_setup_message">Para usar el atajo en APKs instaladas fuera de Play Store, primero abre la ficha de RayoAI. Entra a Más opciones y activa Permitir ajustes restringidos. Después vuelve a RayoAI; abriremos Accesibilidad automáticamente para que actives Captura rápida de RayoAI.</string>
     <string name="accessibility_service_label">Captura rápida de RayoAI</string>
     <string name="accessibility_service_description">Permite a personas ciegas o con baja visión capturar la pantalla con un atajo de volumen o el botón de accesibilidad para enviarla a RayoAI y obtener una descripción.</string>
     <string name="settings_preferences_section_title">Preferencias</string>
