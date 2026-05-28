@@ -30,6 +30,18 @@ android {
         vectorDrawables { useSupportLibrary = true }
     }
 
+    flavorDimensions += "distribution"
+    productFlavors {
+        create("github") {
+            dimension = "distribution"
+            buildConfigField("boolean", "GITHUB_UPDATES_ENABLED", "true")
+        }
+        create("play") {
+            dimension = "distribution"
+            buildConfigField("boolean", "GITHUB_UPDATES_ENABLED", "false")
+        }
+    }
+
     signingConfigs {
         create("release") {
             // Asegúrate de que keystore.properties tenga estas 4 claves.

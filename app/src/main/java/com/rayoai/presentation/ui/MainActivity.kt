@@ -29,6 +29,10 @@ import javax.inject.Inject
 @AndroidEntryPoint
 class MainActivity : ComponentActivity() {
 
+    companion object {
+        const val EXTRA_CAPTURE_ID = "com.rayoai.extra.CAPTURE_ID"
+    }
+
     @Inject
     lateinit var userPreferencesRepository: UserPreferencesRepository
 
@@ -78,6 +82,7 @@ class MainActivity : ComponentActivity() {
         
         val videoUri: Uri? = if (isVideo) 
             intent?.getParcelableExtraCompat(Intent.EXTRA_STREAM) else null
+        val captureId = intent?.getLongExtra(EXTRA_CAPTURE_ID, -1L)?.takeIf { it > 0L }
 
         setContent {
             val tts = remember { textToSpeech }
@@ -91,6 +96,8 @@ class MainActivity : ComponentActivity() {
                         val apiKey = runBlocking { userPreferencesRepository.apiKey.first() }
                         val startDestination = if (isFirstRun || apiKey.isNullOrEmpty()) {
                             Screen.Welcome.route
+                        } else if (captureId != null) {
+                            Screen.Home.createRoute(captureId)
                         } else {
                             Screen.Home.route
                         }
@@ -113,4 +120,3 @@ class MainActivity : ComponentActivity() {
         }
     }
 }
-

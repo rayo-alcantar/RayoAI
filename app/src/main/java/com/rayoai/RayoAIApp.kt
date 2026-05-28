@@ -1,6 +1,7 @@
 package com.rayoai
 
 import android.app.Application
+import com.rayoai.BuildConfig
 import com.rayoai.data.local.UpdatePreferences
 import com.rayoai.presentation.ui.updates.UpdateInstaller
 import dagger.hilt.android.HiltAndroidApp
@@ -14,6 +15,8 @@ class RayoAIApp : Application() {
 
     override fun onCreate() {
         super.onCreate()
-        UpdateInstaller.maybeCleanupAfterUpdate(this, updatePreferences)
+        if (BuildConfig.GITHUB_UPDATES_ENABLED) {
+            UpdateInstaller.maybeCleanupAfterUpdate(this, updatePreferences)
+        }
     }
 }

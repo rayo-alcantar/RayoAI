@@ -33,6 +33,7 @@ class UserPreferencesRepositoryImpl @Inject constructor(
         val HAS_DONATED = booleanPreferencesKey("has_donated")
         val LAST_DONATION_PROMPT_TIME = longPreferencesKey("last_donation_prompt_time")
         val SHOW_HIDDEN_CHATS = booleanPreferencesKey("show_hidden_chats")
+        val ACCESSIBILITY_QUICK_CAPTURE_ENABLED = booleanPreferencesKey("accessibility_quick_capture_enabled")
     }
 
     override val apiKey: Flow<String?> = dataStore.data.map {
@@ -92,6 +93,10 @@ class UserPreferencesRepositoryImpl @Inject constructor(
 
     override val showHiddenChats: Flow<Boolean> = dataStore.data.map {
         it[PreferencesKeys.SHOW_HIDDEN_CHATS] ?: false
+    }
+
+    override val accessibilityQuickCaptureEnabled: Flow<Boolean> = dataStore.data.map {
+        it[PreferencesKeys.ACCESSIBILITY_QUICK_CAPTURE_ENABLED] ?: false
     }
 
     override suspend fun saveApiKey(apiKey: String) {
@@ -169,6 +174,12 @@ class UserPreferencesRepositoryImpl @Inject constructor(
     override suspend fun saveShowHiddenChats(show: Boolean) {
         dataStore.edit {
             it[PreferencesKeys.SHOW_HIDDEN_CHATS] = show
+        }
+    }
+
+    override suspend fun saveAccessibilityQuickCaptureEnabled(enabled: Boolean) {
+        dataStore.edit {
+            it[PreferencesKeys.ACCESSIBILITY_QUICK_CAPTURE_ENABLED] = enabled
         }
     }
 }

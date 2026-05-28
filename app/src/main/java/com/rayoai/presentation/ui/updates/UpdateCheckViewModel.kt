@@ -3,6 +3,7 @@ package com.rayoai.presentation.ui.updates
 import android.content.Context
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
+import com.rayoai.BuildConfig
 import com.rayoai.data.local.UpdatePreferences
 import com.rayoai.data.repository.UpdateRepository
 import com.rayoai.domain.model.UpdateChannel
@@ -44,7 +45,9 @@ class UpdateCheckViewModel @Inject constructor(
     val uiState: StateFlow<UpdateUiState> = _uiState.asStateFlow()
 
     init {
-        checkSilentlyOnStart()
+        if (BuildConfig.GITHUB_UPDATES_ENABLED) {
+            checkSilentlyOnStart()
+        }
     }
 
     private fun checkSilentlyOnStart() {
@@ -52,6 +55,7 @@ class UpdateCheckViewModel @Inject constructor(
     }
 
     fun checkForUpdates(manual: Boolean) {
+        if (!BuildConfig.GITHUB_UPDATES_ENABLED) return
         if (_uiState.value.isChecking) return
         viewModelScope.launch {
             _uiState.update { it.copy(isChecking = true, lastCheckResult = null, error = null) }
@@ -85,6 +89,7 @@ class UpdateCheckViewModel @Inject constructor(
     }
 
     fun startDownload(context: Context) {
+        if (!BuildConfig.GITHUB_UPDATES_ENABLED) return
         val updateInfo = _uiState.value.updateAvailable ?: return
         if (_uiState.value.isDownloading) return
         UpdateInstaller.downloadUpdate(context, updateInfo, updatePreferences)

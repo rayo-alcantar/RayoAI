@@ -18,6 +18,7 @@ interface UserPreferencesRepository {
     val hasDonated: Flow<Boolean>
     val lastDonationPromptTime: Flow<Long>
     val showHiddenChats: Flow<Boolean>
+    val accessibilityQuickCaptureEnabled: Flow<Boolean>
 
     suspend fun saveApiKey(apiKey: String)
     suspend fun saveDefaultModel(model: String)
@@ -32,4 +33,5 @@ interface UserPreferencesRepository {
     suspend fun saveHasDonated(hasDonated: Boolean)
     suspend fun saveLastDonationPromptTime(time: Long)
     suspend fun saveShowHiddenChats(show: Boolean)
+    suspend fun saveAccessibilityQuickCaptureEnabled(enabled: Boolean)
 }

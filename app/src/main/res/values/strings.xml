@@ -35,6 +35,7 @@
     <string name="no_api_key_help">No sé cómo tener una clave API</string>
     <!-- Ajustes: API Key -->
     <string name="settings_api_key_label">API Key</string>
+    <string name="settings_api_section_description">Conecta RayoAI con Gemini. Sin esta clave, la descripción de imágenes y capturas no puede funcionar.</string>
     <string name="settings_api_key_hint">Gemini API Key</string>
     <string name="settings_api_key_save">Guardar API Key</string>
     <string name="settings_api_key_saved_message">¡API Key guardada con éxito!</string>
@@ -45,8 +46,11 @@
     <string name="model_gemini_3_flash">Gemini 3 Flash</string>
     <string name="model_gemini_25_flash">Gemini 2.5 Flash</string>
     <string name="model_gemini_25_pro">Gemini 2.5 Pro</string>
-    <string name="settings_api_key_instructions_button">Ver instrucciones para obtener API key</string>
+    <string name="settings_api_key_instructions_button">Obtener API key</string>
     <string name="settings_max_images_label">Número máximo de imágenes en un chat</string>
+    <string name="settings_max_images_label_compact">Máx. imágenes</string>
+    <string name="settings_max_images_save">Guardar límite de imágenes</string>
+    <string name="settings_max_images_save_compact">Guardar</string>
     <!-- Ajustes: Tema -->
     <string name="settings_theme_label">Tema</string>
     <!-- Ajustes: Tamaño de texto -->
@@ -147,6 +151,44 @@ Tarjeta: 4152314082325278</string>
     <string name="pdf_delete_confirm_text">¿Deseas eliminar este documento procesado?</string>
     <string name="settings_update_channel_label">Canal de actualizaciones</string>
     <string name="settings_update_channel_hint">Selecciona el canal</string>
+    <string name="settings_updates_section_title">Actualizaciones</string>
+    <string name="settings_updates_section_description">Elige qué versiones recibir y revisa si hay una versión nueva disponible.</string>
+    <string name="settings_accessibility_capture_title">Captura rápida</string>
+    <string name="settings_accessibility_section_description">Atajo opcional para describir cualquier pantalla. Esta función está pensada para personas ciegas o con baja visión.</string>
+    <string name="settings_accessibility_capture_switch">Activar captura por accesibilidad</string>
+    <string name="settings_accessibility_capture_summary">Usa dos veces la secuencia volumen arriba y volumen abajo para capturar la pantalla y enviarla a RayoAI.</string>
+    <string name="settings_accessibility_capture_open_settings">Abrir ajustes de accesibilidad</string>
+    <string name="settings_accessibility_capture_disclosure">RayoAI solo toma capturas cuando pulsas el atajo o el botón de accesibilidad. La imagen se manda a Gemini para generar una descripción y se guarda en tu historial.</string>
+    <string name="settings_accessibility_capture_setup_title">Activa el servicio de RayoAI</string>
+    <string name="settings_accessibility_capture_setup_message">Para que el atajo funcione, abre Ajustes, entra a Accesibilidad, luego Aplicaciones instaladas, selecciona RayoAI y permite que se ejecute.</string>
+    <string name="accessibility_service_label">Captura rápida de RayoAI</string>
+    <string name="accessibility_service_description">Permite a personas ciegas o con baja visión capturar la pantalla con un atajo de volumen o el botón de accesibilidad para enviarla a RayoAI y obtener una descripción.</string>
+    <string name="settings_preferences_section_title">Preferencias</string>
+    <string name="settings_model_section_title">Modelo y uso</string>
+    <string name="settings_model_section_description">Ajusta el modelo de Gemini y cuántas imágenes puede incluir una conversación.</string>
+    <string name="settings_appearance_section_title">Diseño</string>
+    <string name="settings_appearance_section_description">Configura el tema visual y el tamaño del texto.</string>
+    <string name="theme_mode_system">Sistema</string>
+    <string name="theme_mode_light">Claro</string>
+    <string name="theme_mode_dark">Oscuro</string>
+    <string name="theme_mode_high_contrast">Alto contraste</string>
+    <string name="accessibility_quick_capture_disabled">La captura rápida está desactivada en RayoAI.</string>
+    <string name="accessibility_capture_already_running">RayoAI ya está analizando una captura.</string>
+    <string name="accessibility_capture_requires_android_11">La captura de pantalla requiere Android 11 o superior.</string>
+    <string name="accessibility_capture_starting">Tomando captura de pantalla.</string>
+    <string name="accessibility_capture_analyzing">Analizando pantalla con RayoAI.</string>
+    <string name="accessibility_capture_ready">Descripción lista.</string>
+    <string name="accessibility_capture_failed">No se pudo tomar la captura.</string>
+    <string name="accessibility_capture_too_soon">Espera un momento antes de tomar otra captura.</string>
+    <string name="accessibility_capture_invalid_display">No se pudo capturar esta pantalla.</string>
+    <string name="accessibility_capture_no_access">Activa el servicio de accesibilidad de RayoAI para capturar la pantalla.</string>
+    <string name="accessibility_capture_secure_window">Esta pantalla no permite capturas.</string>
+    <string name="accessibility_capture_missing_api_key">Configura tu API Key para usar la captura rápida.</string>
+    <string name="accessibility_capture_save_failed">No se pudo guardar la captura.</string>
+    <string name="accessibility_capture_error">No se pudo describir la pantalla: %1$s</string>
+    <string name="accessibility_capture_unexpected_error">Ocurrió un error al procesar la captura.</string>
+    <string name="accessibility_capture_chat_user_message">Captura de pantalla.</string>
+    <string name="accessibility_capture_prompt">Describe esta captura de pantalla para una persona ciega. Incluye el texto visible, controles importantes y el contexto de la pantalla. No agregues información que no sea visible.</string>
     <string name="update_channel_stable">Estable</string>
     <string name="update_channel_beta">Beta</string>
     <string name="update_channel_all">Beta y estable</string>
