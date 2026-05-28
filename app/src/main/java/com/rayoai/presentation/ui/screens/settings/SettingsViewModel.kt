@@ -25,6 +25,7 @@ data class SettingsUiState(
     val currentThemeMode: ThemeMode = ThemeMode.SYSTEM,
     val currentTextScale: Float = 1.0f,
     val currentAutoDescribeOnShare: Boolean = false,
+    val accessibilityQuickCaptureEnabled: Boolean = false,
     val maxImagesInChat: String = "3",
     val currentUpdateChannel: UpdateChannel = UpdateChannel.STABLE,
     val navigateTo: String? = null
@@ -65,6 +66,11 @@ class SettingsViewModel @Inject constructor(
         viewModelScope.launch {
             userPreferencesRepository.autoDescribeOnShare.collect { enabled ->
                 _uiState.update { it.copy(currentAutoDescribeOnShare = enabled) }
+            }
+        }
+        viewModelScope.launch {
+            userPreferencesRepository.accessibilityQuickCaptureEnabled.collect { enabled ->
+                _uiState.update { it.copy(accessibilityQuickCaptureEnabled = enabled) }
             }
         }
         viewModelScope.launch {
@@ -134,6 +140,12 @@ class SettingsViewModel @Inject constructor(
     fun saveAutoDescribeOnShare(enabled: Boolean) {
         viewModelScope.launch {
             userPreferencesRepository.saveAutoDescribeOnShare(enabled)
+        }
+    }
+
+    fun saveAccessibilityQuickCaptureEnabled(enabled: Boolean) {
+        viewModelScope.launch {
+            userPreferencesRepository.saveAccessibilityQuickCaptureEnabled(enabled)
         }
     }
 
