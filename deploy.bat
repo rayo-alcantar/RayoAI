@@ -8,7 +8,7 @@ set "REPO_OWNER=rayo-alcantar"
 set "REPO_NAME=rayoai_for_android"
 set "REPO=%REPO_OWNER%/%REPO_NAME%"
 
-set "APK_PATH=C:\Users\angel_hmv3h04\Documents\git\RayoAI\app\build\outputs\apk\release\app-release.apk"
+set "APK_PATH=C:\Users\angel_hmv3h04\Documents\git\RayoAI\app\build\outputs\apk\github\release\app-github-release.apk"
 set "NOTES_FILE=release-notes.txt"
 
 where gh >nul 2>&1 || (echo ERROR: gh no esta en PATH.& exit /b 1)
