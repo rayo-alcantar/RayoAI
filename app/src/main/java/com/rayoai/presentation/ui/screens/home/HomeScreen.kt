@@ -580,6 +580,8 @@ fun HomeScreen(
                             context.startActivity(Intent.createChooser(shareIntent, context.getString(R.string.share_image)))
                         },
                         onSendMessage = { message -> viewModel.sendChatMessage(message) },
+                        isTranscribingAudio = uiState.isTranscribingAudio,
+                        onVoiceMessageReady = { recording -> viewModel.transcribeVoiceAndSend(context, recording) },
                         textToSpeech = textToSpeech,
                         ttsInitialized = ttsInitialized,
                         writeStoragePermissionState = writeStoragePermissionState,

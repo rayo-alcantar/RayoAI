@@ -1,5 +1,6 @@
 package com.rayoai.presentation.ui.screens.tools
 
+import android.content.Context
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -46,15 +47,19 @@ import androidx.lifecycle.SavedStateHandle
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.rayoai.core.ResultWrapper
+import com.rayoai.domain.model.AudioRecording
 import com.rayoai.domain.model.ChatMessage
 import com.rayoai.domain.model.GeminiModelConfig
 import com.rayoai.domain.model.PdfDocument
 import com.rayoai.domain.repository.UserPreferencesRepository
+import com.rayoai.domain.usecase.TranscribeAudioUseCase
 import com.rayoai.domain.usecase.pdf.ContinuePdfChatUseCase
 import com.rayoai.domain.usecase.pdf.GetPdfChatMessagesUseCase
 import com.rayoai.domain.usecase.pdf.GetPdfDocumentByIdUseCase
 import com.rayoai.domain.usecase.pdf.SavePdfChatMessageUseCase
 import com.rayoai.presentation.ui.components.ChatBubble
+import com.rayoai.presentation.ui.components.VoiceInputButton
+import com.rayoai.presentation.voice.AndroidSpeechFileTranscriber
 import dagger.hilt.android.lifecycle.HiltViewModel
 import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
@@ -64,9 +69,11 @@ import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.launch
 import java.util.Locale
 import javax.inject.Inject
+import androidx.compose.ui.platform.LocalContext
 
 data class PdfChatUiState(
     val isAiTyping: Boolean = false,
+    val isTranscribingAudio: Boolean = false,
     val error: String? = null
 )
 
@@ -77,6 +84,7 @@ class PdfChatViewModel @Inject constructor(
     getPdfChatMessagesUseCase: GetPdfChatMessagesUseCase,
     private val savePdfChatMessageUseCase: SavePdfChatMessageUseCase,
     private val continuePdfChatUseCase: ContinuePdfChatUseCase,
+    private val transcribeAudioUseCase: TranscribeAudioUseCase,
     private val userPreferencesRepository: UserPreferencesRepository
 ) : ViewModel() {
     private val pdfDocumentId: Long = savedStateHandle.get<Long>("id") ?: 0L
@@ -129,7 +137,7 @@ class PdfChatViewModel @Inject constructor(
                     }
                     is ResultWrapper.Error -> {
                         _uiState.value = PdfChatUiState(
-                            error = result.message ?: "No se pudo responder la pregunta."
+                            error = result.message
                         )
                     }
                 }
@@ -137,8 +145,55 @@ class PdfChatViewModel @Inject constructor(
         }
     }
 
+    fun transcribeVoiceAndSend(context: Context, recording: AudioRecording) {
+        viewModelScope.launch {
+            val apiKey = userPreferencesRepository.apiKey.first()
+            if (apiKey.isNullOrBlank()) {
+                _uiState.value = PdfChatUiState(error = "API Key no configurada. Por favor, ve a Ajustes.")
+                cleanupRecording(recording)
+                return@launch
+            }
+
+            _uiState.value = PdfChatUiState(isTranscribingAudio = true)
+            val model = userPreferencesRepository.defaultModel.firstOrNull()
+                ?: GeminiModelConfig.DEFAULT_MODEL
+            val text = when (val geminiResult = transcribeAudioUseCase(apiKey, recording.wavFile, model)) {
+                is ResultWrapper.Success -> geminiResult.data
+                is ResultWrapper.Error -> {
+                    AndroidSpeechFileTranscriber(context.applicationContext)
+                        .transcribe(recording)
+                        .getOrElse { fallbackError ->
+                            _uiState.value = PdfChatUiState(
+                                error = "No se pudo transcribir el audio. Gemini: ${geminiResult.message}. Google voz: ${fallbackError.message}"
+                            )
+                            cleanupRecording(recording)
+                            return@launch
+                        }
+                }
+                ResultWrapper.Loading -> null
+            }
+
+            cleanupRecording(recording)
+            _uiState.value = PdfChatUiState()
+            if (text.isNullOrBlank()) {
+                _uiState.value = PdfChatUiState(error = "La transcripcion quedo vacia.")
+                return@launch
+            }
+            sendMessage(text)
+        }
+    }
+
+    private fun cleanupRecording(recording: AudioRecording) {
+        recording.wavFile.delete()
+        recording.rawPcmFile.delete()
+    }
+
     fun clearError() {
         _uiState.value = _uiState.value.copy(error = null)
+    }
+
+    fun setError(message: String) {
+        _uiState.value = _uiState.value.copy(error = message)
     }
 }
 
@@ -151,6 +206,7 @@ fun PdfChatScreen(
     val document by viewModel.document.collectAsState()
     val messages by viewModel.messages.collectAsState()
     val uiState by viewModel.uiState.collectAsState()
+    val context = LocalContext.current
     val listState = rememberLazyListState()
     var input by remember { mutableStateOf("") }
 
@@ -228,6 +284,18 @@ fun PdfChatScreen(
                 )
             }
 
+            if (uiState.isTranscribingAudio) {
+                Text(
+                    text = "Transcribiendo audio...",
+                    style = MaterialTheme.typography.bodySmall,
+                    textAlign = TextAlign.Center,
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(horizontal = 16.dp, vertical = 4.dp)
+                        .semantics { liveRegion = LiveRegionMode.Assertive }
+                )
+            }
+
             uiState.error?.let { error ->
                 Text(
                     text = error,
@@ -256,12 +324,18 @@ fun PdfChatScreen(
                     maxLines = 5
                 )
                 Spacer(modifier = Modifier.width(8.dp))
+                VoiceInputButton(
+                    enabled = !uiState.isAiTyping && document != null,
+                    isTranscribingAudio = uiState.isTranscribingAudio,
+                    onRecordingReady = { recording -> viewModel.transcribeVoiceAndSend(context, recording) },
+                    onError = { message -> viewModel.setError(message) }
+                )
                 IconButton(
                     onClick = {
                         viewModel.sendMessage(input)
                         input = ""
                     },
-                    enabled = input.isNotBlank() && !uiState.isAiTyping && document != null
+                    enabled = input.isNotBlank() && !uiState.isAiTyping && !uiState.isTranscribingAudio && document != null
                 ) {
                     Icon(Icons.AutoMirrored.Filled.Send, contentDescription = "Enviar mensaje")
                 }

@@ -35,6 +35,7 @@ import com.google.accompanist.permissions.isGranted
 import com.google.accompanist.permissions.PermissionState
 import com.rayoai.domain.model.ChatMessage
 import com.rayoai.presentation.ui.components.ChatBubble
+import com.rayoai.presentation.ui.components.VoiceInputButton
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
 import java.util.*
@@ -62,6 +63,8 @@ fun ChatSection(
     onSaveImage: (Bitmap) -> Unit,
     onShareImage: (Uri) -> Unit,
     onSendMessage: (String) -> Unit,
+    isTranscribingAudio: Boolean,
+    onVoiceMessageReady: (com.rayoai.domain.model.AudioRecording) -> Unit,
     textToSpeech: TextToSpeech?,
     ttsInitialized: Boolean,
     writeStoragePermissionState: PermissionState,
@@ -216,6 +219,19 @@ fun ChatSection(
             }
         }
 
+        if (isTranscribingAudio) {
+            Box(modifier = Modifier.semantics { liveRegion = LiveRegionMode.Assertive }) {
+                Text(
+                    text = "Transcribiendo audio...",
+                    style = MaterialTheme.typography.bodySmall,
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(horizontal = 16.dp, vertical = 4.dp),
+                    textAlign = TextAlign.Center
+                )
+            }
+        }
+
         if (selectedImageUris.isNotEmpty()) {
             LazyRow(
                 modifier = Modifier.padding(horizontal = 8.dp, vertical = 4.dp),
@@ -273,6 +289,12 @@ fun ChatSection(
                     contentDescription = loadMorePhotosDesc
                 )
             }
+            VoiceInputButton(
+                enabled = !isLoading && !isAiTyping,
+                isTranscribingAudio = isTranscribingAudio,
+                onRecordingReady = onVoiceMessageReady,
+                onError = onError
+            )
             IconButton(onClick = {
                 if (chatInput.isNotBlank() || selectedImageUris.isNotEmpty()) {
                     onSendMessage(chatInput)

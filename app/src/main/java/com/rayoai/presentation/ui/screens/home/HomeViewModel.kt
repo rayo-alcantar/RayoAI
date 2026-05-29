@@ -1,5 +1,6 @@
 package com.rayoai.presentation.ui.screens.home
 
+import android.content.Context
 import android.graphics.Bitmap
 import android.net.Uri
 import androidx.lifecycle.ViewModel
@@ -7,10 +8,13 @@ import androidx.lifecycle.viewModelScope
 import com.rayoai.core.ResultWrapper
 import com.rayoai.data.local.ImageStorageManager
 import com.rayoai.domain.model.ChatMessage
+import com.rayoai.domain.model.AudioRecording
 import com.rayoai.domain.usecase.ContinueChatUseCase
 import com.rayoai.domain.usecase.DescribeImageUseCase
+import com.rayoai.domain.usecase.TranscribeAudioUseCase
 import com.rayoai.domain.repository.UserPreferencesRepository
 import com.rayoai.domain.usecase.SaveCaptureUseCase
+import com.rayoai.presentation.voice.AndroidSpeechFileTranscriber
 import dagger.hilt.android.lifecycle.HiltViewModel
 import androidx.camera.core.CameraSelector
 import androidx.camera.core.ImageCapture
@@ -48,6 +52,7 @@ data class HomeUiState(
     val screenState: HomeScreenState = HomeScreenState.Initial,
     val isLoading: Boolean = false,
     val isAiTyping: Boolean = false,
+    val isTranscribingAudio: Boolean = false,
     val chatMessages: List<ChatMessage> = emptyList(),
     val error: String? = null,
     val apiKey: String? = null,
@@ -80,6 +85,7 @@ data class HomeUiState(
 class HomeViewModel @Inject constructor(
     private val describeImageUseCase: DescribeImageUseCase,
     private val continueChatUseCase: ContinueChatUseCase,
+    private val transcribeAudioUseCase: TranscribeAudioUseCase,
     private val userPreferencesRepository: UserPreferencesRepository,
     private val saveCaptureUseCase: SaveCaptureUseCase,
     private val imageStorageManager: ImageStorageManager,
@@ -366,6 +372,51 @@ class HomeViewModel @Inject constructor(
                 }
             }
         }
+    }
+
+    fun transcribeVoiceAndSend(context: Context, recording: AudioRecording) {
+        viewModelScope.launch {
+            val apiKey = userPreferencesRepository.apiKey.first()
+            if (apiKey.isNullOrBlank()) {
+                _uiState.update { it.copy(error = "API Key no configurada. Por favor, ve a Ajustes.") }
+                cleanupRecording(recording)
+                return@launch
+            }
+
+            _uiState.update { it.copy(isTranscribingAudio = true, error = null) }
+            val model = _uiState.value.defaultModel.ifBlank { GeminiModelConfig.DEFAULT_MODEL }
+            val text = when (val geminiResult = transcribeAudioUseCase(apiKey, recording.wavFile, model)) {
+                is ResultWrapper.Success -> geminiResult.data
+                is ResultWrapper.Error -> {
+                    AndroidSpeechFileTranscriber(context.applicationContext)
+                        .transcribe(recording)
+                        .getOrElse { fallbackError ->
+                            _uiState.update {
+                                it.copy(
+                                    isTranscribingAudio = false,
+                                    error = "No se pudo transcribir el audio. Gemini: ${geminiResult.message}. Google voz: ${fallbackError.message}"
+                                )
+                            }
+                            cleanupRecording(recording)
+                            return@launch
+                        }
+                }
+                ResultWrapper.Loading -> null
+            }
+
+            cleanupRecording(recording)
+            _uiState.update { it.copy(isTranscribingAudio = false) }
+            if (text.isNullOrBlank()) {
+                _uiState.update { it.copy(error = "La transcripcion quedo vacia.") }
+                return@launch
+            }
+            sendChatMessage(text)
+        }
+    }
+
+    private fun cleanupRecording(recording: AudioRecording) {
+        recording.wavFile.delete()
+        recording.rawPcmFile.delete()
     }
 
     fun setError(message: String) {
