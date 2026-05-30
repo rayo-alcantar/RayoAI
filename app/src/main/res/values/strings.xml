@@ -190,6 +190,10 @@ Tarjeta: 4152314082325278</string>
     <string name="accessibility_capture_unexpected_error">Ocurrió un error al procesar la captura.</string>
     <string name="accessibility_capture_chat_user_message">Captura de pantalla.</string>
     <string name="accessibility_capture_prompt">Describe esta captura de pantalla para una persona ciega. Incluye el texto visible, controles importantes y el contexto de la pantalla. No agregues información que no sea visible.</string>
+    <string name="accessibility_capture_result_title">Descripción de pantalla</string>
+    <string name="accessibility_capture_result_close">Cerrar</string>
+    <string name="accessibility_capture_result_open">Abrir en RayoAI</string>
+    <string name="accessibility_capture_result_empty">La descripción está vacía.</string>
     <string name="update_channel_stable">Estable</string>
     <string name="update_channel_beta">Beta</string>
     <string name="update_channel_all">Beta y estable</string>

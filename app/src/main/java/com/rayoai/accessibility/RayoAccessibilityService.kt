@@ -21,6 +21,7 @@ import com.rayoai.domain.model.GeminiModelConfig
 import com.rayoai.domain.repository.UserPreferencesRepository
 import com.rayoai.domain.usecase.DescribeImageUseCase
 import com.rayoai.domain.usecase.SaveCaptureUseCase
+import com.rayoai.presentation.ui.AccessibilityCaptureResultActivity
 import com.rayoai.presentation.ui.MainActivity
 import dagger.hilt.android.AndroidEntryPoint
 import kotlinx.coroutines.CoroutineScope
@@ -92,7 +93,7 @@ class RayoAccessibilityService : AccessibilityService() {
     private fun recordVolumeKey(keyCode: Int, eventTime: Long): Boolean {
         volumeSequence.addLast(keyCode)
         volumeSequenceTimes.addLast(eventTime)
-        while (volumeSequence.size > REQUIRED_VOLUME_SEQUENCE.size) {
+        while (volumeSequence.size > REQUIRED_VOLUME_SEQUENCE_SIZE) {
             volumeSequence.removeFirst()
             volumeSequenceTimes.removeFirst()
         }
@@ -105,8 +106,9 @@ class RayoAccessibilityService : AccessibilityService() {
             return false
         }
 
-        val matched = volumeSequence.size == REQUIRED_VOLUME_SEQUENCE.size &&
-            volumeSequence.toList() == REQUIRED_VOLUME_SEQUENCE
+        val matched = volumeSequence.size == REQUIRED_VOLUME_SEQUENCE_SIZE &&
+            volumeSequence.count { it == KeyEvent.KEYCODE_VOLUME_UP } == REQUIRED_VOLUME_KEY_REPEATS &&
+            volumeSequence.count { it == KeyEvent.KEYCODE_VOLUME_DOWN } == REQUIRED_VOLUME_KEY_REPEATS
         if (matched) clearVolumeSequence()
         return matched
     }
@@ -213,7 +215,7 @@ class RayoAccessibilityService : AccessibilityService() {
                             val captureId = saveCaptureUseCase(listOf(imageUri.toString()), messages)
                             withContext(Dispatchers.Main) {
                                 showToast(getString(R.string.accessibility_capture_ready))
-                                openMainActivity(captureId)
+                                openCaptureResult(captureId, result.data)
                             }
                         }
                         is ResultWrapper.Error -> {
@@ -235,6 +237,15 @@ class RayoAccessibilityService : AccessibilityService() {
         val intent = Intent(this, MainActivity::class.java).apply {
             flags = Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_CLEAR_TASK
             captureId?.let { putExtra(MainActivity.EXTRA_CAPTURE_ID, it) }
+        }
+        startActivity(intent)
+    }
+
+    private fun openCaptureResult(captureId: Long, description: String) {
+        val intent = Intent(this, AccessibilityCaptureResultActivity::class.java).apply {
+            flags = Intent.FLAG_ACTIVITY_NEW_TASK
+            putExtra(AccessibilityCaptureResultActivity.EXTRA_CAPTURE_ID, captureId)
+            putExtra(AccessibilityCaptureResultActivity.EXTRA_DESCRIPTION, description)
         }
         startActivity(intent)
     }
@@ -265,11 +276,7 @@ class RayoAccessibilityService : AccessibilityService() {
 
     companion object {
         private const val VOLUME_SEQUENCE_WINDOW_MS = 2200L
-        private val REQUIRED_VOLUME_SEQUENCE = listOf(
-            KeyEvent.KEYCODE_VOLUME_UP,
-            KeyEvent.KEYCODE_VOLUME_DOWN,
-            KeyEvent.KEYCODE_VOLUME_UP,
-            KeyEvent.KEYCODE_VOLUME_DOWN
-        )
+        private const val REQUIRED_VOLUME_SEQUENCE_SIZE = 4
+        private const val REQUIRED_VOLUME_KEY_REPEATS = 2
     }
 }

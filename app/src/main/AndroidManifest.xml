@@ -36,6 +36,12 @@
             </intent-filter>
         </activity>
         <activity
+            android:name=".presentation.ui.AccessibilityCaptureResultActivity"
+            android:excludeFromRecents="true"
+            android:exported="false"
+            android:label="@string/accessibility_capture_result_title"
+            android:theme="@style/Theme.RayoAI.Dialog" />
+        <activity
             android:name=".presentation.SharingActivity"
             android:exported="true"
             android:label="@string/describe_image_label">

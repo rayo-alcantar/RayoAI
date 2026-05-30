@@ -2,4 +2,7 @@
 <resources>
 
     <style name="Theme.RayoAI" parent="android:Theme.Material.Light.NoActionBar" />
+    <style name="Theme.RayoAI.Dialog" parent="android:style/Theme.Material.Light.Dialog.Alert">
+        <item name="android:windowCloseOnTouchOutside">false</item>
+    </style>
 </resources>

@@ -1,0 +1,7 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="accessibility_capture_result_title">Screen description</string>
+    <string name="accessibility_capture_result_close">Close</string>
+    <string name="accessibility_capture_result_open">Open in RayoAI</string>
+    <string name="accessibility_capture_result_empty">The description is empty.</string>
+</resources>
