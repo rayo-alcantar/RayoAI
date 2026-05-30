@@ -4,15 +4,21 @@ import android.accessibilityservice.AccessibilityButtonController
 import android.accessibilityservice.AccessibilityService
 import android.accessibilityservice.AccessibilityService.TakeScreenshotCallback
 import android.accessibilityservice.AccessibilityService.ScreenshotResult
+import android.content.BroadcastReceiver
+import android.content.Context
 import android.content.Intent
+import android.content.IntentFilter
 import android.graphics.Bitmap
+import android.graphics.Rect
 import android.media.MediaPlayer
 import android.os.Build
 import android.view.Display
 import android.view.KeyEvent
 import android.view.accessibility.AccessibilityEvent
+import android.view.accessibility.AccessibilityNodeInfo
 import android.widget.Toast
 import androidx.annotation.RequiresApi
+import androidx.core.content.ContextCompat
 import com.rayoai.R
 import com.rayoai.core.ResultWrapper
 import com.rayoai.data.local.ImageStorageManager
@@ -21,6 +27,7 @@ import com.rayoai.domain.model.GeminiModelConfig
 import com.rayoai.domain.repository.UserPreferencesRepository
 import com.rayoai.domain.usecase.DescribeImageUseCase
 import com.rayoai.domain.usecase.SaveCaptureUseCase
+import com.rayoai.presentation.ui.AccessibilityCaptureModeActivity
 import com.rayoai.presentation.ui.AccessibilityCaptureResultActivity
 import com.rayoai.presentation.ui.MainActivity
 import dagger.hilt.android.AndroidEntryPoint
@@ -28,6 +35,7 @@ import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.SupervisorJob
 import kotlinx.coroutines.cancel
+import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
@@ -48,19 +56,37 @@ class RayoAccessibilityService : AccessibilityService() {
     private val volumeSequence = ArrayDeque<Int>()
     private val volumeSequenceTimes = ArrayDeque<Long>()
     private var accessibilityButtonCallback: AccessibilityButtonController.AccessibilityButtonCallback? = null
+    private var lastAccessibilityFocusBounds: Rect? = null
+    private var pendingFocusedElementBounds: Rect? = null
+    private var captureModeReceiverRegistered = false
+    private val captureModeReceiver = object : BroadcastReceiver() {
+        override fun onReceive(context: Context?, intent: Intent?) {
+            if (intent?.action != AccessibilityCaptureModeActivity.ACTION_CAPTURE_MODE_SELECTED) return
+            val mode = intent.getStringExtra(AccessibilityCaptureModeActivity.EXTRA_MODE)
+            serviceScope.launch {
+                handleCaptureMode(mode)
+            }
+        }
+    }
 
     override fun onServiceConnected() {
         super.onServiceConnected()
         registerAccessibilityButton()
+        registerCaptureModeReceiver()
     }
 
-    override fun onAccessibilityEvent(event: AccessibilityEvent?) = Unit
+    override fun onAccessibilityEvent(event: AccessibilityEvent?) {
+        if (event?.eventType == AccessibilityEvent.TYPE_VIEW_ACCESSIBILITY_FOCUSED) {
+            lastAccessibilityFocusBounds = event.source?.extractVisibleBounds()
+        }
+    }
 
     override fun onInterrupt() = Unit
 
     override fun onDestroy() {
         accessibilityButtonCallback?.let { accessibilityButtonController.unregisterAccessibilityButtonCallback(it) }
         accessibilityButtonCallback = null
+        unregisterCaptureModeReceiver()
         serviceScope.cancel()
         super.onDestroy()
     }
@@ -129,40 +155,83 @@ class RayoAccessibilityService : AccessibilityService() {
                 showToast(getString(R.string.accessibility_capture_already_running))
                 return@launch
             }
-            captureAndDescribeScreen()
+            pendingFocusedElementBounds = findAccessibilityFocusBounds()
+            openCaptureModeChooser()
         }
     }
 
-    private fun captureAndDescribeScreen() {
+    private suspend fun handleCaptureMode(mode: String?) {
+        when (mode) {
+            AccessibilityCaptureModeActivity.MODE_FULL_SCREEN -> {
+                pendingFocusedElementBounds = null
+                withContext(Dispatchers.Main) {
+                    captureAndDescribeScreen(null)
+                }
+            }
+            AccessibilityCaptureModeActivity.MODE_FOCUSED_ELEMENT -> {
+                val bounds = pendingFocusedElementBounds ?: findAccessibilityFocusBounds()
+                if (bounds == null) {
+                    pendingFocusedElementBounds = null
+                    isProcessing.set(false)
+                    showToast(getString(R.string.accessibility_capture_no_focused_element))
+                    return
+                }
+                pendingFocusedElementBounds = bounds
+                withContext(Dispatchers.Main) {
+                    captureAndDescribeScreen(bounds)
+                }
+            }
+            else -> {
+                pendingFocusedElementBounds = null
+                isProcessing.set(false)
+            }
+        }
+    }
+
+    private fun captureAndDescribeScreen(focusedBounds: Rect?) {
         if (Build.VERSION.SDK_INT < Build.VERSION_CODES.R) {
             isProcessing.set(false)
             showToast(getString(R.string.accessibility_capture_requires_android_11))
             return
         }
 
-        showToast(getString(R.string.accessibility_capture_starting))
-        takeScreenshot(
-            Display.DEFAULT_DISPLAY,
-            mainExecutor,
-            object : TakeScreenshotCallback {
-                override fun onSuccess(screenshot: ScreenshotResult) {
-                    serviceScope.launch {
-                        val bitmap = screenshot.toBitmapCopy()
-                        if (bitmap == null) {
-                            isProcessing.set(false)
-                            showToast(getString(R.string.accessibility_capture_failed))
-                            return@launch
+        serviceScope.launch captureLaunch@{
+            delay(CAPTURE_CHOOSER_DISMISS_DELAY_MS)
+            showToast(getString(R.string.accessibility_capture_starting))
+            takeScreenshot(
+                Display.DEFAULT_DISPLAY,
+                mainExecutor,
+                object : TakeScreenshotCallback {
+                    override fun onSuccess(screenshot: ScreenshotResult) {
+                        serviceScope.launch screenshotLaunch@{
+                            val bitmap = screenshot.toBitmapCopy()
+                            if (bitmap == null) {
+                                isProcessing.set(false)
+                                showToast(getString(R.string.accessibility_capture_failed))
+                                return@screenshotLaunch
+                            }
+                            val imageForDescription = if (focusedBounds != null) {
+                                val cropped = cropBitmapToBounds(bitmap, focusedBounds)
+                                if (cropped == null) {
+                                    isProcessing.set(false)
+                                    showToast(getString(R.string.accessibility_capture_invalid_focused_element))
+                                    return@screenshotLaunch
+                                }
+                                cropped
+                            } else {
+                                bitmap
+                            }
+                            describeScreenshot(imageForDescription)
                         }
-                        describeScreenshot(bitmap)
+                    }
+
+                    override fun onFailure(errorCode: Int) {
+                        isProcessing.set(false)
+                        showToast(screenshotErrorMessage(errorCode))
                     }
                 }
-
-                override fun onFailure(errorCode: Int) {
-                    isProcessing.set(false)
-                    showToast(screenshotErrorMessage(errorCode))
-                }
-            }
-        )
+            )
+        }
     }
 
     @RequiresApi(Build.VERSION_CODES.R)
@@ -250,6 +319,69 @@ class RayoAccessibilityService : AccessibilityService() {
         startActivity(intent)
     }
 
+    private fun openCaptureModeChooser() {
+        val intent = Intent(this, AccessibilityCaptureModeActivity::class.java).apply {
+            flags = Intent.FLAG_ACTIVITY_NEW_TASK
+        }
+        startActivity(intent)
+    }
+
+    private fun findAccessibilityFocusBounds(): Rect? {
+        return try {
+            findFocus(AccessibilityNodeInfo.FOCUS_ACCESSIBILITY)?.extractVisibleBounds()
+                ?: rootInActiveWindow?.findFocus(AccessibilityNodeInfo.FOCUS_ACCESSIBILITY)?.extractVisibleBounds()
+                ?: lastAccessibilityFocusBounds
+        } catch (_: Exception) {
+            lastAccessibilityFocusBounds
+        }
+    }
+
+    private fun AccessibilityNodeInfo.extractVisibleBounds(): Rect? {
+        val bounds = Rect()
+        return try {
+            getBoundsInScreen(bounds)
+            bounds.takeIf { it.width() > 0 && it.height() > 0 }
+        } finally {
+            recycle()
+        }
+    }
+
+    private fun cropBitmapToBounds(bitmap: Bitmap, bounds: Rect): Bitmap? {
+        val safeBounds = Rect(bounds)
+        val imageBounds = Rect(0, 0, bitmap.width, bitmap.height)
+        if (!safeBounds.intersect(imageBounds)) return null
+        if (safeBounds.width() <= 0 || safeBounds.height() <= 0) return null
+        return Bitmap.createBitmap(
+            bitmap,
+            safeBounds.left,
+            safeBounds.top,
+            safeBounds.width(),
+            safeBounds.height()
+        )
+    }
+
+    private fun registerCaptureModeReceiver() {
+        if (captureModeReceiverRegistered) return
+        val filter = IntentFilter(AccessibilityCaptureModeActivity.ACTION_CAPTURE_MODE_SELECTED)
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
+            registerReceiver(captureModeReceiver, filter, Context.RECEIVER_NOT_EXPORTED)
+        } else {
+            ContextCompat.registerReceiver(
+                this,
+                captureModeReceiver,
+                filter,
+                ContextCompat.RECEIVER_NOT_EXPORTED
+            )
+        }
+        captureModeReceiverRegistered = true
+    }
+
+    private fun unregisterCaptureModeReceiver() {
+        if (!captureModeReceiverRegistered) return
+        unregisterReceiver(captureModeReceiver)
+        captureModeReceiverRegistered = false
+    }
+
     private fun screenshotErrorMessage(errorCode: Int): String {
         return when (errorCode) {
             ERROR_TAKE_SCREENSHOT_INTERVAL_TIME_SHORT -> getString(R.string.accessibility_capture_too_soon)
@@ -276,6 +408,7 @@ class RayoAccessibilityService : AccessibilityService() {
 
     companion object {
         private const val VOLUME_SEQUENCE_WINDOW_MS = 2200L
+        private const val CAPTURE_CHOOSER_DISMISS_DELAY_MS = 350L
         private const val REQUIRED_VOLUME_SEQUENCE_SIZE = 4
         private const val REQUIRED_VOLUME_KEY_REPEATS = 2
     }
