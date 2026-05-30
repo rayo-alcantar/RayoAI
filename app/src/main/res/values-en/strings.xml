@@ -4,6 +4,11 @@
     <string name="accessibility_capture_result_close">Close</string>
     <string name="accessibility_capture_result_open">Open in RayoAI</string>
     <string name="accessibility_capture_result_empty">The description is empty.</string>
+    <string name="accessibility_capture_no_focused_element">No focused element was found. Try describing the full screen.</string>
+    <string name="accessibility_capture_invalid_focused_element">The focused element could not be captured.</string>
+    <string name="accessibility_capture_mode_title">What do you want to describe?</string>
+    <string name="accessibility_capture_mode_full_screen">Describe full screen</string>
+    <string name="accessibility_capture_mode_focused_element">Describe focused element</string>
     <string name="settings_google_section_title">Google, model, and API key</string>
     <string name="settings_google_section_description">Configure Gemini, your API key, and image limits for chat.</string>
     <string name="settings_appearance_design_section_title">Appearance and design</string>
