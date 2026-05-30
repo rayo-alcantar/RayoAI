@@ -427,30 +427,38 @@ private fun ExpandableSettingsSection(
 
     Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
         HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant)
-        OutlinedButton(
-            onClick = { onExpandedChange(!expanded) },
-            modifier = Modifier
-                .fillMaxWidth()
-                .semantics {
-                    contentDescription = "$title. $stateDescription"
-                }
+        Row(
+            modifier = Modifier.fillMaxWidth(),
+            horizontalArrangement = Arrangement.spacedBy(12.dp),
+            verticalAlignment = Alignment.CenterVertically
         ) {
-            Text(
-                text = title,
-                modifier = Modifier.weight(1f),
-                style = MaterialTheme.typography.titleMedium
-            )
-            Icon(
-                imageVector = if (expanded) Icons.Filled.ExpandLess else Icons.Filled.ExpandMore,
-                contentDescription = null
-            )
-        }
-        if (!description.isNullOrBlank()) {
-            Text(
-                text = description,
-                style = MaterialTheme.typography.bodySmall,
-                color = MaterialTheme.colorScheme.onSurfaceVariant
-            )
+            OutlinedButton(
+                onClick = { onExpandedChange(!expanded) },
+                modifier = Modifier
+                    .weight(0.44f)
+                    .heightIn(min = 56.dp)
+                    .semantics {
+                        contentDescription = "$title. $stateDescription"
+                    }
+            ) {
+                Text(
+                    text = title,
+                    modifier = Modifier.weight(1f),
+                    style = MaterialTheme.typography.titleMedium
+                )
+                Icon(
+                    imageVector = if (expanded) Icons.Filled.ExpandLess else Icons.Filled.ExpandMore,
+                    contentDescription = null
+                )
+            }
+            if (!description.isNullOrBlank()) {
+                Text(
+                    text = description,
+                    modifier = Modifier.weight(0.56f),
+                    style = MaterialTheme.typography.bodySmall,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                )
+            }
         }
         AnimatedVisibility(visible = expanded) {
             Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
