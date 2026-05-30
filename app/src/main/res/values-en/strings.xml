@@ -4,4 +4,11 @@
     <string name="accessibility_capture_result_close">Close</string>
     <string name="accessibility_capture_result_open">Open in RayoAI</string>
     <string name="accessibility_capture_result_empty">The description is empty.</string>
+    <string name="settings_google_section_title">Google, model, and API key</string>
+    <string name="settings_google_section_description">Configure Gemini, your API key, and image limits for chat.</string>
+    <string name="settings_appearance_design_section_title">Appearance and design</string>
+    <string name="settings_accessibility_updates_section_title">Accessibility and updates</string>
+    <string name="settings_accessibility_updates_section_description">Configure quick capture and RayoAI versions.</string>
+    <string name="settings_section_expand">Expand</string>
+    <string name="settings_section_collapse">Collapse</string>
 </resources>

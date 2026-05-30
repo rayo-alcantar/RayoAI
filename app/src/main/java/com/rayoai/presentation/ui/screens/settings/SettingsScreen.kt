@@ -4,6 +4,7 @@ import android.content.Intent
 import android.net.Uri
 import android.provider.Settings
 import androidx.activity.ComponentActivity
+import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
@@ -21,6 +22,8 @@ import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.ArrowDropDown
+import androidx.compose.material.icons.filled.ExpandLess
+import androidx.compose.material.icons.filled.ExpandMore
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Button
 import androidx.compose.material3.DropdownMenu
@@ -53,6 +56,8 @@ import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalFocusManager
 import androidx.compose.ui.platform.LocalLifecycleOwner
 import androidx.compose.ui.res.stringResource
+import androidx.compose.ui.semantics.contentDescription
+import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.text.input.ImeAction
 import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.unit.dp
@@ -90,6 +95,9 @@ fun SettingsScreen(
     var isUpdateChannelMenuExpanded by remember { mutableStateOf(false) }
     var showAccessibilitySetupDialog by remember { mutableStateOf(false) }
     var pendingOpenAccessibilityAfterAppSettings by remember { mutableStateOf(false) }
+    var googleSectionExpanded by remember { mutableStateOf(false) }
+    var appearanceSectionExpanded by remember { mutableStateOf(false) }
+    var accessibilitySectionExpanded by remember { mutableStateOf(false) }
 
     val modelOptions = listOf(
         GeminiModelConfig.DEFAULT_MODEL to stringResource(R.string.model_gemini_31_flash_lite),
@@ -171,9 +179,11 @@ fun SettingsScreen(
         ) {
             Spacer(modifier = Modifier.height(2.dp))
 
-            SettingsSection(
-                title = stringResource(R.string.settings_api_key_label),
-                description = stringResource(R.string.settings_api_section_description)
+            ExpandableSettingsSection(
+                title = stringResource(R.string.settings_google_section_title),
+                description = stringResource(R.string.settings_google_section_description),
+                expanded = googleSectionExpanded,
+                onExpandedChange = { googleSectionExpanded = it }
             ) {
                 SecureTextField(
                     value = uiState.apiKeyInput,
@@ -195,47 +205,7 @@ fun SettingsScreen(
                         Text(stringResource(R.string.settings_api_key_instructions_button))
                     }
                 }
-            }
 
-            SettingsSection(title = stringResource(R.string.settings_accessibility_capture_title)) {
-                Row(
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .heightIn(min = 56.dp),
-                    verticalAlignment = Alignment.CenterVertically
-                ) {
-                    Column(modifier = Modifier.weight(1f)) {
-                        Text(
-                            text = stringResource(R.string.settings_accessibility_capture_switch),
-                            style = MaterialTheme.typography.bodyLarge
-                        )
-                        Text(
-                            text = stringResource(R.string.settings_accessibility_capture_summary),
-                            style = MaterialTheme.typography.bodySmall,
-                            color = MaterialTheme.colorScheme.onSurfaceVariant
-                        )
-                    }
-                    Switch(
-                        checked = uiState.accessibilityQuickCaptureEnabled,
-                        onCheckedChange = { enabled ->
-                            viewModel.saveAccessibilityQuickCaptureEnabled(enabled)
-                            if (enabled) {
-                                showAccessibilitySetupDialog = true
-                            }
-                        }
-                    )
-                }
-                OutlinedButton(
-                    onClick = {
-                        activity.startActivity(Intent(Settings.ACTION_ACCESSIBILITY_SETTINGS))
-                    },
-                    modifier = Modifier.fillMaxWidth()
-                ) {
-                    Text(stringResource(R.string.settings_accessibility_capture_open_settings))
-                }
-            }
-
-            SettingsSection(title = stringResource(R.string.settings_preferences_section_title)) {
                 val selectedModelLabel = modelOptions.firstOrNull { it.first == uiState.currentDefaultModel }?.second
                     ?: uiState.currentDefaultModel
                 BoxedDropdownField(
@@ -285,6 +255,88 @@ fun SettingsScreen(
                         Text(stringResource(R.string.settings_max_images_save_compact))
                     }
                 }
+            }
+
+            ExpandableSettingsSection(
+                title = stringResource(R.string.settings_appearance_design_section_title),
+                description = stringResource(R.string.settings_appearance_section_description),
+                expanded = appearanceSectionExpanded,
+                onExpandedChange = { appearanceSectionExpanded = it }
+            ) {
+                val selectedThemeLabel = themeOptions.firstOrNull { it.first == uiState.currentThemeMode }?.second
+                    ?: uiState.currentThemeMode.name
+                BoxedDropdownField(
+                    value = selectedThemeLabel,
+                    label = stringResource(R.string.settings_theme_label),
+                    expanded = isThemeMenuExpanded,
+                    onExpand = { isThemeMenuExpanded = true },
+                    onDismiss = { isThemeMenuExpanded = false }
+                ) {
+                    themeOptions.forEach { (value, label) ->
+                        DropdownMenuItem(
+                            text = { Text(label) },
+                            onClick = {
+                                viewModel.saveThemeMode(value)
+                                isThemeMenuExpanded = false
+                            }
+                        )
+                    }
+                }
+
+                Text(
+                    text = stringResource(R.string.settings_text_scale, uiState.currentTextScale),
+                    style = MaterialTheme.typography.bodyMedium
+                )
+                Slider(
+                    value = uiState.currentTextScale,
+                    onValueChange = { viewModel.saveTextScale(it) },
+                    valueRange = 0.8f..1.5f,
+                    steps = 6,
+                    modifier = Modifier.fillMaxWidth()
+                )
+            }
+
+            ExpandableSettingsSection(
+                title = stringResource(R.string.settings_accessibility_updates_section_title),
+                description = stringResource(R.string.settings_accessibility_updates_section_description),
+                expanded = accessibilitySectionExpanded,
+                onExpandedChange = { accessibilitySectionExpanded = it }
+            ) {
+                Row(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .heightIn(min = 56.dp),
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    Column(modifier = Modifier.weight(1f)) {
+                        Text(
+                            text = stringResource(R.string.settings_accessibility_capture_switch),
+                            style = MaterialTheme.typography.bodyLarge
+                        )
+                        Text(
+                            text = stringResource(R.string.settings_accessibility_capture_summary),
+                            style = MaterialTheme.typography.bodySmall,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant
+                        )
+                    }
+                    Switch(
+                        checked = uiState.accessibilityQuickCaptureEnabled,
+                        onCheckedChange = { enabled ->
+                            viewModel.saveAccessibilityQuickCaptureEnabled(enabled)
+                            if (enabled) {
+                                showAccessibilitySetupDialog = true
+                            }
+                        }
+                    )
+                }
+                OutlinedButton(
+                    onClick = {
+                        activity.startActivity(Intent(Settings.ACTION_ACCESSIBILITY_SETTINGS))
+                    },
+                    modifier = Modifier.fillMaxWidth()
+                ) {
+                    Text(stringResource(R.string.settings_accessibility_capture_open_settings))
+                }
 
                 if (BuildConfig.GITHUB_UPDATES_ENABLED) {
                     val selectedChannelLabel = updateChannelOptions.firstOrNull { it.first == uiState.currentUpdateChannel }?.second
@@ -320,40 +372,6 @@ fun SettingsScreen(
                         Text(checkUpdatesLabel)
                     }
                 }
-            }
-
-            SettingsSection(title = stringResource(R.string.settings_appearance_section_title)) {
-                val selectedThemeLabel = themeOptions.firstOrNull { it.first == uiState.currentThemeMode }?.second
-                    ?: uiState.currentThemeMode.name
-                BoxedDropdownField(
-                    value = selectedThemeLabel,
-                    label = stringResource(R.string.settings_theme_label),
-                    expanded = isThemeMenuExpanded,
-                    onExpand = { isThemeMenuExpanded = true },
-                    onDismiss = { isThemeMenuExpanded = false }
-                ) {
-                    themeOptions.forEach { (value, label) ->
-                        DropdownMenuItem(
-                            text = { Text(label) },
-                            onClick = {
-                                viewModel.saveThemeMode(value)
-                                isThemeMenuExpanded = false
-                            }
-                        )
-                    }
-                }
-
-                Text(
-                    text = stringResource(R.string.settings_text_scale, uiState.currentTextScale),
-                    style = MaterialTheme.typography.bodyMedium
-                )
-                Slider(
-                    value = uiState.currentTextScale,
-                    onValueChange = { viewModel.saveTextScale(it) },
-                    valueRange = 0.8f..1.5f,
-                    steps = 6,
-                    modifier = Modifier.fillMaxWidth()
-                )
             }
 
             Spacer(modifier = Modifier.height(4.dp))
@@ -394,14 +412,39 @@ private fun openAppDetailsSettings(context: android.content.Context) {
 }
 
 @Composable
-private fun SettingsSection(
+private fun ExpandableSettingsSection(
     title: String,
     description: String? = null,
+    expanded: Boolean,
+    onExpandedChange: (Boolean) -> Unit,
     content: @Composable ColumnScope.() -> Unit
 ) {
+    val stateDescription = if (expanded) {
+        stringResource(R.string.settings_section_collapse)
+    } else {
+        stringResource(R.string.settings_section_expand)
+    }
+
     Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
         HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant)
-        Text(title, style = MaterialTheme.typography.titleMedium)
+        OutlinedButton(
+            onClick = { onExpandedChange(!expanded) },
+            modifier = Modifier
+                .fillMaxWidth()
+                .semantics {
+                    contentDescription = "$title. $stateDescription"
+                }
+        ) {
+            Text(
+                text = title,
+                modifier = Modifier.weight(1f),
+                style = MaterialTheme.typography.titleMedium
+            )
+            Icon(
+                imageVector = if (expanded) Icons.Filled.ExpandLess else Icons.Filled.ExpandMore,
+                contentDescription = null
+            )
+        }
         if (!description.isNullOrBlank()) {
             Text(
                 text = description,
@@ -409,8 +452,10 @@ private fun SettingsSection(
                 color = MaterialTheme.colorScheme.onSurfaceVariant
             )
         }
-        Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
-            content()
+        AnimatedVisibility(visible = expanded) {
+            Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                content()
+            }
         }
     }
 }

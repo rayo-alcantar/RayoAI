@@ -47,6 +47,13 @@
     <string name="model_gemini_25_flash">Gemini 2.5 Flash</string>
     <string name="model_gemini_25_pro">Gemini 2.5 Pro</string>
     <string name="settings_api_key_instructions_button">Obtener API key</string>
+    <string name="settings_google_section_title">Google, modelo y clave API</string>
+    <string name="settings_google_section_description">Configura Gemini, tu clave API y los límites de imagen del chat.</string>
+    <string name="settings_appearance_design_section_title">Apariencia y diseño</string>
+    <string name="settings_accessibility_updates_section_title">Accesibilidad y actualizaciones</string>
+    <string name="settings_accessibility_updates_section_description">Configura la captura rápida y las versiones de RayoAI.</string>
+    <string name="settings_section_expand">Expandir</string>
+    <string name="settings_section_collapse">Contraer</string>
     <string name="settings_max_images_label">Número máximo de imágenes en un chat</string>
     <string name="settings_max_images_label_compact">Máx. imágenes</string>
     <string name="settings_max_images_save">Guardar límite de imágenes</string>
