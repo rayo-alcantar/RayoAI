@@ -108,6 +108,8 @@ Tarjeta: 4152314082325278</string>
     <string name="seconds">Segundos</string>
     <string name="capturing_in">Capturando en: %1$d...</string>
     <string name="take_photo">Tomar Foto</string>
+    <string name="focus_assist_on">Apoyo de enfoque activado</string>
+    <string name="focus_assist_off">Apoyo de enfoque desactivado</string>
     <string name="error_loading_shared_image">Error al cargar la imagen compartida.</string>
     <string name="error_security_shared_image">No se pudo acceder a la imagen compartida. El permiso pudo haber expirado.</string>
     <string name="error_loading_gallery_image">Error al cargar la imagen de la galería.</string>

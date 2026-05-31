@@ -21,7 +21,10 @@ import androidx.compose.ui.semantics.heading
 import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.unit.dp
 import com.rayoai.R
+import com.rayoai.presentation.ui.theme.RayoAITheme
+import dagger.hilt.android.AndroidEntryPoint
 
+@AndroidEntryPoint
 class AccessibilityCaptureModeActivity : ComponentActivity() {
 
     override fun onCreate(savedInstanceState: Bundle?) {
@@ -29,7 +32,7 @@ class AccessibilityCaptureModeActivity : ComponentActivity() {
         setFinishOnTouchOutside(false)
 
         setContent {
-            MaterialTheme {
+            RayoAITheme {
                 Surface(color = MaterialTheme.colorScheme.background) {
                     AccessibilityCaptureModeDialog(
                         onFullScreen = { finishWithMode(MODE_FULL_SCREEN) },

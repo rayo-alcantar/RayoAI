@@ -32,7 +32,10 @@ import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.semantics.LiveRegionMode
 import androidx.compose.ui.unit.dp
 import com.rayoai.R
+import com.rayoai.presentation.ui.theme.RayoAITheme
+import dagger.hilt.android.AndroidEntryPoint
 
+@AndroidEntryPoint
 class AccessibilityCaptureResultActivity : ComponentActivity() {
 
     override fun onCreate(savedInstanceState: Bundle?) {
@@ -43,7 +46,7 @@ class AccessibilityCaptureResultActivity : ComponentActivity() {
         val description = intent.getStringExtra(EXTRA_DESCRIPTION).orEmpty()
 
         setContent {
-            MaterialTheme {
+            RayoAITheme {
                 Surface(color = MaterialTheme.colorScheme.background) {
                     AccessibilityCaptureResultDialog(
                         description = description,
