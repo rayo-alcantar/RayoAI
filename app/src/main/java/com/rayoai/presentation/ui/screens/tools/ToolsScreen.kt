@@ -7,7 +7,11 @@ import android.hardware.Sensor
 import android.hardware.SensorEvent
 import android.hardware.SensorEventListener
 import android.hardware.SensorManager
+import android.media.AudioAttributes
+import android.media.AudioFormat
+import android.media.AudioTrack
 import android.os.Build
+import android.os.Process
 import android.os.VibrationEffect
 import android.os.Vibrator
 import android.os.VibratorManager
@@ -63,6 +67,9 @@ import kotlinx.coroutines.delay
 import java.text.SimpleDateFormat
 import java.util.Date
 import java.util.Locale
+import kotlin.math.PI
+import kotlin.math.ln
+import kotlin.math.sin
 
 private enum class LightLevel(val label: String) {
     UNAVAILABLE("Sensor de luz no disponible"),
@@ -92,6 +99,7 @@ private fun LightDetectorCard() {
         sensorManager.getDefaultSensor(Sensor.TYPE_LIGHT)
     }
     val vibrator = remember { context.appVibrator() }
+    val theremin = remember { LightTheremin() }
 
     var isDetecting by remember { mutableStateOf(false) }
     var lux by remember { mutableStateOf<Float?>(null) }
@@ -145,10 +153,24 @@ private fun LightDetectorCard() {
                 override fun onAccuracyChanged(sensor: Sensor?, accuracy: Int) = Unit
             }
             sensorManager.registerListener(listener, lightSensor, SensorManager.SENSOR_DELAY_NORMAL)
+            theremin.start()
             onDispose {
                 sensorManager.unregisterListener(listener)
                 vibrator.cancel()
+                theremin.stop()
             }
+        }
+    }
+
+    DisposableEffect(Unit) {
+        onDispose {
+            theremin.stop()
+        }
+    }
+
+    LaunchedEffect(isDetecting, lux) {
+        if (isDetecting) {
+            theremin.updateLux(lux)
         }
     }
 
@@ -178,6 +200,7 @@ private fun LightDetectorCard() {
                 isDetecting = !isDetecting
                 if (!isDetecting) {
                     vibrator.cancel()
+                    theremin.stop()
                     lux = null
                 }
             },
@@ -196,6 +219,92 @@ private fun LightDetectorCard() {
                     modifier = Modifier.clearAndSetSemantics {}
                 )
             }
+        }
+    }
+}
+
+private class LightTheremin {
+    @Volatile
+    private var isRunning = false
+
+    @Volatile
+    private var targetFrequency = 220.0
+
+    @Volatile
+    private var targetVolume = 0.03
+
+    private var audioThread: Thread? = null
+
+    fun start() {
+        if (isRunning) return
+        isRunning = true
+        updateLux(null)
+        audioThread = Thread(::runAudioLoop, "RayoAI-LightTheremin").also { it.start() }
+    }
+
+    fun stop() {
+        isRunning = false
+        audioThread = null
+    }
+
+    fun updateLux(lux: Float?) {
+        val normalized = when {
+            lux == null -> 0.0
+            lux <= 0f -> 0.0
+            else -> (ln(lux.toDouble() + 1.0) / ln(1001.0)).coerceIn(0.0, 1.0)
+        }
+        targetFrequency = 180.0 + (normalized * 920.0)
+        targetVolume = 0.02 + (normalized * 0.16)
+    }
+
+    private fun runAudioLoop() {
+        Process.setThreadPriority(Process.THREAD_PRIORITY_AUDIO)
+        val sampleRate = 44_100
+        val minBufferSize = AudioTrack.getMinBufferSize(
+            sampleRate,
+            AudioFormat.CHANNEL_OUT_MONO,
+            AudioFormat.ENCODING_PCM_16BIT
+        )
+        val buffer = ShortArray((minBufferSize / 2).coerceAtLeast(1024))
+        val audioTrack = AudioTrack.Builder()
+            .setAudioAttributes(
+                AudioAttributes.Builder()
+                    .setUsage(AudioAttributes.USAGE_ASSISTANCE_SONIFICATION)
+                    .setContentType(AudioAttributes.CONTENT_TYPE_SONIFICATION)
+                    .build()
+            )
+            .setAudioFormat(
+                AudioFormat.Builder()
+                    .setSampleRate(sampleRate)
+                    .setEncoding(AudioFormat.ENCODING_PCM_16BIT)
+                    .setChannelMask(AudioFormat.CHANNEL_OUT_MONO)
+                    .build()
+            )
+            .setBufferSizeInBytes(buffer.size * Short.SIZE_BYTES)
+            .setTransferMode(AudioTrack.MODE_STREAM)
+            .build()
+
+        var phase = 0.0
+        var frequency = targetFrequency
+        var volume = targetVolume
+        try {
+            audioTrack.play()
+            while (isRunning) {
+                frequency += (targetFrequency - frequency) * 0.08
+                volume += (targetVolume - volume) * 0.08
+                val phaseStep = 2.0 * PI * frequency / sampleRate
+                for (i in buffer.indices) {
+                    val sample = sin(phase) * volume
+                    buffer[i] = (sample * Short.MAX_VALUE).toInt().toShort()
+                    phase += phaseStep
+                    if (phase > 2.0 * PI) phase -= 2.0 * PI
+                }
+                audioTrack.write(buffer, 0, buffer.size)
+            }
+        } finally {
+            audioTrack.pause()
+            audioTrack.flush()
+            audioTrack.release()
         }
     }
 }

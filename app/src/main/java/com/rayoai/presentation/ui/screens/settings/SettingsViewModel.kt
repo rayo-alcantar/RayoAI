@@ -149,6 +149,12 @@ class SettingsViewModel @Inject constructor(
         }
     }
 
+    fun syncAccessibilityQuickCaptureEnabled(serviceEnabled: Boolean) {
+        viewModelScope.launch {
+            userPreferencesRepository.saveAccessibilityQuickCaptureEnabled(serviceEnabled)
+        }
+    }
+
     fun saveUpdateChannel(channel: UpdateChannel) {
         updatePreferences.setUpdateChannel(channel)
     }

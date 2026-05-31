@@ -122,7 +122,9 @@ class HomeViewModel @Inject constructor(
                 val lastPromptTime = userPreferencesRepository.lastPromptTime.first()
                 val currentTime = System.currentTimeMillis()
                 val threeDaysInMillis = 72 * 60 * 60 * 1000L // 72 hours in milliseconds
-                if (lastPromptTime == 0L || (currentTime - lastPromptTime) > threeDaysInMillis) {
+                if (lastPromptTime == 0L) {
+                    userPreferencesRepository.saveLastPromptTime(currentTime)
+                } else if ((currentTime - lastPromptTime) > threeDaysInMillis) {
                     _uiState.update { it.copy(showRatingBanner = true) }
                 }
             }
@@ -138,9 +140,11 @@ class HomeViewModel @Inject constructor(
             if (!hasDonated) {
                 val lastDonationPromptTime = userPreferencesRepository.lastDonationPromptTime.first()
                 val currentTime = System.currentTimeMillis()
-                val sevenDaysInMillis = 7 * 24 * 60 * 60 * 1000L // 7 days in milliseconds
+                val donationPromptIntervalMillis = 4 * 24 * 60 * 60 * 1000L // 4 days in milliseconds
 
-                if (lastDonationPromptTime == 0L || (currentTime - lastDonationPromptTime) > sevenDaysInMillis) {
+                if (lastDonationPromptTime == 0L) {
+                    userPreferencesRepository.saveLastDonationPromptTime(currentTime)
+                } else if ((currentTime - lastDonationPromptTime) > donationPromptIntervalMillis) {
                     _uiState.update { it.copy(showDonationBanner = true) }
                 }
             }

@@ -1,8 +1,9 @@
 package com.rayoai.presentation.ui.screens.settings
 
+import android.accessibilityservice.AccessibilityServiceInfo
 import android.content.Intent
-import android.net.Uri
 import android.provider.Settings
+import android.view.accessibility.AccessibilityManager
 import androidx.activity.ComponentActivity
 import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.foundation.clickable
@@ -67,6 +68,7 @@ import androidx.lifecycle.LifecycleEventObserver
 import androidx.navigation.NavController
 import com.rayoai.BuildConfig
 import com.rayoai.R
+import com.rayoai.accessibility.RayoAccessibilityService
 import com.rayoai.domain.model.GeminiModelConfig
 import com.rayoai.domain.model.UpdateChannel
 import com.rayoai.domain.repository.ThemeMode
@@ -94,7 +96,6 @@ fun SettingsScreen(
     var isThemeMenuExpanded by remember { mutableStateOf(false) }
     var isUpdateChannelMenuExpanded by remember { mutableStateOf(false) }
     var showAccessibilitySetupDialog by remember { mutableStateOf(false) }
-    var pendingOpenAccessibilityAfterAppSettings by remember { mutableStateOf(false) }
     var googleSectionExpanded by remember { mutableStateOf(false) }
     var appearanceSectionExpanded by remember { mutableStateOf(false) }
     var accessibilitySectionExpanded by remember { mutableStateOf(false) }
@@ -129,6 +130,12 @@ fun SettingsScreen(
         }
     }
 
+    LaunchedEffect(Unit) {
+        viewModel.syncAccessibilityQuickCaptureEnabled(
+            context.isRayoAccessibilityServiceEnabled()
+        )
+    }
+
     LaunchedEffect(updateUiState.lastCheckResult) {
         when (updateUiState.lastCheckResult) {
             UpdateCheckResult.UpToDate -> {
@@ -154,9 +161,10 @@ fun SettingsScreen(
 
     DisposableEffect(lifecycleOwner) {
         val observer = LifecycleEventObserver { _, event ->
-            if (event == Lifecycle.Event.ON_RESUME && pendingOpenAccessibilityAfterAppSettings) {
-                pendingOpenAccessibilityAfterAppSettings = false
-                activity.startActivity(Intent(Settings.ACTION_ACCESSIBILITY_SETTINGS))
+            if (event == Lifecycle.Event.ON_RESUME) {
+                viewModel.syncAccessibilityQuickCaptureEnabled(
+                    context.isRayoAccessibilityServiceEnabled()
+                )
             }
         }
         lifecycleOwner.lifecycle.addObserver(observer)
@@ -322,9 +330,10 @@ fun SettingsScreen(
                     Switch(
                         checked = uiState.accessibilityQuickCaptureEnabled,
                         onCheckedChange = { enabled ->
-                            viewModel.saveAccessibilityQuickCaptureEnabled(enabled)
                             if (enabled) {
                                 showAccessibilitySetupDialog = true
+                            } else {
+                                viewModel.saveAccessibilityQuickCaptureEnabled(false)
                             }
                         }
                     )
@@ -387,28 +396,30 @@ fun SettingsScreen(
                 Button(
                     onClick = {
                         showAccessibilitySetupDialog = false
-                        pendingOpenAccessibilityAfterAppSettings = true
-                        openAppDetailsSettings(context)
+                        activity.startActivity(Intent(Settings.ACTION_ACCESSIBILITY_SETTINGS))
                     }
                 ) {
-                    Text(stringResource(R.string.settings_accessibility_capture_open_app_settings))
+                    Text(stringResource(R.string.settings_accessibility_capture_open_settings))
                 }
             },
             dismissButton = {
                 TextButton(onClick = { showAccessibilitySetupDialog = false }) {
-                    Text(stringResource(R.string.cancel))
+                    Text(stringResource(R.string.accept))
                 }
             }
         )
     }
 }
 
-private fun openAppDetailsSettings(context: android.content.Context) {
-    val intent = Intent(
-        Settings.ACTION_APPLICATION_DETAILS_SETTINGS,
-        Uri.parse("package:${context.packageName}")
-    ).addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
-    context.startActivity(intent)
+private fun android.content.Context.isRayoAccessibilityServiceEnabled(): Boolean {
+    val accessibilityManager = getSystemService(AccessibilityManager::class.java) ?: return false
+    val expectedServiceName = RayoAccessibilityService::class.java.name
+    return accessibilityManager
+        .getEnabledAccessibilityServiceList(AccessibilityServiceInfo.FEEDBACK_ALL_MASK)
+        .any { serviceInfo ->
+            serviceInfo.resolveInfo.serviceInfo.packageName == packageName &&
+                serviceInfo.resolveInfo.serviceInfo.name == expectedServiceName
+        }
 }
 
 @Composable
