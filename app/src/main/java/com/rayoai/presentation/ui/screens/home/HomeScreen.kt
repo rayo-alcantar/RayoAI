@@ -24,6 +24,7 @@ import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material.icons.filled.Cameraswitch
+import androidx.compose.material.icons.filled.CenterFocusStrong
 import androidx.compose.material.icons.filled.ContentCopy
 import androidx.compose.material.icons.filled.Edit
 import androidx.compose.material.icons.filled.FlashAuto
@@ -50,6 +51,7 @@ import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.platform.LocalClipboardManager
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.platform.LocalView
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.semantics.*
@@ -95,6 +97,7 @@ fun HomeScreen(
 ) {
     val uiState by viewModel.uiState.collectAsState()
     val context = LocalContext.current
+    val view = LocalView.current
     val clipboard = LocalClipboardManager.current
     val scope = rememberCoroutineScope()
 
@@ -184,6 +187,13 @@ fun HomeScreen(
 
     var textToSpeech: TextToSpeech? = null
     var ttsInitialized by remember { mutableStateOf(false) }
+    var focusAssistAnnouncement by remember { mutableStateOf("") }
+
+    LaunchedEffect(focusAssistAnnouncement) {
+        if (focusAssistAnnouncement.isNotBlank()) {
+            view.announceForAccessibility(focusAssistAnnouncement)
+        }
+    }
 
     DisposableEffect(context) {
         textToSpeech = TextToSpeech(context) { status ->
@@ -311,7 +321,11 @@ fun HomeScreen(
                                 },
                                 isCapturing = uiState.isCapturing,
                                 cameraSelector = uiState.currentCameraSelector,
-                                flashMode = uiState.flashMode
+                                flashMode = uiState.flashMode,
+                                isFocusAssistEnabled = uiState.isFocusAssistEnabled &&
+                                    !uiState.isLoading &&
+                                    !uiState.isCapturing,
+                                onFocusAssistAnnouncement = { focusAssistAnnouncement = it }
                             )
                         } else {
                             Column(
@@ -521,15 +535,37 @@ fun HomeScreen(
                                 }
 
                                 // Botón de Flash - a la derecha
+                                val focusAssistDesc = if (uiState.isFocusAssistEnabled) {
+                                    stringResource(R.string.focus_assist_on)
+                                } else {
+                                    stringResource(R.string.focus_assist_off)
+                                }
                                 val currentFlashDesc = when (uiState.flashMode) {
                                     ImageCapture.FLASH_MODE_ON -> flashOnDesc
                                     ImageCapture.FLASH_MODE_OFF -> flashOffDesc
                                     else -> flashAutoDesc
                                 }
-                                Box(
+                                Column(
                                     modifier = Modifier.width(72.dp),
-                                    contentAlignment = Alignment.Center
+                                    horizontalAlignment = Alignment.CenterHorizontally,
+                                    verticalArrangement = Arrangement.spacedBy(8.dp)
                                 ) {
+                                    FilledIconButton(
+                                        onClick = { viewModel.toggleFocusAssist() },
+                                        enabled = !uiState.isLoading && !isCountingDown,
+                                        modifier = Modifier
+                                            .size(52.dp)
+                                            .semantics {
+                                                contentDescription = focusAssistDesc
+                                                stateDescription = focusAssistDesc
+                                            }
+                                    ) {
+                                        Icon(
+                                            imageVector = Icons.Default.CenterFocusStrong,
+                                            contentDescription = null
+                                        )
+                                    }
+
                                     FilledIconButton(
                                         onClick = { viewModel.toggleFlashMode() },
                                         modifier = Modifier

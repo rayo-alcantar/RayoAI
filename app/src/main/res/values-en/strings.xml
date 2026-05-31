@@ -16,4 +16,6 @@
     <string name="settings_accessibility_updates_section_description">Configure quick capture and RayoAI versions.</string>
     <string name="settings_section_expand">Expand</string>
     <string name="settings_section_collapse">Collapse</string>
+    <string name="focus_assist_on">Focus assist on</string>
+    <string name="focus_assist_off">Focus assist off</string>
 </resources>

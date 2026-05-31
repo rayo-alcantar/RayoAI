@@ -134,6 +134,9 @@ dependencies {
     implementation("androidx.camera:camera-view:$cameraxVersion")
     implementation("androidx.camera:camera-extensions:$cameraxVersion")
 
+    // On-device focus assistance
+    implementation("com.google.android.gms:play-services-mlkit-face-detection:17.1.0")
+
     // Room & DataStore
     val roomVersion = "2.6.1"
     implementation("androidx.room:room-runtime:$roomVersion")

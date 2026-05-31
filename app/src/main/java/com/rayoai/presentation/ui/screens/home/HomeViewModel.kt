@@ -77,7 +77,8 @@ data class HomeUiState(
     val prePromptText: String = "",
     val failedActionType: FailedActionType = FailedActionType.NONE,
     val failedMessageContent: String? = null,
-    val isNewCapture: Boolean = false
+    val isNewCapture: Boolean = false,
+    val isFocusAssistEnabled: Boolean = false
 )
 
 
@@ -205,7 +206,7 @@ class HomeViewModel @Inject constructor(
     
         Log.d("HomeViewModel", "triggerImageCapture called")
         viewModelScope.launch {
-            _uiState.update { it.copy(isLoading = true, isCapturing = true) }
+            _uiState.update { it.copy(isLoading = true, isCapturing = true, isFocusAssistEnabled = false) }
             Log.d("HomeViewModel", "isLoading + isCapturing set to true by triggerImageCapture")
             // SIN cuenta regresiva aquí. La UI ya hizo la suya antes de llamar a este método.
         }
@@ -644,5 +645,15 @@ class HomeViewModel @Inject constructor(
 
     fun onPrePromptTextChanged(text: String) {
         _uiState.update { it.copy(prePromptText = text) }
+    }
+
+    fun toggleFocusAssist() {
+        _uiState.update { currentState ->
+            if (currentState.isLoading || currentState.isCapturing || currentState.screenState !is HomeScreenState.Initial) {
+                currentState.copy(isFocusAssistEnabled = false)
+            } else {
+                currentState.copy(isFocusAssistEnabled = !currentState.isFocusAssistEnabled)
+            }
+        }
     }
 }
