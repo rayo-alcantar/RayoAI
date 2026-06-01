@@ -16,8 +16,8 @@
     <string name="settings_accessibility_updates_section_description">Configure quick capture and RayoAI versions.</string>
     <string name="settings_section_expand">Expand</string>
     <string name="settings_section_collapse">Collapse</string>
-    <string name="focus_assist_on">Focus assist on</string>
-    <string name="focus_assist_off">Focus assist off</string>
+    <string name="focus_assist_on">Face detection on</string>
+    <string name="focus_assist_off">Face detection off</string>
     <string name="settings_accessibility_capture_setup_title">Enable RayoAI accessibility</string>
     <string name="settings_accessibility_capture_setup_message">This feature requires enabling the RayoAI accessibility service. On Android 11 or higher, some devices may ask you to allow restricted settings before the service can be enabled. If it appears blocked, open the RayoAI app info screen in Settings, open More options, and allow restricted settings. The name and location of this option can vary by device and brand. Then return to Accessibility and enable RayoAI quick capture.</string>
 </resources>
