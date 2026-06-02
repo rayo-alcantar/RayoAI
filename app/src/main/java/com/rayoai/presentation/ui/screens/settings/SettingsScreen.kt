@@ -76,6 +76,7 @@ import com.rayoai.presentation.ui.components.SecureTextField
 import com.rayoai.presentation.ui.navigation.Screen
 import com.rayoai.presentation.ui.updates.UpdateCheckResult
 import com.rayoai.presentation.ui.updates.UpdateCheckViewModel
+import com.rayoai.presentation.ui.updates.UpdateUiState
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -87,8 +88,12 @@ fun SettingsScreen(
     val activity = LocalContext.current as ComponentActivity
     val context = LocalContext.current
     val lifecycleOwner = LocalLifecycleOwner.current
-    val updateViewModel: UpdateCheckViewModel = hiltViewModel(activity)
-    val updateUiState by updateViewModel.uiState.collectAsState()
+    val updatesEnabled = BuildConfig.GITHUB_UPDATES_ENABLED
+    val updateViewModel: UpdateCheckViewModel? = if (updatesEnabled) hiltViewModel(activity) else null
+    val updateUiState by (
+        updateViewModel?.uiState?.collectAsState()
+            ?: remember { mutableStateOf(UpdateUiState()) }
+        )
     val snackbarHostState = remember { SnackbarHostState() }
     val focusManager = LocalFocusManager.current
 
@@ -137,6 +142,7 @@ fun SettingsScreen(
     }
 
     LaunchedEffect(updateUiState.lastCheckResult) {
+        if (!updatesEnabled || updateViewModel == null) return@LaunchedEffect
         when (updateUiState.lastCheckResult) {
             UpdateCheckResult.UpToDate -> {
                 snackbarHostState.showSnackbar(updateNoUpdatesMsg)
@@ -305,8 +311,16 @@ fun SettingsScreen(
             }
 
             ExpandableSettingsSection(
-                title = stringResource(R.string.settings_accessibility_updates_section_title),
-                description = stringResource(R.string.settings_accessibility_updates_section_description),
+                title = if (updatesEnabled) {
+                    stringResource(R.string.settings_accessibility_updates_section_title)
+                } else {
+                    stringResource(R.string.settings_accessibility_capture_title)
+                },
+                description = if (updatesEnabled) {
+                    stringResource(R.string.settings_accessibility_updates_section_description)
+                } else {
+                    stringResource(R.string.settings_accessibility_section_description)
+                },
                 expanded = accessibilitySectionExpanded,
                 onExpandedChange = { accessibilitySectionExpanded = it }
             ) {
@@ -347,7 +361,7 @@ fun SettingsScreen(
                     Text(stringResource(R.string.settings_accessibility_capture_open_settings))
                 }
 
-                if (BuildConfig.GITHUB_UPDATES_ENABLED) {
+                if (updatesEnabled && updateViewModel != null) {
                     val selectedChannelLabel = updateChannelOptions.firstOrNull { it.first == uiState.currentUpdateChannel }?.second
                         ?: uiState.currentUpdateChannel.name
                     BoxedDropdownField(
