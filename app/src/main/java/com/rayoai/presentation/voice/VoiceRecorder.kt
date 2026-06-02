@@ -8,6 +8,7 @@ import android.media.AudioFormat
 import android.media.AudioRecord
 import android.media.MediaRecorder
 import androidx.core.content.ContextCompat
+import com.rayoai.R
 import com.rayoai.domain.model.AudioRecording
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
@@ -37,7 +38,7 @@ class VoiceRecorder(
     @SuppressLint("MissingPermission")
     fun start() {
         check(ContextCompat.checkSelfPermission(context, Manifest.permission.RECORD_AUDIO) == PackageManager.PERMISSION_GRANTED) {
-            "Permiso de microfono no concedido"
+            context.getString(R.string.voice_record_permission_not_granted)
         }
         if (recording) return
 
@@ -65,7 +66,7 @@ class VoiceRecorder(
 
         if (recorder.state != AudioRecord.STATE_INITIALIZED) {
             recorder.release()
-            error("No se pudo inicializar el microfono")
+            error(context.getString(R.string.voice_record_init_failed))
         }
 
         rawFile = nextRawFile
@@ -87,7 +88,7 @@ class VoiceRecorder(
     }
 
     suspend fun stop(): AudioRecording = withContext(Dispatchers.IO) {
-        if (!recording) error("No hay una grabacion activa")
+        if (!recording) error(context.getString(R.string.voice_record_no_active_recording))
         recording = false
         val recorder = audioRecord
         try {
@@ -101,12 +102,12 @@ class VoiceRecorder(
         listOfNotNull(recordingJob).joinAll()
         recordingJob = null
 
-        val pcm = rawFile ?: error("No se encontro el audio grabado")
-        val wav = wavFile ?: error("No se encontro el archivo WAV")
+        val pcm = rawFile ?: error(context.getString(R.string.voice_record_audio_not_found))
+        val wav = wavFile ?: error(context.getString(R.string.voice_record_wav_not_found))
         if (pcm.length() <= 0L) {
             pcm.delete()
             wav.delete()
-            error("La grabacion quedo vacia")
+            error(context.getString(R.string.voice_record_empty))
         }
 
         WavFileWriter.writeFromPcm(

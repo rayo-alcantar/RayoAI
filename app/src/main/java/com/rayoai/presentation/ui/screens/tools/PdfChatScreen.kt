@@ -35,6 +35,7 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.semantics.LiveRegionMode
 import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.semantics.liveRegion
@@ -47,6 +48,7 @@ import androidx.lifecycle.SavedStateHandle
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.rayoai.core.ResultWrapper
+import com.rayoai.R
 import com.rayoai.domain.model.AudioRecording
 import com.rayoai.domain.model.ChatMessage
 import com.rayoai.domain.model.GeminiModelConfig
@@ -98,20 +100,20 @@ class PdfChatViewModel @Inject constructor(
     private val _uiState = kotlinx.coroutines.flow.MutableStateFlow(PdfChatUiState())
     val uiState: StateFlow<PdfChatUiState> = _uiState
 
-    fun sendMessage(message: String) {
+    fun sendMessage(context: Context, message: String) {
         val question = message.trim()
         if (question.isBlank() || _uiState.value.isAiTyping) return
 
         viewModelScope.launch {
             val apiKey = userPreferencesRepository.apiKey.first()
             if (apiKey.isNullOrBlank()) {
-                _uiState.value = PdfChatUiState(error = "API Key no configurada. Por favor, ve a Ajustes.")
+                _uiState.value = PdfChatUiState(error = context.getString(R.string.scan_pdf_user_message_missing_api_key))
                 return@launch
             }
 
             val doc = document.value
             if (doc == null) {
-                _uiState.value = PdfChatUiState(error = "No se pudo cargar el PDF.")
+                _uiState.value = PdfChatUiState(error = context.getString(R.string.scan_pdf_chat_load_failed))
                 return@launch
             }
 
@@ -149,7 +151,7 @@ class PdfChatViewModel @Inject constructor(
         viewModelScope.launch {
             val apiKey = userPreferencesRepository.apiKey.first()
             if (apiKey.isNullOrBlank()) {
-                _uiState.value = PdfChatUiState(error = "API Key no configurada. Por favor, ve a Ajustes.")
+                _uiState.value = PdfChatUiState(error = context.getString(R.string.scan_pdf_user_message_missing_api_key))
                 cleanupRecording(recording)
                 return@launch
             }
@@ -164,7 +166,11 @@ class PdfChatViewModel @Inject constructor(
                         .transcribe(recording)
                         .getOrElse { fallbackError ->
                             _uiState.value = PdfChatUiState(
-                                error = "No se pudo transcribir el audio. Gemini: ${geminiResult.message}. Google voz: ${fallbackError.message}"
+                                error = context.getString(
+                                    R.string.scan_pdf_transcribe_failed,
+                                    geminiResult.message,
+                                    fallbackError.message
+                                )
                             )
                             cleanupRecording(recording)
                             return@launch
@@ -176,10 +182,10 @@ class PdfChatViewModel @Inject constructor(
             cleanupRecording(recording)
             _uiState.value = PdfChatUiState()
             if (text.isNullOrBlank()) {
-                _uiState.value = PdfChatUiState(error = "La transcripcion quedo vacia.")
+                _uiState.value = PdfChatUiState(error = context.getString(R.string.scan_pdf_transcription_empty))
                 return@launch
             }
-            sendMessage(text)
+            sendMessage(context, text)
         }
     }
 
@@ -209,6 +215,14 @@ fun PdfChatScreen(
     val context = LocalContext.current
     val listState = rememberLazyListState()
     var input by remember { mutableStateOf("") }
+    val chatTitle = stringResource(R.string.scan_pdf_chat_title)
+    val backText = stringResource(R.string.back)
+    val loadingChatText = stringResource(R.string.scan_pdf_loading_chat)
+    val askEmptyText = stringResource(R.string.scan_pdf_ask_empty)
+    val aiTypingText = stringResource(R.string.ai_typing)
+    val transcribingText = stringResource(R.string.scan_pdf_transcribing_audio)
+    val askHint = stringResource(R.string.scan_pdf_ask_hint)
+    val sendMessageText = stringResource(R.string.send_message)
 
     LaunchedEffect(messages.size) {
         if (messages.isNotEmpty()) {
@@ -221,14 +235,14 @@ fun PdfChatScreen(
             TopAppBar(
                 title = {
                     Text(
-                        text = document?.name ?: "Chat PDF",
+                        text = document?.name ?: chatTitle,
                         maxLines = 1,
                         overflow = TextOverflow.Ellipsis
                     )
                 },
                 navigationIcon = {
                     IconButton(onClick = onNavigateBack) {
-                        Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = "Volver")
+                        Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = backText)
                     }
                 }
             )
@@ -248,12 +262,12 @@ fun PdfChatScreen(
                 if (document == null) {
                     CircularProgressIndicator(
                         modifier = Modifier.semantics {
-                            contentDescription = "Cargando chat del PDF"
+                            contentDescription = loadingChatText
                         }
                     )
                 } else if (messages.isEmpty()) {
                     Text(
-                        text = "Haz una pregunta sobre este PDF.",
+                        text = askEmptyText,
                         style = MaterialTheme.typography.bodyMedium,
                         textAlign = TextAlign.Center,
                         modifier = Modifier.padding(24.dp)
@@ -274,7 +288,7 @@ fun PdfChatScreen(
 
             if (uiState.isAiTyping) {
                 Text(
-                    text = "RayoAI está escribiendo...",
+                    text = aiTypingText,
                     style = MaterialTheme.typography.bodySmall,
                     textAlign = TextAlign.Center,
                     modifier = Modifier
@@ -286,7 +300,7 @@ fun PdfChatScreen(
 
             if (uiState.isTranscribingAudio) {
                 Text(
-                    text = "Transcribiendo audio...",
+                    text = transcribingText,
                     style = MaterialTheme.typography.bodySmall,
                     textAlign = TextAlign.Center,
                     modifier = Modifier
@@ -319,7 +333,7 @@ fun PdfChatScreen(
                         input = it
                         if (uiState.error != null) viewModel.clearError()
                     },
-                    label = { Text("Pregunta sobre el PDF...") },
+                    label = { Text(askHint) },
                     modifier = Modifier.weight(1f),
                     maxLines = 5
                 )
@@ -332,12 +346,12 @@ fun PdfChatScreen(
                 )
                 IconButton(
                     onClick = {
-                        viewModel.sendMessage(input)
+                        viewModel.sendMessage(context, input)
                         input = ""
                     },
                     enabled = input.isNotBlank() && !uiState.isAiTyping && !uiState.isTranscribingAudio && document != null
                 ) {
-                    Icon(Icons.AutoMirrored.Filled.Send, contentDescription = "Enviar mensaje")
+                    Icon(Icons.AutoMirrored.Filled.Send, contentDescription = sendMessageText)
                 }
             }
         }

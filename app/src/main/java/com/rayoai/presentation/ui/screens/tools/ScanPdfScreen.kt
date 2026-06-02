@@ -45,6 +45,7 @@ import androidx.compose.runtime.setValue
 import androidx.compose.runtime.remember
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.semantics.role
@@ -78,6 +79,7 @@ import java.util.Locale
 import javax.inject.Inject
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
+import com.rayoai.R
 
 @HiltViewModel
 class ScanPdfViewModel @Inject constructor(
@@ -110,16 +112,16 @@ class ScanPdfViewModel @Inject constructor(
         viewModelScope.launch {
             try {
                 isLoading = true
-                status = "Cargando documento..."
+                status = context.getString(R.string.scan_pdf_loading_document)
                 resultHtml = null
                 exportStatus = null
 
                 val pageCount = getPageCount(context.contentResolver, uri)
                 if (pageCount <= 0) {
-                    throw IllegalStateException("No se pudieron leer paginas del PDF")
+                    throw IllegalStateException(context.getString(R.string.scan_pdf_no_pages))
                 }
 
-                status = "Analizando con Gemini..."
+                status = context.getString(R.string.scan_pdf_analyzing)
                 val apiKey = userPreferencesRepository.apiKey.first() ?: ""
                 val language = Locale.getDefault().language
                 val model = userPreferencesRepository.defaultModel.firstOrNull()
@@ -130,14 +132,15 @@ class ScanPdfViewModel @Inject constructor(
                 var startPage = 0
                 while (startPage < pageCount) {
                     val endPage = minOf(startPage + chunkSize - 1, pageCount - 1)
-                    val rangeLabel = "paginas ${startPage + 1}-${endPage + 1} de $pageCount"
-                    status = "Procesando $rangeLabel..."
+                    val rangeLabel = context.getString(R.string.scan_pdf_page_range, startPage + 1, endPage + 1, pageCount)
+                    status = context.getString(R.string.scan_pdf_processing_range, rangeLabel)
                     val images = renderPages(context.contentResolver, uri, startPage, endPage)
                     try {
                         val rawJson = extractRange(
                             apiKey = apiKey,
                             images = images,
                             pageRange = rangeLabel,
+                            context = context,
                             language = language,
                             isFirstRange = startPage == 0,
                             model = model
@@ -148,7 +151,7 @@ class ScanPdfViewModel @Inject constructor(
                     }
                     startPage = endPage + 1
                     if (pageCount > 6 && startPage < pageCount) {
-                        status = "Esperando 15 segundos para no saturar el modelo..."
+                        status = context.getString(R.string.scan_pdf_waiting_model)
                         delay(15_000)
                     }
                 }
@@ -156,10 +159,10 @@ class ScanPdfViewModel @Inject constructor(
                 val accessibleDocument = AccessiblePdfHtmlRenderer.merge(fragments)
                 val html = AccessiblePdfHtmlRenderer.renderHtml(accessibleDocument)
                 resultHtml = html
-                status = "Listo"
+                status = context.getString(R.string.scan_pdf_ready)
                 isLoading = false
 
-                val name = getDisplayName(context.contentResolver, uri) ?: "Documento PDF"
+                val name = getDisplayName(context.contentResolver, uri) ?: context.getString(R.string.scan_pdf_default_display_name)
                 suggestedFileName = buildSuggestedPdfFileName(name)
                 savePdfDocumentUseCase(
                     name,
@@ -183,11 +186,16 @@ class ScanPdfViewModel @Inject constructor(
         viewModelScope.launch {
             try {
                 withContext(Dispatchers.IO) {
-                    AccessiblePdfExporter.savePdf(context.contentResolver, uri, html)
+                    AccessiblePdfExporter.savePdf(
+                        context.contentResolver,
+                        uri,
+                        html,
+                        context.getString(R.string.scan_pdf_open_destination_failed)
+                    )
                 }
-                exportStatus = "PDF guardado"
+                exportStatus = context.getString(R.string.scan_pdf_saved)
             } catch (e: Exception) {
-                exportStatus = e.message ?: "No se pudo guardar el PDF"
+                exportStatus = e.message ?: context.getString(R.string.scan_pdf_save_failed)
             }
         }
     }
@@ -199,13 +207,14 @@ class ScanPdfViewModel @Inject constructor(
                     AccessiblePdfExporter.createShareIntent(
                         context = context,
                         html = doc.content,
-                        fileName = buildSuggestedPdfFileName(doc.name)
+                        fileName = buildSuggestedPdfFileName(doc.name),
+                        chooserTitle = context.getString(R.string.scan_pdf_share_accessible)
                     )
                 }
                 context.startActivity(intent)
-                exportStatus = "PDF listo para compartir"
+                exportStatus = context.getString(R.string.scan_pdf_share_ready)
             } catch (e: Exception) {
-                exportStatus = e.message ?: "No se pudo compartir el PDF"
+                exportStatus = e.message ?: context.getString(R.string.scan_pdf_share_failed)
             }
         }
     }
@@ -214,6 +223,7 @@ class ScanPdfViewModel @Inject constructor(
         apiKey: String,
         images: List<Bitmap>,
         pageRange: String,
+        context: Context,
         language: String,
         isFirstRange: Boolean,
         model: String
@@ -223,7 +233,7 @@ class ScanPdfViewModel @Inject constructor(
 
         delays.forEachIndexed { attempt, waitMs ->
             if (waitMs > 0) {
-                status = "Reintentando $pageRange en ${waitMs / 1000} segundos..."
+                status = context.getString(R.string.scan_pdf_retry_range, pageRange, waitMs / 1000)
                 delay(waitMs)
             }
 
@@ -238,14 +248,14 @@ class ScanPdfViewModel @Inject constructor(
                 model = model
             ).collect { res ->
                 when (res) {
-                    is ResultWrapper.Loading -> status = "Analizando $pageRange con Gemini..."
+                    is ResultWrapper.Loading -> status = context.getString(R.string.scan_pdf_analyzing_range, pageRange)
                     is ResultWrapper.Success -> text = res.data
-                    is ResultWrapper.Error -> error = res.message ?: "Error desconocido"
+                    is ResultWrapper.Error -> error = res.message ?: context.getString(R.string.scan_pdf_unknown_error)
                 }
             }
 
             try {
-                val raw = text ?: throw IllegalStateException(error ?: "Gemini no devolvio contenido")
+                val raw = text ?: throw IllegalStateException(error ?: context.getString(R.string.scan_pdf_empty_gemini))
                 AccessiblePdfHtmlRenderer.parseJson(raw)
                 return raw
             } catch (e: Exception) {
@@ -253,12 +263,24 @@ class ScanPdfViewModel @Inject constructor(
                 val message = error ?: e.message.orEmpty()
                 val retryable = isRetryableGeminiError(message) || attempt < 2
                 if (!retryable || attempt == delays.lastIndex) {
-                    throw IllegalStateException("No se pudo procesar $pageRange: ${message.ifBlank { "respuesta JSON invalida" }}")
+                    throw IllegalStateException(
+                        context.getString(
+                            R.string.scan_pdf_process_failed,
+                            pageRange,
+                            message.ifBlank { context.getString(R.string.scan_pdf_invalid_json) }
+                        )
+                    )
                 }
             }
         }
 
-        throw IllegalStateException(lastError?.message ?: "No se pudo procesar $pageRange")
+        throw IllegalStateException(
+            lastError?.message ?: context.getString(
+                R.string.scan_pdf_process_failed,
+                pageRange,
+                context.getString(R.string.scan_pdf_unknown_error)
+            )
+        )
     }
 
     private fun isRetryableGeminiError(message: String): Boolean {
@@ -331,6 +353,18 @@ fun ScanPdfScreen(
     val pdfDocs by viewModel.pdfDocuments.collectAsState()
     var hasConsumedIncoming by remember { mutableStateOf(false) }
     var toDelete by remember { mutableStateOf<PdfDocument?>(null) }
+    val deleteDocumentTitle = stringResource(R.string.pdf_delete_confirm_title)
+    val deleteDocumentText = stringResource(R.string.pdf_delete_confirm_text)
+    val deleteText = stringResource(R.string.delete)
+    val cancelText = stringResource(R.string.cancel)
+    val scanPdfTitle = stringResource(R.string.tool_scan_pdf)
+    val selectPdfText = stringResource(R.string.scan_pdf_select)
+    val loadingText = stringResource(R.string.scan_pdf_loading_document)
+    val saveAccessiblePdfText = stringResource(R.string.scan_pdf_save_accessible)
+    val backText = stringResource(R.string.back)
+    val scannedPdfsTitle = stringResource(R.string.scan_pdf_loaded_title)
+    val chatAboutPdfText = stringResource(R.string.scan_pdf_chat_about)
+    val shareAccessiblePdfText = stringResource(R.string.scan_pdf_share_accessible)
     val saveLauncher = rememberLauncherForActivityResult(
         contract = ActivityResultContracts.CreateDocument("application/pdf")
     ) { uri ->
@@ -340,16 +374,16 @@ fun ScanPdfScreen(
     if (toDelete != null) {
         AlertDialog(
             onDismissRequest = { toDelete = null },
-            title = { Text(text = "Eliminar documento") },
-            text = { Text(text = "¿Deseas eliminar este documento procesado?") },
+            title = { Text(text = deleteDocumentTitle) },
+            text = { Text(text = deleteDocumentText) },
             confirmButton = {
                 Button(onClick = {
                     toDelete?.let { viewModel.delete(it) }
                     toDelete = null
-                }) { Text(text = "Eliminar") }
+                }) { Text(text = deleteText) }
             },
             dismissButton = {
-                Button(onClick = { toDelete = null }) { Text(text = "Cancelar") }
+                Button(onClick = { toDelete = null }) { Text(text = cancelText) }
             }
         )
     }
@@ -385,7 +419,7 @@ fun ScanPdfScreen(
     }
 
     Scaffold(
-        topBar = { TopAppBar(title = { Text("Escanear PDF") }) }
+        topBar = { TopAppBar(title = { Text(scanPdfTitle) }) }
     ) { padding ->
         LazyColumn(
             modifier = Modifier
@@ -399,10 +433,10 @@ fun ScanPdfScreen(
                     onClick = { launcher.launch(arrayOf("application/pdf")) },
                     modifier = Modifier.semantics {
                         role = Role.Button
-                        contentDescription = "Seleccionar PDF"
+                        contentDescription = selectPdfText
                     }
                 ) {
-                    Text("Seleccionar PDF")
+                    Text(selectPdfText)
                 }
             }
 
@@ -410,7 +444,7 @@ fun ScanPdfScreen(
                 item {
                     CircularProgressIndicator(
                         modifier = Modifier.semantics {
-                            contentDescription = viewModel.status ?: "Cargando"
+                            contentDescription = viewModel.status ?: loadingText
                         }
                     )
                     viewModel.status?.let { Text(it) }
@@ -423,10 +457,10 @@ fun ScanPdfScreen(
                         onClick = { saveLauncher.launch(viewModel.suggestedFileName) },
                         modifier = Modifier.semantics {
                             role = Role.Button
-                            contentDescription = "Guardar PDF accesible"
+                            contentDescription = saveAccessiblePdfText
                         }
                     ) {
-                        Text("Guardar PDF accesible")
+                        Text(saveAccessiblePdfText)
                     }
                 }
 
@@ -466,7 +500,7 @@ fun ScanPdfScreen(
             if (viewModel.resultHtml != null) {
                 item {
                     Button(onClick = onNavigateBack) {
-                        Text("Volver")
+                        Text(backText)
                     }
                 }
             }
@@ -474,7 +508,7 @@ fun ScanPdfScreen(
             if (pdfDocs.isNotEmpty()) {
                 item {
                     Text(
-                        text = "PDFs escaneados",
+                        text = scannedPdfsTitle,
                         style = MaterialTheme.typography.titleMedium
                     )
                 }
@@ -501,17 +535,17 @@ fun ScanPdfScreen(
                                 .padding(top = 8.dp)
                                 .semantics {
                                     role = Role.Button
-                                    contentDescription = "Chatear sobre este PDF"
+                                    contentDescription = chatAboutPdfText
                                 }
                         ) {
-                            Text("Chatear sobre este PDF")
+                            Text(chatAboutPdfText)
                         }
                         Row {
                             IconButton(onClick = { viewModel.share(doc, context) }) {
-                                Icon(Icons.Filled.Share, contentDescription = "Compartir PDF accesible")
+                                Icon(Icons.Filled.Share, contentDescription = shareAccessiblePdfText)
                             }
                             IconButton(onClick = { toDelete = doc }) {
-                                Icon(Icons.Filled.Delete, contentDescription = "Eliminar documento")
+                                Icon(Icons.Filled.Delete, contentDescription = deleteDocumentTitle)
                             }
                         }
                     }

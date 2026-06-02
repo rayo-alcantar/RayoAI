@@ -23,6 +23,7 @@ import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.semantics.role
@@ -41,6 +42,7 @@ import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
+import com.rayoai.R
 
 @HiltViewModel
 class PdfResultViewModel @Inject constructor(
@@ -64,6 +66,17 @@ fun PdfResultScreen(
     val context = LocalContext.current
     val scope = rememberCoroutineScope()
     var exportStatus by remember { mutableStateOf<String?>(null) }
+    val pdfDocumentTitle = stringResource(R.string.scan_pdf_document_title)
+    val loadingPdfText = stringResource(R.string.scan_pdf_loading_document)
+    val loadingPdfDescription = stringResource(R.string.scan_pdf_loading_document)
+    val saveAccessiblePdfText = stringResource(R.string.scan_pdf_save_accessible)
+    val savedText = stringResource(R.string.scan_pdf_saved)
+    val saveFailedText = stringResource(R.string.scan_pdf_save_failed)
+    val unnamedDocument = stringResource(R.string.scan_pdf_no_name)
+    val defaultFileStem = stringResource(R.string.scan_pdf_default_file_stem)
+    val backText = stringResource(R.string.back)
+    val backToToolsText = stringResource(R.string.scan_pdf_back)
+    val noContentHtml = stringResource(R.string.scan_pdf_no_content_html)
     val saveLauncher = rememberLauncherForActivityResult(
         contract = ActivityResultContracts.CreateDocument("application/pdf")
     ) { uri ->
@@ -72,18 +85,23 @@ fun PdfResultScreen(
             scope.launch {
                 try {
                     withContext(Dispatchers.IO) {
-                        AccessiblePdfExporter.savePdf(context.contentResolver, uri, html)
+                        AccessiblePdfExporter.savePdf(
+                            context.contentResolver,
+                            uri,
+                            html,
+                            context.getString(R.string.scan_pdf_open_destination_failed)
+                        )
                     }
-                    exportStatus = "PDF guardado"
+                    exportStatus = savedText
                 } catch (e: Exception) {
-                    exportStatus = e.message ?: "No se pudo guardar el PDF"
+                    exportStatus = e.message ?: saveFailedText
                 }
             }
         }
     }
 
     Scaffold(
-        topBar = { TopAppBar(title = { Text("Documento PDF") }) }
+        topBar = { TopAppBar(title = { Text(pdfDocumentTitle) }) }
     ) { padding ->
         when {
             doc == null -> {
@@ -98,11 +116,11 @@ fun PdfResultScreen(
                     CircularProgressIndicator(
                         modifier = Modifier
                             .semantics {
-                                contentDescription = "Cargando documento PDF"
+                                contentDescription = loadingPdfDescription
                             }
                     )
                     Text(
-                        text = "Cargando...",
+                        text = loadingPdfText,
                         style = MaterialTheme.typography.bodyMedium,
                         modifier = Modifier.padding(top = 8.dp)
                     )
@@ -119,18 +137,18 @@ fun PdfResultScreen(
                     verticalArrangement = Arrangement.spacedBy(16.dp)
                 ) {
                     Text(
-                        text = doc?.name ?: "Documento sin nombre",
+                        text = doc?.name ?: unnamedDocument,
                         style = MaterialTheme.typography.titleMedium
                     )
 
                     Button(
-                        onClick = { saveLauncher.launch(buildSuggestedPdfFileName(doc?.name ?: "documento")) },
+                        onClick = { saveLauncher.launch(buildSuggestedPdfFileName(doc?.name ?: defaultFileStem)) },
                         modifier = Modifier.semantics {
                             role = Role.Button
-                            contentDescription = "Guardar PDF accesible"
+                            contentDescription = saveAccessiblePdfText
                         }
                     ) {
-                        Text("Guardar PDF accesible")
+                        Text(saveAccessiblePdfText)
                     }
 
                     exportStatus?.let { Text(it) }
@@ -148,7 +166,7 @@ fun PdfResultScreen(
                             update = { webView ->
                                 webView.loadDataWithBaseURL(
                                     null,
-                                    renderStoredPdfContent(doc?.content),
+                                    renderStoredPdfContent(doc?.content, noContentHtml),
                                     "text/html",
                                     "UTF-8",
                                     null
@@ -162,10 +180,10 @@ fun PdfResultScreen(
                         onClick = onNavigateBack,
                         modifier = Modifier.semantics {
                             role = Role.Button
-                            contentDescription = "Volver a herramientas"
+                            contentDescription = backToToolsText
                         }
                     ) {
-                        Text("Volver")
+                        Text(backText)
                     }
                 }
             }
@@ -178,8 +196,8 @@ private fun buildSuggestedPdfFileName(name: String): String {
     return "${cleaned}_accesible.pdf"
 }
 
-private fun renderStoredPdfContent(content: String?): String {
-    val value = content?.takeIf { it.isNotBlank() } ?: return "<p>Sin contenido disponible</p>"
+private fun renderStoredPdfContent(content: String?, noContentHtml: String): String {
+    val value = content?.takeIf { it.isNotBlank() } ?: return noContentHtml
     if (value.contains("<html", ignoreCase = true) || value.contains("<!doctype", ignoreCase = true)) {
         return value
     }

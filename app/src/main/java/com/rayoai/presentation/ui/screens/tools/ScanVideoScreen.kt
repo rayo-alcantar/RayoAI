@@ -73,7 +73,7 @@ class ScanVideoViewModel @Inject constructor(
         viewModelScope.launch {
             try {
                 isLoading = true
-                status = "Preparando video..."
+                status = context.getString(R.string.scan_video_preparing)
                 uploadProgress = 0f
 
                 // Obtener información del video
@@ -81,12 +81,12 @@ class ScanVideoViewModel @Inject constructor(
 
                 // Validar tamaño (máximo 2 GB)
                 if (sizeBytes > 2_000_000_000L) {
-                    status = "El video es demasiado grande (máximo 2 GB)"
+                    status = context.getString(R.string.scan_video_too_large)
                     isLoading = false
                     return@launch
                 }
 
-                status = "Subiendo video..."
+                status = context.getString(R.string.scan_video_uploading)
                 uploadProgress = 0.3f
 
                 // El system prompt se crea con el mismo que se usa para imágenes
@@ -94,7 +94,7 @@ class ScanVideoViewModel @Inject constructor(
                 val systemPrompt = createSystemPrompt(languageCode)
 
                 uploadProgress = 0.5f
-                status = "Procesando video con Gemini..."
+                status = context.getString(R.string.scan_video_processing)
 
                 // Subir y analizar el video
                 val result = videoRepository.uploadAndAnalyzeVideo(
@@ -106,7 +106,7 @@ class ScanVideoViewModel @Inject constructor(
                 when (result) {
                     is ResultWrapper.Success -> {
                         resultText = result.data
-                        status = "Listo"
+                        status = context.getString(R.string.scan_pdf_ready)
                         uploadProgress = 1f
                         isLoading = false
 
@@ -121,7 +121,7 @@ class ScanVideoViewModel @Inject constructor(
                         )
                     }
                     is ResultWrapper.Error -> {
-                        status = result.message ?: "Error desconocido"
+                        status = result.message ?: context.getString(R.string.scan_pdf_unknown_error)
                         isLoading = false
                         uploadProgress = 0f
                     }
@@ -130,7 +130,7 @@ class ScanVideoViewModel @Inject constructor(
                     }
                 }
             } catch (e: Exception) {
-                status = "Error: ${e.message}"
+                status = context.getString(R.string.scan_video_error, e.message)
                 isLoading = false
                 uploadProgress = 0f
             }

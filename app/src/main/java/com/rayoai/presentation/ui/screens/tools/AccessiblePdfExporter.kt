@@ -23,13 +23,13 @@ object AccessiblePdfExporter {
     private const val PAGE_HEIGHT = 842
     private const val MARGIN = 48
 
-    fun savePdf(resolver: ContentResolver, uri: Uri, html: String) {
+    fun savePdf(resolver: ContentResolver, uri: Uri, html: String, openFailedMessage: String) {
         resolver.openOutputStream(uri)?.use { output ->
             writePdf(output, html)
-        } ?: throw IllegalStateException("No se pudo abrir el destino del PDF")
+        } ?: throw IllegalStateException(openFailedMessage)
     }
 
-    fun createShareIntent(context: Context, html: String, fileName: String): Intent {
+    fun createShareIntent(context: Context, html: String, fileName: String, chooserTitle: String): Intent {
         val dir = File(context.cacheDir, "shared_pdfs").apply { mkdirs() }
         val file = File(dir, sanitizeFileName(fileName).ifBlank { "rayoai_pdf_accesible.pdf" })
         FileOutputStream(file).use { output ->
@@ -45,7 +45,7 @@ object AccessiblePdfExporter {
             putExtra(Intent.EXTRA_STREAM, uri)
             addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION)
         }
-        return Intent.createChooser(shareIntent, "Compartir PDF accesible")
+        return Intent.createChooser(shareIntent, chooserTitle)
     }
 
     private fun writePdf(output: OutputStream, html: String) {

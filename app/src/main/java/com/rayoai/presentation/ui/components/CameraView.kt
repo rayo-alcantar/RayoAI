@@ -34,6 +34,7 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalLifecycleOwner
+import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.unit.dp
@@ -47,6 +48,7 @@ import com.google.mlkit.vision.face.Face
 import com.google.mlkit.vision.face.FaceDetection
 import com.google.mlkit.vision.face.FaceDetector
 import com.google.mlkit.vision.face.FaceDetectorOptions
+import com.rayoai.R
 import java.util.concurrent.atomic.AtomicBoolean
 
 /**
@@ -70,6 +72,14 @@ fun CameraView(
 ) {
     val context = LocalContext.current
     val lifecycleOwner = LocalLifecycleOwner.current
+    val requestCameraPermission = stringResource(R.string.camera_permission_request)
+    val captureError = stringResource(R.string.camera_capture_error)
+    val cameraNotReady = stringResource(R.string.camera_not_ready)
+    val facesDetectedTemplate = stringResource(R.string.focus_assist_faces_detected)
+    val faceDetectedTemplate = stringResource(R.string.focus_assist_face_detected)
+    val faceLeft = stringResource(R.string.focus_assist_position_left)
+    val faceCenter = stringResource(R.string.focus_assist_position_center)
+    val faceRight = stringResource(R.string.focus_assist_position_right)
     // Controlador de la cámara que gestiona el ciclo de vida y las operaciones de la cámara.
     val cameraController = remember { LifecycleCameraController(context) }
     val faceDetector = remember {
@@ -80,8 +90,24 @@ fun CameraView(
             .build()
         )
     }
-    val focusAssistAnalyzer = remember(faceDetector, onFocusAssistAnnouncement) {
-        FocusAssistAnalyzer(faceDetector, onFocusAssistAnnouncement)
+    val focusAssistAnalyzer = remember(
+        faceDetector,
+        onFocusAssistAnnouncement,
+        facesDetectedTemplate,
+        faceDetectedTemplate,
+        faceLeft,
+        faceCenter,
+        faceRight
+    ) {
+        FocusAssistAnalyzer(
+            faceDetector = faceDetector,
+            onAnnouncement = onFocusAssistAnnouncement,
+            facesDetectedTemplate = facesDetectedTemplate,
+            faceDetectedTemplate = faceDetectedTemplate,
+            leftLabel = faceLeft,
+            centerLabel = faceCenter,
+            rightLabel = faceRight
+        )
     }
 
     DisposableEffect(Unit) {
@@ -114,7 +140,7 @@ fun CameraView(
     LaunchedEffect(isCapturing) {
         Log.d("CameraView", "isCapturing changed to: $isCapturing")
         if (isCapturing) {
-            captureImage(cameraController, context, onImageCaptured, onError)
+            captureImage(cameraController, context, onImageCaptured, onError, captureError, cameraNotReady)
         }
     }
 
@@ -140,7 +166,7 @@ fun CameraView(
                 onClick = { permissionState.launchPermissionRequest() },
                 modifier = Modifier.align(Alignment.Center)
             ) {
-                Text("Solicitar Permiso de Cámara")
+                Text(requestCameraPermission)
             }
         }
     }
@@ -157,7 +183,9 @@ private fun captureImage(
     cameraController: LifecycleCameraController,
     context: Context,
     onImageCaptured: (Bitmap) -> Unit,
-    onError: (String) -> Unit
+    onError: (String) -> Unit,
+    captureError: String,
+    cameraNotReady: String
 ) {
     Log.d("CameraView", "Attempting to capture image...")
     try {
@@ -175,13 +203,13 @@ private fun captureImage(
 
                 override fun onError(exception: ImageCaptureException) {
                     Log.e("CameraView", "Error capturing image: ", exception)
-                    onError(exception.localizedMessage ?: "Error al capturar la imagen")
+                    onError(exception.localizedMessage ?: captureError)
                 }
             }
         )
     } catch (e: IllegalStateException) {
         Log.e("CameraView", "Failed to capture image, camera not ready or closed.", e)
-        onError("La cámara no está lista. Inténtalo de nuevo.")
+        onError(cameraNotReady)
     }
 }
 
@@ -199,7 +227,12 @@ private fun rotateBitmap(bitmap: Bitmap, rotationDegrees: Int): Bitmap {
 
 private class FocusAssistAnalyzer(
     private val faceDetector: FaceDetector,
-    private val onAnnouncement: (String) -> Unit
+    private val onAnnouncement: (String) -> Unit,
+    private val facesDetectedTemplate: String,
+    private val faceDetectedTemplate: String,
+    private val leftLabel: String,
+    private val centerLabel: String,
+    private val rightLabel: String
 ) : ImageAnalysis.Analyzer {
 
     private val isAnalyzing = AtomicBoolean(false)
@@ -247,11 +280,11 @@ private class FocusAssistAnalyzer(
 
     private fun buildAnnouncement(faces: List<Face>, imageWidth: Int): String? {
         if (faces.size >= 2) {
-            return "${faces.size} rostros detectados."
+            return facesDetectedTemplate.format(faces.size)
         }
         val largestFace = faces.maxByOrNull { it.boundingBox.width() * it.boundingBox.height() }
             ?: return null
-        return "Rostro ${horizontalPosition(largestFace.boundingBox, imageWidth)}."
+        return faceDetectedTemplate.format(horizontalPosition(largestFace.boundingBox, imageWidth))
     }
 
     private fun announceIfNeeded(announcement: String) {
@@ -267,12 +300,12 @@ private class FocusAssistAnalyzer(
     }
 
     private fun horizontalPosition(bounds: Rect, imageWidth: Int): String {
-        if (imageWidth <= 0) return "al centro"
+        if (imageWidth <= 0) return centerLabel
         val center = bounds.centerX().toFloat() / imageWidth.toFloat()
         return when {
-            center < 0.38f -> "a la izquierda"
-            center > 0.62f -> "a la derecha"
-            else -> "al centro"
+            center < 0.38f -> leftLabel
+            center > 0.62f -> rightLabel
+            else -> centerLabel
         }
     }
 

@@ -6,6 +6,7 @@ import android.net.Uri
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.rayoai.core.ResultWrapper
+import com.rayoai.R
 import com.rayoai.data.local.ImageStorageManager
 import com.rayoai.domain.model.ChatMessage
 import com.rayoai.domain.model.AudioRecording
@@ -31,6 +32,7 @@ import java.util.Locale
 import androidx.lifecycle.SavedStateHandle
 import com.rayoai.domain.model.GeminiModelConfig
 import com.rayoai.data.local.db.CaptureDao
+import dagger.hilt.android.qualifiers.ApplicationContext
 import javax.inject.Inject
 
 sealed class HomeScreenState { // Forcing re-evaluation
@@ -91,7 +93,8 @@ class HomeViewModel @Inject constructor(
     private val saveCaptureUseCase: SaveCaptureUseCase,
     private val imageStorageManager: ImageStorageManager,
     private val captureDao: CaptureDao,
-    private val savedStateHandle: SavedStateHandle
+    private val savedStateHandle: SavedStateHandle,
+    @ApplicationContext private val appContext: Context
 ) : ViewModel() {
 
     private val _uiState = MutableStateFlow(HomeUiState())
@@ -226,19 +229,19 @@ class HomeViewModel @Inject constructor(
             val apiKey = userPreferencesRepository.apiKey.first()
             if (apiKey.isNullOrBlank()) {
                 Log.e("HomeViewModel", "API Key is null or blank.")
-                _uiState.update { it.copy(error = "API Key no configurada. Por favor, ve a Ajustes.", isLoading = false) }
+                _uiState.update { it.copy(error = appContext.getString(R.string.scan_pdf_user_message_missing_api_key), isLoading = false) }
                 return@launch
             }
             _uiState.update { it.copy(isCapturing = false, isLoading = true, error = null) }
             val imageUri = imageStorageManager.saveBitmapAndGetUri(image)
             if (imageUri == null) {
                 Log.e("HomeViewModel", "Failed to save bitmap and get URI.")
-                _uiState.update { it.copy(error = "Error al guardar la imagen.", isLoading = false) }
+                _uiState.update { it.copy(error = appContext.getString(R.string.home_save_image_failed), isLoading = false) }
                 return@launch
             }
             _playCaptureSound.emit(Unit)
 
-            val initialPromptMessage = ChatMessage(content = "Imagen capturada.", isFromUser = true)
+            val initialPromptMessage = ChatMessage(content = appContext.getString(R.string.captured_image_description), isFromUser = true)
             val prePrompt = _uiState.value.prePromptText
             _uiState.update {
                 it.copy(
@@ -293,7 +296,7 @@ class HomeViewModel @Inject constructor(
                 _uiState.update {
                     it.copy(
                         isLoading = false,
-                        error = "An unexpected error occurred.",
+                        error = appContext.getString(R.string.unexpected_error),
                         failedActionType = FailedActionType.DESCRIBE_IMAGE,
                         isNewCapture = true
                     )
@@ -311,7 +314,7 @@ class HomeViewModel @Inject constructor(
             val apiKey = userPreferencesRepository.apiKey.first()
             if (apiKey.isNullOrBlank()) {
                 Log.e("HomeViewModel", "API Key is null or blank for sending chat message.")
-                _uiState.update { it.copy(error = "API Key no configurada. Por favor, ve a Ajustes.") }
+                _uiState.update { it.copy(error = appContext.getString(R.string.scan_pdf_user_message_missing_api_key)) }
                 return@launch
             }
 
@@ -370,7 +373,7 @@ class HomeViewModel @Inject constructor(
                     it.copy(
                         isLoading = false,
                         isAiTyping = false,
-                        error = "An unexpected error occurred.",
+                        error = appContext.getString(R.string.unexpected_error),
                         failedActionType = FailedActionType.SEND_MESSAGE,
                         failedMessageContent = message
                     )
@@ -383,7 +386,7 @@ class HomeViewModel @Inject constructor(
         viewModelScope.launch {
             val apiKey = userPreferencesRepository.apiKey.first()
             if (apiKey.isNullOrBlank()) {
-                _uiState.update { it.copy(error = "API Key no configurada. Por favor, ve a Ajustes.") }
+                _uiState.update { it.copy(error = appContext.getString(R.string.scan_pdf_user_message_missing_api_key)) }
                 cleanupRecording(recording)
                 return@launch
             }
@@ -399,7 +402,11 @@ class HomeViewModel @Inject constructor(
                             _uiState.update {
                                 it.copy(
                                     isTranscribingAudio = false,
-                                    error = "No se pudo transcribir el audio. Gemini: ${geminiResult.message}. Google voz: ${fallbackError.message}"
+                                    error = appContext.getString(
+                                        R.string.scan_pdf_transcribe_failed,
+                                        geminiResult.message,
+                                        fallbackError.message
+                                    )
                                 )
                             }
                             cleanupRecording(recording)
@@ -412,7 +419,7 @@ class HomeViewModel @Inject constructor(
             cleanupRecording(recording)
             _uiState.update { it.copy(isTranscribingAudio = false) }
             if (text.isNullOrBlank()) {
-                _uiState.update { it.copy(error = "La transcripcion quedo vacia.") }
+                _uiState.update { it.copy(error = appContext.getString(R.string.scan_pdf_transcription_empty)) }
                 return@launch
             }
             sendChatMessage(text)
@@ -510,10 +517,10 @@ class HomeViewModel @Inject constructor(
         viewModelScope.launch {
             val uri = imageStorageManager.saveBitmapToGallery(bitmap)
             if (uri != null) {
-                _uiState.update { it.copy(error = "Imagen guardada en la galería.", currentImageUri = uri) }
+                _uiState.update { it.copy(error = appContext.getString(R.string.home_image_saved), currentImageUri = uri) }
             } else {
                 Log.e("HomeViewModel", "Failed to save image to gallery.")
-                _uiState.update { it.copy(error = "Error al guardar la imagen.") }
+                _uiState.update { it.copy(error = appContext.getString(R.string.home_save_image_failed)) }
             }
         }
     }
@@ -562,11 +569,11 @@ class HomeViewModel @Inject constructor(
                     }
                 } else {
                     Log.e("HomeViewModel", "Could not load image from history for captureId: $captureId")
-                    setError("No se pudo cargar la imagen del historial.")
+                    setError(appContext.getString(R.string.home_history_image_load_failed))
                 }
             } else {
                 Log.e("HomeViewModel", "Could not find capture in history for captureId: $captureId")
-                setError("No se pudo encontrar la captura en el historial.")
+                setError(appContext.getString(R.string.home_history_capture_not_found))
             }
         }
     }

@@ -2,7 +2,6 @@ package com.rayoai.presentation.ui.screens.home
 
 import android.util.Log
 
-import android.content.Intent
 import android.graphics.Bitmap
 import android.net.Uri
 import android.os.Build
@@ -89,6 +88,9 @@ fun ChatSection(
     val askAboutImageLabel = stringResource(R.string.ask_about_image_label)
     val sendMessageDesc = stringResource(R.string.send_message)
     val loadMorePhotosDesc = stringResource(R.string.load_more_photos_icon_description)
+    val transcribingAudioText = stringResource(R.string.scan_pdf_transcribing_audio)
+    val selectedImagePreviewDesc = stringResource(R.string.selected_image_preview)
+    val removeImageDesc = stringResource(R.string.remove_image)
 
     LaunchedEffect(chatMessages, listState) {
         val lastIndex = chatMessages.indices.last
@@ -222,7 +224,7 @@ fun ChatSection(
         if (isTranscribingAudio) {
             Box(modifier = Modifier.semantics { liveRegion = LiveRegionMode.Assertive }) {
                 Text(
-                    text = "Transcribiendo audio...",
+                    text = transcribingAudioText,
                     style = MaterialTheme.typography.bodySmall,
                     modifier = Modifier
                         .fillMaxWidth()
@@ -241,7 +243,7 @@ fun ChatSection(
                     Box {
                         Image(
                             painter = rememberAsyncImagePainter(uri),
-                            contentDescription = "Selected image preview",
+                            contentDescription = selectedImagePreviewDesc,
                             modifier = Modifier
                                 .size(64.dp)
                                 .clip(MaterialTheme.shapes.small),
@@ -255,7 +257,7 @@ fun ChatSection(
                                 .padding(2.dp)
                                 .background(Color.Black.copy(alpha = 0.5f), CircleShape)
                         ) {
-                            Icon(Icons.Default.Close, contentDescription = "Remove image", tint = Color.White)
+                            Icon(Icons.Default.Close, contentDescription = removeImageDesc, tint = Color.White)
                         }
                     }
                 }

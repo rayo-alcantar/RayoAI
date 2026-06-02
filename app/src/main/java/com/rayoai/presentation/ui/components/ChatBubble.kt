@@ -16,7 +16,6 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.ContentCopy
-import androidx.compose.material.icons.filled.Share
 import androidx.compose.material.icons.filled.VolumeUp
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
@@ -27,7 +26,9 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.unit.dp
+import com.rayoai.R
 import com.rayoai.presentation.ui.LocalTextToSpeech
 
 import androidx.compose.ui.semantics.semantics
@@ -43,6 +44,10 @@ import androidx.compose.ui.semantics.CustomAccessibilityAction
 fun ChatBubble(message: com.rayoai.domain.model.ChatMessage, modifier: Modifier = Modifier) {
     val context = LocalContext.current
     val textToSpeech = LocalTextToSpeech.current
+    val listenDescription = stringResource(R.string.chat_listen_description)
+    val copyDescription = stringResource(R.string.chat_copy_description)
+    val clipboardLabel = stringResource(R.string.chat_clip_label)
+    val copiedMessage = stringResource(R.string.chat_copied_to_clipboard)
 
     Column(
         modifier = modifier.fillMaxWidth(),
@@ -53,11 +58,11 @@ fun ChatBubble(message: com.rayoai.domain.model.ChatMessage, modifier: Modifier 
             Modifier
                 .semantics(mergeDescendants = true) {
                     customActions = listOf(
-                        CustomAccessibilityAction("Escuchar descripción") {
+                        CustomAccessibilityAction(listenDescription) {
                             textToSpeech?.speak(message.content, TextToSpeech.QUEUE_FLUSH, null, ""); true
                         },
-                        CustomAccessibilityAction("Copiar descripción") {
-                            copyTextToClipboard(context, message.content); true
+                        CustomAccessibilityAction(copyDescription) {
+                            copyTextToClipboard(context, message.content, clipboardLabel, copiedMessage); true
                         }
                     )
                 }
@@ -83,11 +88,11 @@ fun ChatBubble(message: com.rayoai.domain.model.ChatMessage, modifier: Modifier 
             ) {
                 // Botón para escuchar el texto.
                 IconButton(onClick = { textToSpeech?.speak(message.content, TextToSpeech.QUEUE_FLUSH, null, "") }) {
-                    Icon(Icons.Default.VolumeUp, contentDescription = "Escuchar descripción")
+                    Icon(Icons.Default.VolumeUp, contentDescription = listenDescription)
                 }
                 // Botón para copiar el texto al portapapeles.
-                IconButton(onClick = { copyTextToClipboard(context, message.content) }) {
-                    Icon(Icons.Default.ContentCopy, contentDescription = "Copiar descripción")
+                IconButton(onClick = { copyTextToClipboard(context, message.content, clipboardLabel, copiedMessage) }) {
+                    Icon(Icons.Default.ContentCopy, contentDescription = copyDescription)
                 }
                 
             }
@@ -100,12 +105,12 @@ fun ChatBubble(message: com.rayoai.domain.model.ChatMessage, modifier: Modifier 
  * @param context El contexto de la aplicación.
  * @param text El texto a copiar.
  */
-private fun copyTextToClipboard(context: Context, text: String) {
+private fun copyTextToClipboard(context: Context, text: String, label: String, copiedMessage: String) {
     val clipboardManager = context.getSystemService(Context.CLIPBOARD_SERVICE) as ClipboardManager
-    val clipData = ClipData.newPlainText("Gemini Description", text)
+    val clipData = ClipData.newPlainText(label, text)
     clipboardManager.setPrimaryClip(clipData)
     // Mostrar un Toast para confirmar que el texto ha sido copiado.
-    Toast.makeText(context, "Descripción copiada al portapapeles", Toast.LENGTH_SHORT).show()
+    Toast.makeText(context, copiedMessage, Toast.LENGTH_SHORT).show()
 }
 
 /**
@@ -119,5 +124,5 @@ private fun shareText(context: Context, text: String) {
         putExtra(Intent.EXTRA_TEXT, text)
     }
     // Asegurarse de que siempre haya una aplicación para manejar el Intent.
-    context.startActivity(Intent.createChooser(shareIntent, "Compartir descripción"))
+    context.startActivity(Intent.createChooser(shareIntent, context.getString(R.string.chat_share_description)))
 }

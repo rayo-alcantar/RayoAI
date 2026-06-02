@@ -4,6 +4,7 @@ import android.content.Context
 import android.net.Uri
 import android.provider.OpenableColumns
 import com.rayoai.core.ResultWrapper
+import com.rayoai.R
 import com.rayoai.data.remote.GeminiApiService
 import com.rayoai.data.remote.GeminiFilesApiService
 import com.rayoai.data.remote.dto.*
@@ -33,14 +34,14 @@ class VideoRepositoryImpl @Inject constructor(
     ): ResultWrapper<String> = withContext(Dispatchers.IO) {
         try {
             val apiKey = userPreferencesRepository.apiKey.firstOrNull()
-                ?: return@withContext ResultWrapper.Error("API Key no configurada")
+                ?: return@withContext ResultWrapper.Error(context.getString(R.string.video_upload_missing_api_key))
 
             // 1. Obtener información del video
             val (fileName, sizeBytes, mimeType) = getVideoInfo(context, uri)
 
             // Validar tamaño (máximo 2 GB)
             if (sizeBytes > 2_000_000_000L) {
-                return@withContext ResultWrapper.Error("El video es demasiado grande (máximo 2 GB)")
+                return@withContext ResultWrapper.Error(context.getString(R.string.scan_video_too_large))
             }
 
             // 2. Iniciar upload resumable
@@ -53,12 +54,12 @@ class VideoRepositoryImpl @Inject constructor(
 
             // 3. Extraer URL de upload de los headers
             val uploadUrl = uploadResponse.headers()["x-goog-upload-url"]
-                ?: return@withContext ResultWrapper.Error("No se recibió URL de upload")
+                ?: return@withContext ResultWrapper.Error(context.getString(R.string.video_upload_url_missing))
 
             // 4. Leer bytes del video
             val videoBytes = context.contentResolver.openInputStream(uri)?.use {
                 it.readBytes()
-            } ?: return@withContext ResultWrapper.Error("No se pudo leer el video")
+            } ?: return@withContext ResultWrapper.Error(context.getString(R.string.video_upload_read_failed))
 
             // 5. Subir bytes del video
             val requestBody = videoBytes.toRequestBody(mimeType.toMediaTypeOrNull())
@@ -77,7 +78,7 @@ class VideoRepositoryImpl @Inject constructor(
 
             while (fileState.state != "ACTIVE" && attempts < maxAttempts) {
                 if (fileState.state == "FAILED") {
-                    return@withContext ResultWrapper.Error("El procesamiento del video falló")
+                    return@withContext ResultWrapper.Error(context.getString(R.string.video_processing_failed))
                 }
 
                 delay(1000)  // Esperar 1 segundo
@@ -95,7 +96,7 @@ class VideoRepositoryImpl @Inject constructor(
             }
 
             if (fileState.state != "ACTIVE") {
-                return@withContext ResultWrapper.Error("Timeout esperando que el video esté listo")
+                return@withContext ResultWrapper.Error(context.getString(R.string.video_processing_timeout))
             }
 
             // 7. Analizar el video con Gemini
@@ -110,7 +111,7 @@ class VideoRepositoryImpl @Inject constructor(
                     ContentDto(
                         role = "user",
                         parts = listOf(
-                            PartDto(text = "Describe detalladamente este video."),
+                            PartDto(text = "Describe this video in detail."),
                             PartDto(
                                 fileData = FileDataDto(
                                     mimeType = mimeType,
@@ -135,7 +136,7 @@ class VideoRepositoryImpl @Inject constructor(
             )
 
             if (!response.isSuccessful || response.body() == null) {
-                return@withContext ResultWrapper.Error("Error en la API: ${response.code()} - ${response.message()}")
+                return@withContext ResultWrapper.Error(context.getString(R.string.video_api_error, response.code(), response.message()))
             }
 
             // Extraer texto de la respuesta (Gemini 3.1 puede devolver múltiples partes)
@@ -150,13 +151,13 @@ class VideoRepositoryImpl @Inject constructor(
 
             if (description.isNullOrBlank()) {
                 val finishReason = candidate?.finishReason ?: "UNKNOWN"
-                return@withContext ResultWrapper.Error("No se recibió respuesta del modelo (Motivo: $finishReason)")
+                return@withContext ResultWrapper.Error(context.getString(R.string.video_model_empty_response, finishReason))
             }
 
             ResultWrapper.Success(description)
 
         } catch (e: Exception) {
-            ResultWrapper.Error("Error al procesar video: ${e.message}")
+            ResultWrapper.Error(context.getString(R.string.video_process_error, e.message))
         }
     }
 

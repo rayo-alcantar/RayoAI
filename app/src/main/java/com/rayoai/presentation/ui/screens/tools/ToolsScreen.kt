@@ -52,6 +52,7 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.semantics.clearAndSetSemantics
 import androidx.compose.ui.semantics.LiveRegionMode
 import androidx.compose.ui.semantics.Role
@@ -62,6 +63,7 @@ import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.semantics.stateDescription
 import androidx.compose.ui.unit.dp
 import androidx.hilt.navigation.compose.hiltViewModel
+import com.rayoai.R
 import com.rayoai.domain.model.VideoDocument
 import kotlinx.coroutines.delay
 import java.text.SimpleDateFormat
@@ -71,12 +73,12 @@ import kotlin.math.PI
 import kotlin.math.ln
 import kotlin.math.sin
 
-private enum class LightLevel(val label: String) {
-    UNAVAILABLE("Sensor de luz no disponible"),
-    NONE("Ausencia de luz"),
-    LOW("Intensidad baja"),
-    MEDIUM("Intensidad media"),
-    HIGH("Intensidad alta")
+private enum class LightLevel(val labelRes: Int) {
+    UNAVAILABLE(R.string.light_level_unavailable),
+    NONE(R.string.light_level_none),
+    LOW(R.string.light_level_low),
+    MEDIUM(R.string.light_level_medium),
+    HIGH(R.string.light_level_high)
 }
 
 private fun lightLevelForLux(lux: Float?): LightLevel {
@@ -100,26 +102,32 @@ private fun LightDetectorCard() {
     }
     val vibrator = remember { context.appVibrator() }
     val theremin = remember { LightTheremin() }
+    val lightUnavailable = stringResource(R.string.light_level_unavailable)
+    val detectorStopped = stringResource(R.string.light_detector_stopped)
+    val detectingStop = stringResource(R.string.light_detector_detecting_stop)
+    val detectLight = stringResource(R.string.light_detector_start)
+    val detectorHint = stringResource(R.string.light_detector_hint)
 
     var isDetecting by remember { mutableStateOf(false) }
     var lux by remember { mutableStateOf<Float?>(null) }
     var announcedLevel by remember { mutableStateOf<LightLevel?>(null) }
     var announcedLux by remember { mutableStateOf<Float?>(null) }
-    var accessibleStatus by remember { mutableStateOf("Detector de luz detenido") }
+    var accessibleStatus by remember { mutableStateOf(detectorStopped) }
     val level = if (lightSensor == null) LightLevel.UNAVAILABLE else lightLevelForLux(lux)
-    val buttonText = if (isDetecting) "Detectando... tocar para detener" else "Detectar luz"
+    val levelLabel = stringResource(level.labelRes)
+    val buttonText = if (isDetecting) detectingStop else detectLight
     val statusText = when {
-        lightSensor == null -> LightLevel.UNAVAILABLE.label
-        isDetecting -> "${level.label}. ${lux?.toInt() ?: 0} lux"
-        else -> "Usa vibraciones para ubicar fuentes de luz"
+        lightSensor == null -> lightUnavailable
+        isDetecting -> "$levelLabel. ${lux?.toInt() ?: 0} lux"
+        else -> detectorHint
     }
-    val accessibleText = if (isDetecting) accessibleStatus else "Detector de luz detenido"
+    val accessibleText = if (isDetecting) accessibleStatus else detectorStopped
 
-    LaunchedEffect(isDetecting, level, lux) {
+    LaunchedEffect(isDetecting, level, levelLabel, detectorStopped, lux) {
         if (!isDetecting) {
             announcedLevel = null
             announcedLux = null
-            accessibleStatus = "Detector de luz detenido"
+            accessibleStatus = detectorStopped
             return@LaunchedEffect
         }
 
@@ -137,7 +145,7 @@ private fun LightDetectorCard() {
         if (level != announcedLevel || significantLuxChange) {
             announcedLevel = level
             announcedLux = currentLux
-            accessibleStatus = level.label
+            accessibleStatus = levelLabel
         }
     }
 
@@ -337,26 +345,35 @@ fun ToolsScreen(
 ) {
     val videoDocs by viewModel.videoDocuments.collectAsState()
     var videoToDelete by remember { mutableStateOf<VideoDocument?>(null) }
+    val deleteVideoTitle = stringResource(R.string.video_delete_confirm_title)
+    val deleteVideoText = stringResource(R.string.video_delete_confirm_text)
+    val deleteText = stringResource(R.string.delete)
+    val cancelText = stringResource(R.string.cancel)
+    val toolsTitle = stringResource(R.string.tools_title)
+    val scanPdfText = stringResource(R.string.tool_scan_pdf)
+    val scanPdfDescription = stringResource(R.string.tool_scan_pdf_description)
+    val scanVideoText = stringResource(R.string.scan_video)
+    val scanVideoDescription = stringResource(R.string.tool_scan_video_description)
 
     if (videoToDelete != null) {
         AlertDialog(
             onDismissRequest = { videoToDelete = null },
-            title = { Text(text = "Eliminar video") },
-            text = { Text(text = "¿Deseas eliminar este video procesado?") },
+            title = { Text(text = deleteVideoTitle) },
+            text = { Text(text = deleteVideoText) },
             confirmButton = {
                 Button(onClick = {
                     videoToDelete?.let { viewModel.deleteVideo(it) }
                     videoToDelete = null
-                }) { Text(text = "Eliminar") }
+                }) { Text(text = deleteText) }
             },
             dismissButton = {
-                Button(onClick = { videoToDelete = null }) { Text(text = "Cancelar") }
+                Button(onClick = { videoToDelete = null }) { Text(text = cancelText) }
             }
         )
     }
 
     Scaffold(
-        topBar = { TopAppBar(title = { Text(text = "Herramientas") }) }
+        topBar = { TopAppBar(title = { Text(text = toolsTitle) }) }
     ) { padding ->
         LazyColumn(
             modifier = Modifier
@@ -375,7 +392,7 @@ fun ToolsScreen(
                         .fillMaxWidth()
                         .semantics {
                             role = Role.Button
-                            contentDescription = "Escanear PDF"
+                            contentDescription = scanPdfText
                         }
                         .clickable(onClick = onScanPdf),
                     colors = CardDefaults.cardColors(MaterialTheme.colorScheme.primaryContainer)
@@ -385,8 +402,8 @@ fun ToolsScreen(
                             imageVector = Icons.Filled.PictureAsPdf,
                             contentDescription = null
                         )
-                        Text(text = "Escanear PDF", style = MaterialTheme.typography.titleMedium)
-                        Text(text = "Extrae texto y descripciones con IA")
+                        Text(text = scanPdfText, style = MaterialTheme.typography.titleMedium)
+                        Text(text = scanPdfDescription)
                     }
                 }
             }
@@ -397,7 +414,7 @@ fun ToolsScreen(
                         .fillMaxWidth()
                         .semantics {
                             role = Role.Button
-                            contentDescription = "Escanear Video"
+                            contentDescription = scanVideoText
                         }
                         .clickable(onClick = onScanVideo),
                     colors = CardDefaults.cardColors(MaterialTheme.colorScheme.secondaryContainer)
@@ -407,8 +424,8 @@ fun ToolsScreen(
                             imageVector = Icons.Filled.VideoLibrary,
                             contentDescription = null
                         )
-                        Text(text = "Escanear Video", style = MaterialTheme.typography.titleMedium)
-                        Text(text = "Analiza videos con IA (máx 2 GB)")
+                        Text(text = scanVideoText, style = MaterialTheme.typography.titleMedium)
+                        Text(text = scanVideoDescription)
                     }
                 }
             }
@@ -430,11 +447,11 @@ fun ToolsScreen(
                         )
                         val sizeMB = video.sizeBytes / (1024 * 1024)
                         Text(
-                            text = "Tamaño: $sizeMB MB",
+                            text = stringResource(R.string.video_size, sizeMB),
                             style = MaterialTheme.typography.bodySmall
                         )
                         IconButton(onClick = { videoToDelete = video }) {
-                            Icon(Icons.Filled.Delete, contentDescription = "Eliminar video")
+                            Icon(Icons.Filled.Delete, contentDescription = deleteVideoTitle)
                         }
                     }
                 }
