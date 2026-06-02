@@ -68,7 +68,8 @@ fun CameraView(
     cameraSelector: CameraSelector,
     flashMode: Int = ImageCapture.FLASH_MODE_AUTO,
     isFocusAssistEnabled: Boolean = false,
-    onFocusAssistAnnouncement: (String) -> Unit = {}
+    onFocusAssistAnnouncement: (String) -> Unit = {},
+    onFocusAssistCentered: () -> Unit = {}
 ) {
     val context = LocalContext.current
     val lifecycleOwner = LocalLifecycleOwner.current
@@ -97,11 +98,13 @@ fun CameraView(
         faceDetectedTemplate,
         faceLeft,
         faceCenter,
-        faceRight
+        faceRight,
+        onFocusAssistCentered
     ) {
         FocusAssistAnalyzer(
             faceDetector = faceDetector,
             onAnnouncement = onFocusAssistAnnouncement,
+            onCentered = onFocusAssistCentered,
             facesDetectedTemplate = facesDetectedTemplate,
             faceDetectedTemplate = faceDetectedTemplate,
             leftLabel = faceLeft,
@@ -228,6 +231,7 @@ private fun rotateBitmap(bitmap: Bitmap, rotationDegrees: Int): Bitmap {
 private class FocusAssistAnalyzer(
     private val faceDetector: FaceDetector,
     private val onAnnouncement: (String) -> Unit,
+    private val onCentered: () -> Unit,
     private val facesDetectedTemplate: String,
     private val faceDetectedTemplate: String,
     private val leftLabel: String,
@@ -239,6 +243,7 @@ private class FocusAssistAnalyzer(
     private var lastAnalysisTime = 0L
     private var lastAnnouncement = ""
     private var lastAnnouncementTime = 0L
+    private var hasTriggeredCentered = false
 
     @androidx.annotation.OptIn(ExperimentalGetImage::class)
     override fun analyze(imageProxy: ImageProxy) {
@@ -264,6 +269,7 @@ private class FocusAssistAnalyzer(
                 buildAnnouncement(faces, image.width)?.let { announcement ->
                     announceIfNeeded(announcement)
                 }
+                notifyCenteredIfNeeded(faces, image.width)
             }
             .addOnCompleteListener {
                 isAnalyzing.set(false)
@@ -275,6 +281,7 @@ private class FocusAssistAnalyzer(
         lastAnnouncement = ""
         lastAnalysisTime = 0L
         lastAnnouncementTime = 0L
+        hasTriggeredCentered = false
         isAnalyzing.set(false)
     }
 
@@ -307,6 +314,26 @@ private class FocusAssistAnalyzer(
             center > 0.62f -> rightLabel
             else -> centerLabel
         }
+    }
+
+    private fun notifyCenteredIfNeeded(faces: List<Face>, imageWidth: Int) {
+        if (!hasTriggeredCentered && isCentered(faces, imageWidth)) {
+            hasTriggeredCentered = true
+            onCentered()
+        }
+    }
+
+    private fun isCentered(faces: List<Face>, imageWidth: Int): Boolean {
+        if (faces.isEmpty() || imageWidth <= 0) return false
+        val centerX = if (faces.size == 1) {
+            faces.first().boundingBox.centerX().toFloat()
+        } else {
+            val left = faces.minOf { it.boundingBox.left }
+            val right = faces.maxOf { it.boundingBox.right }
+            (left + right) / 2f
+        }
+        val normalizedCenter = centerX / imageWidth.toFloat()
+        return normalizedCenter in 0.38f..0.62f
     }
 
     private companion object {

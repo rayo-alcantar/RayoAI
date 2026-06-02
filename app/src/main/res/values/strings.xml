@@ -66,12 +66,10 @@
     <!-- Ajustes: Auto describir -->
     <string name="settings_autodescribe_label">Auto-describir al compartir</string>
     <string name="about_app_name">RayoAI</string>
-    <string name="about_developed_by">Desarrollado por:</string>
+    <string name="about_developed_by">Coautor y desarrollador:</string>
     <string name="about_developer_name">Ángel De Jesús Alcántar Garza</string>
-    <string name="about_tester_label">Tester Alpha, Diseñadora y Creativa:</string>
+    <string name="about_tester_label">Coautora y diseñadora:</string>
     <string name="about_tester_name">Jessica Herrera</string>
-    <string name="about_legal_label">Asesor legal</string>
-    <string name="about_legal_name">Eddie Cortes</string>
     <string name="about_donation_message">Este software fue hecho sin fines de lucro, pero siempre es bienvenida una donación para continuar su desarrollo.</string>
     <string name="about_contact_developer">Contactar con el desarrollador</string>
     <string name="about_visit_website">Visitar Sitio Web</string>
@@ -108,8 +106,10 @@ Tarjeta: 4152314082325278</string>
     <string name="seconds">Segundos</string>
     <string name="capturing_in">Capturando en: %1$d...</string>
     <string name="take_photo">Tomar Foto</string>
-    <string name="focus_assist_on">Detección facial activada</string>
-    <string name="focus_assist_off">Detección facial desactivada</string>
+    <string name="focus_assist_on">Enfoque facial activado</string>
+    <string name="focus_assist_off">Enfoque facial desactivado</string>
+    <string name="focus_assist_auto_capture">Enfoque facial con captura automática activado</string>
+    <string name="focus_assist_auto_capture_badge">A</string>
     <string name="error_loading_shared_image">Error al cargar la imagen compartida.</string>
     <string name="error_security_shared_image">No se pudo acceder a la imagen compartida. El permiso pudo haber expirado.</string>
     <string name="error_loading_gallery_image">Error al cargar la imagen de la galería.</string>
@@ -255,6 +255,7 @@ Tarjeta: 4152314082325278</string>
     <string name="timer_off">Temporizador desactivado</string>
     <string name="timer_seconds">Temporizador %1$d segundos</string>
     <string name="timer_toggle_description">Cambiar temporizador</string>
+    <string name="timer_disabled_focus_auto_capture">Temporizador desactivado por captura automática de enfoque facial</string>
     <string name="retry_action">Reintentar</string>
     <string name="chat_listen_description">Escuchar descripción</string>
     <string name="chat_copy_description">Copiar descripción</string>

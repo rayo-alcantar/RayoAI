@@ -317,10 +317,19 @@ fun HomeScreen(
                                 isCapturing = uiState.isCapturing,
                                 cameraSelector = uiState.currentCameraSelector,
                                 flashMode = uiState.flashMode,
-                                isFocusAssistEnabled = uiState.isFocusAssistEnabled &&
+                                isFocusAssistEnabled = uiState.focusAssistMode != FocusAssistMode.OFF &&
                                     !uiState.isLoading &&
                                     !uiState.isCapturing,
-                                onFocusAssistAnnouncement = { focusAssistAnnouncement = it }
+                                onFocusAssistAnnouncement = { focusAssistAnnouncement = it },
+                                onFocusAssistCentered = {
+                                    if (
+                                        uiState.focusAssistMode == FocusAssistMode.AUTO_CAPTURE &&
+                                        !uiState.isLoading &&
+                                        !uiState.isCapturing
+                                    ) {
+                                        viewModel.triggerImageCapture()
+                                    }
+                                }
                             )
                         } else {
                             Column(
@@ -400,6 +409,12 @@ fun HomeScreen(
                                 } else {
                                     stringResource(R.string.timer_off)
                                 }
+                                val isAutoFocusCaptureMode = uiState.focusAssistMode == FocusAssistMode.AUTO_CAPTURE
+                                val timerStateDesc = if (isAutoFocusCaptureMode) {
+                                    stringResource(R.string.timer_disabled_focus_auto_capture)
+                                } else {
+                                    timerDesc
+                                }
                                 val prePromptDesc = stringResource(
                                     id = if (uiState.showPrePromptInput) R.string.hide_pre_prompt_input else R.string.write_pre_prompt
                                 )
@@ -411,11 +426,12 @@ fun HomeScreen(
                                 ) {
                                     FilledIconButton(
                                         onClick = { viewModel.toggleTimer() },
+                                        enabled = !isAutoFocusCaptureMode,
                                         modifier = Modifier
                                             .size(52.dp)
                                             .semantics {
-                                                contentDescription = timerDesc
-                                                stateDescription = timerDesc
+                                                contentDescription = timerStateDesc
+                                                stateDescription = timerStateDesc
                                             }
                                     ) {
                                         Box(contentAlignment = Alignment.Center) {
@@ -530,10 +546,13 @@ fun HomeScreen(
                                 }
 
                                 // Botón de Flash - a la derecha
-                                val focusAssistDesc = if (uiState.isFocusAssistEnabled) {
-                                    stringResource(R.string.focus_assist_on)
-                                } else {
-                                    stringResource(R.string.focus_assist_off)
+                                val focusAssistOffDesc = stringResource(R.string.focus_assist_off)
+                                val focusAssistOnDesc = stringResource(R.string.focus_assist_on)
+                                val focusAssistAutoCaptureDesc = stringResource(R.string.focus_assist_auto_capture)
+                                val focusAssistDesc = when (uiState.focusAssistMode) {
+                                    FocusAssistMode.ON -> focusAssistOnDesc
+                                    FocusAssistMode.AUTO_CAPTURE -> focusAssistAutoCaptureDesc
+                                    FocusAssistMode.OFF -> focusAssistOffDesc
                                 }
                                 val currentFlashDesc = when (uiState.flashMode) {
                                     ImageCapture.FLASH_MODE_ON -> flashOnDesc
@@ -555,10 +574,26 @@ fun HomeScreen(
                                                 stateDescription = focusAssistDesc
                                             }
                                     ) {
-                                        Icon(
-                                            imageVector = Icons.Default.CenterFocusStrong,
-                                            contentDescription = null
-                                        )
+                                        Box(contentAlignment = Alignment.Center) {
+                                            Icon(
+                                                imageVector = Icons.Default.CenterFocusStrong,
+                                                contentDescription = null
+                                            )
+                                            if (uiState.focusAssistMode == FocusAssistMode.AUTO_CAPTURE) {
+                                                Text(
+                                                    text = stringResource(R.string.focus_assist_auto_capture_badge),
+                                                    style = MaterialTheme.typography.labelSmall,
+                                                    fontWeight = FontWeight.Bold,
+                                                    modifier = Modifier
+                                                        .align(Alignment.BottomCenter)
+                                                        .background(
+                                                            MaterialTheme.colorScheme.primary,
+                                                            CircleShape
+                                                        )
+                                                        .padding(horizontal = 3.dp)
+                                                )
+                                            }
+                                        }
                                     }
 
                                     FilledIconButton(

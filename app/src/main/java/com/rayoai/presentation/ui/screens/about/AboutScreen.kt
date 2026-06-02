@@ -6,7 +6,11 @@ import android.content.Context
 import android.content.Intent
 import android.net.Uri
 import android.widget.Toast
-import androidx.compose.foundation.layout.*
+import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.Spacer
+import androidx.compose.foundation.layout.fillMaxSize
+import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.padding
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Button
 import androidx.compose.material3.MaterialTheme
@@ -88,7 +92,7 @@ fun AboutScreen(showDonationDialogInitially: Boolean = false) {
             .fillMaxSize()
             .padding(16.dp),
         horizontalAlignment = Alignment.CenterHorizontally,
-        verticalArrangement = Arrangement.Center
+        verticalArrangement = androidx.compose.foundation.layout.Arrangement.Center
     ) {
         Text(
             text = stringResource(R.string.about_app_name),
@@ -116,21 +120,17 @@ fun AboutScreen(showDonationDialogInitially: Boolean = false) {
         )
         Spacer(modifier = Modifier.height(24.dp))
         Text(
-            text = stringResource(R.string.about_legal_label),
-            style = MaterialTheme.typography.bodyLarge
-        )
-        Text(
-            text = stringResource(R.string.about_legal_name),
-            style = MaterialTheme.typography.bodyLarge,
-            textAlign = TextAlign.Center
-        )
-        Text(
             text = stringResource(R.string.about_donation_message),
             style = MaterialTheme.typography.bodyMedium,
             textAlign = TextAlign.Center
         )
         Spacer(modifier = Modifier.height(24.dp))
-        // Botón para contactar con el desarrollador (correo)
+        Button(onClick = {
+            showDonateDialog = true
+        }) {
+            Text(stringResource(R.string.about_donate_paypal))
+        }
+        Spacer(modifier = Modifier.height(8.dp))
         Button(onClick = {
             val emailIntent = Intent(Intent.ACTION_SENDTO).apply {
                 data = Uri.parse("mailto:${context.getString(R.string.about_email)}")
@@ -141,20 +141,12 @@ fun AboutScreen(showDonationDialogInitially: Boolean = false) {
             Text(stringResource(R.string.about_contact_developer))
         }
         Spacer(modifier = Modifier.height(8.dp))
-        // Botón de sitio web
         Button(onClick = {
             val websiteUrl = context.getString(R.string.about_website_url)
             val intent = Intent(Intent.ACTION_VIEW, Uri.parse(websiteUrl))
             context.startActivity(intent)
         }) {
             Text(stringResource(R.string.about_visit_website))
-        }
-        Spacer(modifier = Modifier.height(8.dp))
-        // Botón Donar
-        Button(onClick = {
-            showDonateDialog = true
-        }) {
-            Text(stringResource(R.string.about_donate_paypal))
         }
     }
 }

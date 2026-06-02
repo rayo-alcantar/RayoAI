@@ -50,6 +50,12 @@ enum class FailedActionType {
     DESCRIBE_IMAGE
 }
 
+enum class FocusAssistMode {
+    OFF,
+    ON,
+    AUTO_CAPTURE
+}
+
 data class HomeUiState(
     val screenState: HomeScreenState = HomeScreenState.Initial,
     val isLoading: Boolean = false,
@@ -80,7 +86,7 @@ data class HomeUiState(
     val failedActionType: FailedActionType = FailedActionType.NONE,
     val failedMessageContent: String? = null,
     val isNewCapture: Boolean = false,
-    val isFocusAssistEnabled: Boolean = false
+    val focusAssistMode: FocusAssistMode = FocusAssistMode.OFF
 )
 
 
@@ -183,11 +189,20 @@ class HomeViewModel @Inject constructor(
     }
 
     fun setTimerEnabled(enabled: Boolean) {
-        _uiState.update { it.copy(isTimerEnabled = enabled) }
+        _uiState.update {
+            if (it.focusAssistMode == FocusAssistMode.AUTO_CAPTURE) {
+                it.copy(isTimerEnabled = false, timerSeconds = 0)
+            } else {
+                it.copy(isTimerEnabled = enabled)
+            }
+        }
     }
 
     fun toggleTimer() {
         _uiState.update { currentState ->
+            if (currentState.focusAssistMode == FocusAssistMode.AUTO_CAPTURE) {
+                return@update currentState.copy(timerSeconds = 0, isTimerEnabled = false)
+            }
             val nextSeconds = when (currentState.timerSeconds) {
                 0 -> 3
                 3 -> 5
@@ -204,7 +219,13 @@ class HomeViewModel @Inject constructor(
 
     // Deprecated: Logic moved to toggleTimer, keeping for compatibility if needed but prefer toggleTimer
     fun setTimerSeconds(seconds: Int) {
-        _uiState.update { it.copy(timerSeconds = seconds) }
+        _uiState.update {
+            if (it.focusAssistMode == FocusAssistMode.AUTO_CAPTURE) {
+                it.copy(timerSeconds = 0, isTimerEnabled = false)
+            } else {
+                it.copy(timerSeconds = seconds, isTimerEnabled = seconds > 0)
+            }
+        }
     }
 
     fun triggerImageCapture() {
@@ -213,7 +234,7 @@ class HomeViewModel @Inject constructor(
     
         Log.d("HomeViewModel", "triggerImageCapture called")
         viewModelScope.launch {
-            _uiState.update { it.copy(isLoading = true, isCapturing = true, isFocusAssistEnabled = false) }
+            _uiState.update { it.copy(isLoading = true, isCapturing = true, focusAssistMode = FocusAssistMode.OFF) }
             Log.d("HomeViewModel", "isLoading + isCapturing set to true by triggerImageCapture")
             // SIN cuenta regresiva aquí. La UI ya hizo la suya antes de llamar a este método.
         }
@@ -508,7 +529,8 @@ class HomeViewModel @Inject constructor(
                 isLoading = false,
                 error = null,
                 isCapturing = false,
-                selectedImageUris = emptyList()
+                selectedImageUris = emptyList(),
+                focusAssistMode = FocusAssistMode.OFF
             )
         }
     }
@@ -661,9 +683,17 @@ class HomeViewModel @Inject constructor(
     fun toggleFocusAssist() {
         _uiState.update { currentState ->
             if (currentState.isLoading || currentState.isCapturing || currentState.screenState !is HomeScreenState.Initial) {
-                currentState.copy(isFocusAssistEnabled = false)
+                currentState.copy(focusAssistMode = FocusAssistMode.OFF)
             } else {
-                currentState.copy(isFocusAssistEnabled = !currentState.isFocusAssistEnabled)
+                when (currentState.focusAssistMode) {
+                    FocusAssistMode.OFF -> currentState.copy(focusAssistMode = FocusAssistMode.ON)
+                    FocusAssistMode.ON -> currentState.copy(
+                        focusAssistMode = FocusAssistMode.AUTO_CAPTURE,
+                        timerSeconds = 0,
+                        isTimerEnabled = false
+                    )
+                    FocusAssistMode.AUTO_CAPTURE -> currentState.copy(focusAssistMode = FocusAssistMode.OFF)
+                }
             }
         }
     }

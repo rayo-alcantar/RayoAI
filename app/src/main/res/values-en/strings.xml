@@ -63,12 +63,10 @@
     <string name="settings_text_scale">Current scale: %1$.1fx</string>
     <string name="settings_autodescribe_label">Auto-describe when sharing</string>
     <string name="about_app_name">RayoAI</string>
-    <string name="about_developed_by">Developed by:</string>
+    <string name="about_developed_by">Co-author and developer:</string>
     <string name="about_developer_name">Angel De Jesus Alcantar Garza</string>
-    <string name="about_tester_label">Alpha tester, designer, and creative:</string>
+    <string name="about_tester_label">Co-author and designer:</string>
     <string name="about_tester_name">Jessica Herrera</string>
-    <string name="about_legal_label">Legal advisor</string>
-    <string name="about_legal_name">Eddie Cortes</string>
     <string name="about_donation_message">This software was made as a nonprofit project, but donations are always welcome to continue its development.</string>
     <string name="about_contact_developer">Contact the developer</string>
     <string name="about_visit_website">Visit website</string>
@@ -105,8 +103,10 @@ Card: 4152314082325278</string>
     <string name="seconds">Seconds</string>
     <string name="capturing_in">Capturing in: %1$d...</string>
     <string name="take_photo">Take photo</string>
-    <string name="focus_assist_on">Face detection on</string>
-    <string name="focus_assist_off">Face detection off</string>
+    <string name="focus_assist_on">Face focus on</string>
+    <string name="focus_assist_off">Face focus off</string>
+    <string name="focus_assist_auto_capture">Face focus with automatic capture on</string>
+    <string name="focus_assist_auto_capture_badge">A</string>
     <string name="error_loading_shared_image">Error loading the shared image.</string>
     <string name="error_security_shared_image">The shared image could not be accessed. The permission may have expired.</string>
     <string name="error_loading_gallery_image">Error loading the gallery image.</string>
@@ -246,6 +246,7 @@ Card: 4152314082325278</string>
     <string name="timer_off">Timer off</string>
     <string name="timer_seconds">Timer %1$d seconds</string>
     <string name="timer_toggle_description">Change timer</string>
+    <string name="timer_disabled_focus_auto_capture">Timer disabled by face focus automatic capture</string>
     <string name="retry_action">Retry</string>
     <string name="chat_listen_description">Listen to description</string>
     <string name="chat_copy_description">Copy description</string>
