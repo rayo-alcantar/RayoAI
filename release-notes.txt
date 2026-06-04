@@ -1,14 +1,4 @@
-RayoAI - Versión 3.3.2
+RayoAI - Versión 3.3.3
 
 NOTAS DE PUBLICACIÓN
-Esta actualización realiza correcciones de errores en la experiencia de usuario:
-* Se corrige un bug que impedía ver correctamente la aplicación en inglés.
-* Se corrige un bug que interfería con la captura de pantalla de rayoAI.
-* Se corrige un bug en la versión de play store.
-* Se mejora el enfoque facial añadiendo 2 modos.
-1. desactivado (por defecto).
-2. Activo.
-3. Activo con captura de foto automática. Es decir, cuando el modelo identifique el rostro centrado, lanzará la fotografía.
-Nota: en caso de tener el temporizador en la opción 3, este se desactivará.
-
-Gracias a todos los testers que están reportando bugs, haciendo sugerencias y aportando ideas para que rayoAI sea cada vez mejor.
+- Se corrigen errorres con el actualizador.
