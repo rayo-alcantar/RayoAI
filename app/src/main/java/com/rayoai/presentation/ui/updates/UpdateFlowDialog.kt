@@ -1,6 +1,10 @@
 package com.rayoai.presentation.ui.updates
 
+import android.app.DownloadManager
+import android.content.BroadcastReceiver
+import android.content.Context
 import android.content.Intent
+import android.content.IntentFilter
 import android.net.Uri
 import android.os.Build
 import android.provider.Settings
@@ -28,6 +32,7 @@ import androidx.compose.ui.platform.LocalLifecycleOwner
 import androidx.compose.ui.text.AnnotatedString
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.unit.dp
+import androidx.core.content.ContextCompat
 import androidx.hilt.navigation.compose.hiltViewModel
 import androidx.lifecycle.Lifecycle
 import androidx.lifecycle.LifecycleEventObserver
@@ -53,6 +58,32 @@ fun UpdateFlowDialog() {
         }
         lifecycleOwner.lifecycle.addObserver(observer)
         onDispose { lifecycleOwner.lifecycle.removeObserver(observer) }
+    }
+
+    DisposableEffect(context, uiState.isDownloading) {
+        if (!uiState.isDownloading) {
+            onDispose { }
+        } else {
+            val appContext = context.applicationContext
+            val foregroundContext = context
+            val receiver = object : BroadcastReceiver() {
+                override fun onReceive(context: Context, intent: Intent) {
+                    if (intent.action != DownloadManager.ACTION_DOWNLOAD_COMPLETE) return
+                    val downloadId = intent.getLongExtra(DownloadManager.EXTRA_DOWNLOAD_ID, -1L)
+                    maybeStartCompletedDownloadInstall(foregroundContext, downloadId, canInstall)
+                    viewModel.onDownloadComplete(context, downloadId)
+                }
+            }
+            ContextCompat.registerReceiver(
+                appContext,
+                receiver,
+                IntentFilter(DownloadManager.ACTION_DOWNLOAD_COMPLETE),
+                ContextCompat.RECEIVER_NOT_EXPORTED
+            )
+            onDispose {
+                runCatching { appContext.unregisterReceiver(receiver) }
+            }
+        }
     }
 
     uiState.error?.let { error ->
@@ -150,4 +181,24 @@ private fun openUnknownSourcesSettings(context: android.content.Context) {
         Uri.parse("package:${context.packageName}")
     ).addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
     context.startActivity(intent)
+}
+
+private fun maybeStartCompletedDownloadInstall(
+    context: android.content.Context,
+    downloadId: Long,
+    canInstall: Boolean
+): Boolean {
+    if (!canInstall) return false
+    val downloadManager = context.getSystemService(DownloadManager::class.java)
+    val query = DownloadManager.Query().setFilterById(downloadId)
+    val successful = downloadManager.query(query).use { cursor ->
+        if (!cursor.moveToFirst()) return false
+        val statusIndex = cursor.getColumnIndex(DownloadManager.COLUMN_STATUS)
+        if (statusIndex < 0) return false
+        cursor.getInt(statusIndex) == DownloadManager.STATUS_SUCCESSFUL
+    }
+    if (!successful) return false
+    val apkUri = downloadManager.getUriForDownloadedFile(downloadId) ?: return false
+    val installIntent = UpdateInstaller.buildInstallIntent(context, apkUri)
+    return runCatching { context.startActivity(installIntent) }.isSuccess
 }

@@ -1,6 +1,7 @@
 package com.rayoai.presentation.ui.updates
 
 import android.content.Context
+import android.app.DownloadManager
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.rayoai.BuildConfig
@@ -92,8 +93,53 @@ class UpdateCheckViewModel @Inject constructor(
         if (!BuildConfig.GITHUB_UPDATES_ENABLED) return
         val updateInfo = _uiState.value.updateAvailable ?: return
         if (_uiState.value.isDownloading) return
-        UpdateInstaller.downloadUpdate(context, updateInfo, updatePreferences)
-        _uiState.update { it.copy(isDownloading = true) }
+        runCatching {
+            UpdateInstaller.downloadUpdate(context, updateInfo, updatePreferences)
+        }.onSuccess {
+            _uiState.update { it.copy(isDownloading = true, error = null) }
+        }.onFailure { throwable ->
+            _uiState.update {
+                it.copy(
+                    isDownloading = false,
+                    error = UpdateError(
+                        title = "Error al descargar la actualización",
+                        details = throwable.toString()
+                    )
+                )
+            }
+        }
+    }
+
+    fun onDownloadComplete(context: Context, downloadId: Long) {
+        val pending = updatePreferences.getPendingUpdate() ?: return
+        if (pending.downloadId != downloadId) return
+
+        val downloadManager = context.getSystemService(DownloadManager::class.java)
+        val query = DownloadManager.Query().setFilterById(downloadId)
+        downloadManager.query(query).use { cursor ->
+            if (!cursor.moveToFirst()) return
+            val statusIndex = cursor.getColumnIndex(DownloadManager.COLUMN_STATUS)
+            if (statusIndex < 0) return
+
+            when (cursor.getInt(statusIndex)) {
+                DownloadManager.STATUS_SUCCESSFUL -> {
+                    _uiState.update { it.copy(updateAvailable = null, isDownloading = false) }
+                }
+                DownloadManager.STATUS_FAILED -> {
+                    val reason = cursor.getColumnValue(DownloadManager.COLUMN_REASON)
+                    updatePreferences.clearPendingUpdate()
+                    _uiState.update {
+                        it.copy(
+                            isDownloading = false,
+                            error = UpdateError(
+                                title = "Error al descargar la actualización",
+                                details = "DownloadManager falló. Código de razón: ${reason ?: "desconocido"}"
+                            )
+                        )
+                    }
+                }
+            }
+        }
     }
 
     fun dismissUpdate() {
@@ -127,5 +173,10 @@ class UpdateCheckViewModel @Inject constructor(
             else -> throwable.toString()
         }
         return UpdateError(title = title, details = details.ifBlank { throwable.toString() })
+    }
+
+    private fun android.database.Cursor.getColumnValue(columnName: String): Int? {
+        val index = getColumnIndex(columnName)
+        return if (index >= 0) getInt(index) else null
     }
 }
