@@ -312,7 +312,7 @@ class RayoAccessibilityService : AccessibilityService() {
 
     private fun openCaptureResult(captureId: Long, description: String) {
         val intent = Intent(this, AccessibilityCaptureResultActivity::class.java).apply {
-            flags = Intent.FLAG_ACTIVITY_NEW_TASK
+            flags = Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_CLEAR_TASK
             putExtra(AccessibilityCaptureResultActivity.EXTRA_CAPTURE_ID, captureId)
             putExtra(AccessibilityCaptureResultActivity.EXTRA_DESCRIPTION, description)
         }
@@ -321,7 +321,7 @@ class RayoAccessibilityService : AccessibilityService() {
 
     private fun openCaptureModeChooser() {
         val intent = Intent(this, AccessibilityCaptureModeActivity::class.java).apply {
-            flags = Intent.FLAG_ACTIVITY_NEW_TASK
+            flags = Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_CLEAR_TASK
         }
         startActivity(intent)
     }

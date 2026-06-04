@@ -37,12 +37,15 @@
             android:excludeFromRecents="true"
             android:exported="false"
             android:label="@string/accessibility_capture_result_title"
+            android:taskAffinity="${applicationId}.accessibility"
             android:theme="@style/Theme.RayoAI.Dialog" />
         <activity
             android:name=".presentation.ui.AccessibilityCaptureModeActivity"
             android:excludeFromRecents="true"
             android:exported="false"
             android:label="@string/accessibility_capture_mode_title"
+            android:noHistory="true"
+            android:taskAffinity="${applicationId}.accessibility"
             android:theme="@style/Theme.RayoAI.Dialog" />
         <activity
             android:name=".presentation.SharingActivity"

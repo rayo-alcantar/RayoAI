@@ -1,39 +1,14 @@
-RayoAI - Versión 3.3.1
+RayoAI - Versión 3.3.2
 
 NOTAS DE PUBLICACIÓN
+Esta actualización realiza correcciones de errores en la experiencia de usuario:
+* Se corrige un bug que impedía ver correctamente la aplicación en inglés.
+* Se corrige un bug que interfería con la captura de pantalla de rayoAI.
+* Se corrige un bug en la versión de play store.
+* Se mejora el enfoque facial añadiendo 2 modos.
+1. desactivado (por defecto).
+2. Activo.
+3. Activo con captura de foto automática. Es decir, cuando el modelo identifique el rostro centrado, lanzará la fotografía.
+Nota: en caso de tener el temporizador en la opción 3, este se desactivará.
 
-Esta actualización mejora de forma importante la experiencia de accesibilidad, la captura rápida, el análisis de documentos PDF, el chat y las herramientas de apoyo visual. También incluye ajustes de compatibilidad para Google Play y una preparación general para distribución pública.
-
-NOVEDADES PRINCIPALES
-
-Captura rápida con accesibilidad
-RayoAI ahora puede describir cualquier pantalla usando el servicio de accesibilidad. La captura se puede iniciar con el atajo de volumen (pulsar 2 veces las teclas de volúmen) o desde el botón de accesibilidad, y la descripción se muestra primero en una ventana ligera antes de abrir el chat completo.
-Para activar esto debemos habilitar los ajustes restringidos. Esto varía en cada dispositivo, pero lo habitual es ir a ajustes del teléfono > aplicaciones > rayoAI > más opciones > habilitar ajustes restringidos.
-posteriormente, entrar a los ajustes de rayoAI, dirigirnos a accesibilidad y actualizaciones, activar la casilla, y habilitar el servicio de accesibilidad.
-
-También se agregó una opción para elegir qué describir: la pantalla completa o el elemento que tiene el foco. Esto permite obtener respuestas más precisas cuando solo interesa un botón, un campo, una tarjeta o una parte concreta de la interfaz.
-
-Asistencia de enfoque en la cámara
-Se incorporó detección facial para ayudar a encuadrar mejor a una persona antes de tomar una foto. Esta función ayuda a confirmar si hay un rostro en la imagen y mejora la experiencia al capturar contenido visual para describirlo con RayoAI.
-Detector de luz
-Se añadió en la sección herramientas un detector de luz.
-Al activarlo, recibirás retroalimentación audible, por tts y por bibraciones para conocer el estado de la iluminación en el punto en el que te encuentres.
-Mejoras en documentos PDF
-El flujo de escaneo y lectura de PDF fue ampliado con una presentación más clara de los resultados, historial de documentos procesados y acciones para guardar, compartir o eliminar documentos. También se agregó chat sobre PDF, para hacer preguntas y continuar conversando sobre el contenido del documento procesado.
-
-Entrada de voz para el chat
-Ahora es posible grabar voz para escribir mensajes en el chat. RayoAI transcribe el audio y lo usa como entrada, lo que facilita conversar con la aplicación sin depender siempre del teclado.
-
-AJUSTES Y EXPERIENCIA
-La pantalla de ajustes fue reorganizada en secciones más claras para separar configuración de Gemini, modelo, apariencia, accesibilidad, actualizaciones y preferencias. Esto hace más fácil encontrar las opciones importantes y reduce la carga al navegar con lector de pantalla.
-
-Se mejoró el flujo de activación de la captura rápida, incluyendo instrucciones más claras para dispositivos Android que bloquean los ajustes restringidos. Esto ayuda a completar la configuración del servicio de accesibilidad cuando el sistema requiere pasos adicionales.
-
-Se corrigieron problemas visuales relacionados con banners y se ajustaron textos para que la interfaz sea más comprensible.actualizó el 
-También se mantienen configuraciones separadas para distribución por Google Play y GitHub, facilitando publicar versiones adecuadas para cada canal.
-
-CORRECCIONES
-Se corrigieron detalles del botón de accesibilidad para que la interacción sea más clara y consistente.
-Se ajustó la captura rápida para evitar abrir toda la aplicación de inmediato cuando la descripción ya puede mostrarse en una ventana de resultado.
-Se corrigieron textos, nombres y mensajes relacionados con accesibilidad, enfoque, actualizaciones y configuración.
-Se realizaron mejoras internas para guardar y presentar mejor los resultados de PDF, capturas y conversaciones.
+Gracias a todos los testers que están reportando bugs, haciendo sugerencias y aportando ideas para que rayoAI sea cada vez mejor.
