@@ -246,7 +246,9 @@ class VideoRepositoryImpl @Inject constructor(
         val preferredModel = userPreferencesRepository.defaultModel.firstOrNull()
             ?.ifBlank { GeminiModelConfig.DEFAULT_MODEL }
             ?: GeminiModelConfig.DEFAULT_MODEL
-        val models = (listOf(preferredModel) + GeminiModelConfig.fallbackOrder).distinct()
+        val models = (VIDEO_MODEL_FALLBACK_ORDER + preferredModel)
+            .filter { it.isNotBlank() }
+            .distinct()
         var lastError = context.getString(R.string.scan_pdf_unknown_error)
 
         for (model in models) {
@@ -467,6 +469,13 @@ class VideoRepositoryImpl @Inject constructor(
         private const val MAX_VIDEO_BYTES = 550L * 1024L * 1024L
         private const val MAX_PROCESSING_ATTEMPTS = 240
         private const val SPECULATIVE_ATTEMPT = 120
+        private val VIDEO_MODEL_FALLBACK_ORDER = listOf(
+            "gemini-3.1-pro-preview",
+            "gemini-2.5-pro",
+            "gemini-3-flash-preview",
+            "gemini-2.5-flash",
+            GeminiModelConfig.DEFAULT_MODEL
+        )
         private val TOKEN_REGEX = Regex("""name=["']_token["']\s+value=["']([^"']+)["']""")
         private val MP4_REGEX = Regex("""href=["']([^"']+\.mp4[^"']*)["']|["'](https?://[^"']+\.mp4[^"']*)["']""", RegexOption.IGNORE_CASE)
         private val ESCAPED_MP4_REGEX = Regex("""(https?:\\?/\\?/[^"'\\]+\.mp4[^"']*)""", RegexOption.IGNORE_CASE)
