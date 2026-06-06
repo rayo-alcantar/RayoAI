@@ -31,6 +31,8 @@ class MainActivity : ComponentActivity() {
 
     companion object {
         const val EXTRA_CAPTURE_ID = "com.rayoai.extra.CAPTURE_ID"
+        const val EXTRA_VIDEO_ID = "com.rayoai.extra.VIDEO_ID"
+        const val EXTRA_VIDEO_URL = "com.rayoai.extra.VIDEO_URL"
     }
 
     @Inject
@@ -73,6 +75,7 @@ class MainActivity : ComponentActivity() {
         // Obtener URIs de manera segura usando la función helper compatible
         val isPdf = intent?.getBooleanExtra("EXTRA_IS_PDF", false) == true
         val isVideo = intent?.getBooleanExtra("EXTRA_IS_VIDEO", false) == true
+        val isVideoUrl = intent?.getBooleanExtra("EXTRA_IS_VIDEO_URL", false) == true
         
         val imageUri: Uri? = if (isPdf || isVideo) null 
             else intent?.getParcelableExtraCompat(Intent.EXTRA_STREAM)
@@ -83,6 +86,8 @@ class MainActivity : ComponentActivity() {
         val videoUri: Uri? = if (isVideo) 
             intent?.getParcelableExtraCompat(Intent.EXTRA_STREAM) else null
         val captureId = intent?.getLongExtra(EXTRA_CAPTURE_ID, -1L)?.takeIf { it > 0L }
+        val videoId = intent?.getLongExtra(EXTRA_VIDEO_ID, -1L)?.takeIf { it > 0L }
+        val videoUrl = if (isVideoUrl) intent?.getStringExtra(EXTRA_VIDEO_URL) else null
 
         setContent {
             val tts = remember { textToSpeech }
@@ -98,6 +103,8 @@ class MainActivity : ComponentActivity() {
                             Screen.Welcome.route
                         } else if (captureId != null) {
                             Screen.Home.createRoute(captureId)
+                        } else if (videoId != null || videoUrl != null) {
+                            Screen.Tools.route
                         } else {
                             Screen.Home.route
                         }
@@ -105,7 +112,9 @@ class MainActivity : ComponentActivity() {
                             imageUri = imageUri, 
                             startDestination = startDestination, 
                             pdfUri = pdfUri,
-                            videoUri = videoUri
+                            videoUri = videoUri,
+                            videoUrl = videoUrl,
+                            openVideoId = videoId
                         )
                     }
                 }

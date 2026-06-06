@@ -50,6 +50,6 @@ data class UploadedFile(
  * Para usar archivos subidos en generateContent.
  */
 data class FileDataDto(
-    @SerializedName("mime_type") val mimeType: String,
+    @SerializedName("mime_type") val mimeType: String? = null,
     @SerializedName("file_uri") val fileUri: String
 )

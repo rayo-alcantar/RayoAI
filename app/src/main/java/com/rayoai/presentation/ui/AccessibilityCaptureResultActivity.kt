@@ -43,19 +43,20 @@ class AccessibilityCaptureResultActivity : ComponentActivity() {
         setFinishOnTouchOutside(false)
 
         val captureId = intent.getLongExtra(EXTRA_CAPTURE_ID, -1L).takeIf { it > 0L }
+        val videoId = intent.getLongExtra(EXTRA_VIDEO_ID, -1L).takeIf { it > 0L }
         val description = intent.getStringExtra(EXTRA_DESCRIPTION).orEmpty()
+        val titleOverride = intent.getStringExtra(EXTRA_TITLE)
 
         setContent {
             RayoAITheme {
                 Surface(color = MaterialTheme.colorScheme.background) {
                     AccessibilityCaptureResultDialog(
+                        titleOverride = titleOverride,
                         description = description,
-                        canOpenCapture = captureId != null,
+                        canOpenCapture = captureId != null || videoId != null,
                         onDismiss = { finish() },
                         onOpenCapture = {
-                            if (captureId != null) {
-                                openMainActivity(captureId)
-                            }
+                            openMainActivity(captureId, videoId)
                         }
                     )
                 }
@@ -63,10 +64,11 @@ class AccessibilityCaptureResultActivity : ComponentActivity() {
         }
     }
 
-    private fun openMainActivity(captureId: Long) {
+    private fun openMainActivity(captureId: Long?, videoId: Long?) {
         val intent = Intent(this, MainActivity::class.java).apply {
             flags = Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_CLEAR_TASK
-            putExtra(MainActivity.EXTRA_CAPTURE_ID, captureId)
+            captureId?.let { putExtra(MainActivity.EXTRA_CAPTURE_ID, it) }
+            videoId?.let { putExtra(MainActivity.EXTRA_VIDEO_ID, it) }
         }
         startActivity(intent)
         finish()
@@ -74,12 +76,15 @@ class AccessibilityCaptureResultActivity : ComponentActivity() {
 
     companion object {
         const val EXTRA_CAPTURE_ID = "com.rayoai.extra.ACCESSIBILITY_CAPTURE_ID"
+        const val EXTRA_VIDEO_ID = "com.rayoai.extra.ACCESSIBILITY_VIDEO_ID"
         const val EXTRA_DESCRIPTION = "com.rayoai.extra.ACCESSIBILITY_DESCRIPTION"
+        const val EXTRA_TITLE = "com.rayoai.extra.ACCESSIBILITY_TITLE"
     }
 }
 
 @Composable
 private fun AccessibilityCaptureResultDialog(
+    titleOverride: String?,
     description: String,
     canOpenCapture: Boolean,
     onDismiss: () -> Unit,
@@ -87,7 +92,7 @@ private fun AccessibilityCaptureResultDialog(
 ) {
     val context = LocalContext.current
     val view = LocalView.current
-    val title = stringResource(R.string.accessibility_capture_result_title)
+    val title = titleOverride ?: stringResource(R.string.accessibility_capture_result_title)
     val closeLabel = stringResource(R.string.accessibility_capture_result_close)
     val openLabel = stringResource(R.string.accessibility_capture_result_open)
     val fallbackDescription = stringResource(R.string.accessibility_capture_result_empty)

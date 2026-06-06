@@ -134,10 +134,15 @@ object AppModule {
     fun provideOkHttpClient(): OkHttpClient {
         return OkHttpClient.Builder()
             .addInterceptor { chain ->
-                val request = chain.request().newBuilder()
-                    .header("User-Agent", "RayoAI")
-                    .header("Accept", "application/vnd.github+json")
-                    .build()
+                val original = chain.request()
+                val builder = original.newBuilder()
+                if (original.header("User-Agent").isNullOrBlank()) {
+                    builder.header("User-Agent", "RayoAI")
+                }
+                if (original.url.host == "api.github.com") {
+                    builder.header("Accept", "application/vnd.github+json")
+                }
+                val request = builder.build()
                 chain.proceed(request)
             }
             .build()

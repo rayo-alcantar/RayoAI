@@ -26,18 +26,13 @@ import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.LazyColumn
-import androidx.compose.foundation.lazy.items
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.filled.Delete
 import androidx.compose.material.icons.filled.LightMode
 import androidx.compose.material.icons.filled.PictureAsPdf
 import androidx.compose.material.icons.filled.VideoLibrary
-import androidx.compose.material3.AlertDialog
-import androidx.compose.material3.Button
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.Icon
-import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Text
@@ -45,7 +40,6 @@ import androidx.compose.material3.TopAppBar
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.LaunchedEffect
-import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
@@ -62,13 +56,8 @@ import androidx.compose.ui.semantics.role
 import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.semantics.stateDescription
 import androidx.compose.ui.unit.dp
-import androidx.hilt.navigation.compose.hiltViewModel
 import com.rayoai.R
-import com.rayoai.domain.model.VideoDocument
 import kotlinx.coroutines.delay
-import java.text.SimpleDateFormat
-import java.util.Date
-import java.util.Locale
 import kotlin.math.PI
 import kotlin.math.ln
 import kotlin.math.sin
@@ -339,38 +328,13 @@ private fun Context.appVibrator(): Vibrator {
 @Composable
 fun ToolsScreen(
     onScanPdf: () -> Unit,
-    onScanVideo: () -> Unit,
-    onOpenVideo: (VideoDocument) -> Unit,
-    viewModel: ToolsViewModel = hiltViewModel()
+    onScanVideo: () -> Unit
 ) {
-    val videoDocs by viewModel.videoDocuments.collectAsState()
-    var videoToDelete by remember { mutableStateOf<VideoDocument?>(null) }
-    val deleteVideoTitle = stringResource(R.string.video_delete_confirm_title)
-    val deleteVideoText = stringResource(R.string.video_delete_confirm_text)
-    val deleteText = stringResource(R.string.delete)
-    val cancelText = stringResource(R.string.cancel)
     val toolsTitle = stringResource(R.string.tools_title)
     val scanPdfText = stringResource(R.string.tool_scan_pdf)
     val scanPdfDescription = stringResource(R.string.tool_scan_pdf_description)
     val scanVideoText = stringResource(R.string.scan_video)
     val scanVideoDescription = stringResource(R.string.tool_scan_video_description)
-
-    if (videoToDelete != null) {
-        AlertDialog(
-            onDismissRequest = { videoToDelete = null },
-            title = { Text(text = deleteVideoTitle) },
-            text = { Text(text = deleteVideoText) },
-            confirmButton = {
-                Button(onClick = {
-                    videoToDelete?.let { viewModel.deleteVideo(it) }
-                    videoToDelete = null
-                }) { Text(text = deleteText) }
-            },
-            dismissButton = {
-                Button(onClick = { videoToDelete = null }) { Text(text = cancelText) }
-            }
-        )
-    }
 
     Scaffold(
         topBar = { TopAppBar(title = { Text(text = toolsTitle) }) }
@@ -430,32 +394,6 @@ fun ToolsScreen(
                 }
             }
 
-            items(videoDocs) { video ->
-                Card(
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .clickable { onOpenVideo(video) }
-                ) {
-                    Column(Modifier.padding(16.dp)) {
-                        Text(text = video.name, style = MaterialTheme.typography.titleMedium)
-                        Text(
-                            text = SimpleDateFormat(
-                                "dd/MM/yyyy HH:mm",
-                                Locale.getDefault()
-                            ).format(Date(video.timestamp)),
-                            style = MaterialTheme.typography.bodySmall
-                        )
-                        val sizeMB = video.sizeBytes / (1024 * 1024)
-                        Text(
-                            text = stringResource(R.string.video_size, sizeMB),
-                            style = MaterialTheme.typography.bodySmall
-                        )
-                        IconButton(onClick = { videoToDelete = video }) {
-                            Icon(Icons.Filled.Delete, contentDescription = deleteVideoTitle)
-                        }
-                    }
-                }
-            }
         }
     }
 }

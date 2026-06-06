@@ -81,6 +81,17 @@ class SharingActivity : ComponentActivity() {
                                 startActivity(mainIntent)
                             }
                         }
+                        type == "text/plain" -> {
+                            intent.getStringExtra(Intent.EXTRA_TEXT)?.let { sharedText ->
+                                val mainIntent = Intent(this, MainActivity::class.java).apply {
+                                    action = Intent.ACTION_SEND
+                                    putExtra(MainActivity.EXTRA_VIDEO_URL, sharedText)
+                                    putExtra("EXTRA_IS_VIDEO_URL", true)
+                                    addFlags(Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_CLEAR_TASK)
+                                }
+                                startActivity(mainIntent)
+                            }
+                        }
                     }
                 }
             }

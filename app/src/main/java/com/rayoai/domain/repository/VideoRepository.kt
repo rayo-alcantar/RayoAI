@@ -3,6 +3,7 @@ package com.rayoai.domain.repository
 import android.content.Context
 import android.net.Uri
 import com.rayoai.core.ResultWrapper
+import com.rayoai.domain.model.VideoAnalysisResult
 
 /**
  * Repositorio para operaciones relacionadas con videos.
@@ -23,4 +24,13 @@ interface VideoRepository {
         context: Context,
         systemPrompt: String
     ): ResultWrapper<String>
+
+    suspend fun analyzeVideoFromUrl(
+        url: String,
+        context: Context,
+        systemPrompt: String,
+        onStatus: (String) -> Unit = {}
+    ): ResultWrapper<VideoAnalysisResult>
+
+    fun isSupportedVideoUrl(url: String): Boolean
 }

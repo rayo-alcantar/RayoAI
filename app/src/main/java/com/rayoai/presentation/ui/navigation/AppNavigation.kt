@@ -89,13 +89,21 @@ private fun NavDestination?.isSameRouteAs(baseRoute: String): Boolean {
 }
 
 @Composable
-fun AppNavigation(imageUri: Uri?, startDestination: String, pdfUri: Uri? = null, videoUri: Uri? = null) {
+fun AppNavigation(
+    imageUri: Uri?,
+    startDestination: String,
+    pdfUri: Uri? = null,
+    videoUri: Uri? = null,
+    videoUrl: String? = null,
+    openVideoId: Long? = null
+) {
     val navController = rememberNavController()
     val navBackStackEntry by navController.currentBackStackEntryAsState()
     val currentDestination = navBackStackEntry?.destination
     val activity = (LocalContext.current as? Activity)
     var pendingPdfUri by remember { mutableStateOf<Uri?>(null) }
     var pendingVideoUri by remember { mutableStateOf<Uri?>(null) }
+    var pendingVideoUrl by remember { mutableStateOf<String?>(null) }
 
     if (BuildConfig.GITHUB_UPDATES_ENABLED) {
         UpdateFlowDialog()
@@ -114,6 +122,23 @@ fun AppNavigation(imageUri: Uri?, startDestination: String, pdfUri: Uri? = null,
         if (videoUri != null) {
             pendingVideoUri = videoUri
             navController.navigate(Screen.ScanVideo.route) {
+                launchSingleTop = true
+            }
+        }
+    }
+
+    LaunchedEffect(videoUrl) {
+        if (!videoUrl.isNullOrBlank()) {
+            pendingVideoUrl = videoUrl
+            navController.navigate(Screen.ScanVideo.route) {
+                launchSingleTop = true
+            }
+        }
+    }
+
+    LaunchedEffect(openVideoId) {
+        if (openVideoId != null) {
+            navController.navigate(Screen.ViewVideo.createRoute(openVideoId)) {
                 launchSingleTop = true
             }
         }
@@ -188,10 +213,7 @@ fun AppNavigation(imageUri: Uri?, startDestination: String, pdfUri: Uri? = null,
             composable(Screen.Tools.route) {
                 com.rayoai.presentation.ui.screens.tools.ToolsScreen(
                     onScanPdf = { navController.navigate(Screen.ScanPdf.route) },
-                    onScanVideo = { navController.navigate(Screen.ScanVideo.route) },
-                    onOpenVideo = { video ->
-                        navController.navigate(Screen.ViewVideo.createRoute(video.id))
-                    }
+                    onScanVideo = { navController.navigate(Screen.ScanVideo.route) }
                 )
             }
             composable(Screen.ScanPdf.route) {
@@ -228,8 +250,15 @@ fun AppNavigation(imageUri: Uri?, startDestination: String, pdfUri: Uri? = null,
             composable(Screen.ScanVideo.route) {
                 com.rayoai.presentation.ui.screens.tools.ScanVideoScreen(
                     incomingVideoUri = pendingVideoUri,
-                    onVideoConsumed = { pendingVideoUri = null },
-                    onNavigateBack = { navController.popBackStack() }
+                    incomingVideoUrl = pendingVideoUrl,
+                    onVideoConsumed = {
+                        pendingVideoUri = null
+                        pendingVideoUrl = null
+                    },
+                    onNavigateBack = { navController.popBackStack() },
+                    onOpenVideo = { video ->
+                        navController.navigate(Screen.ViewVideo.createRoute(video.id))
+                    }
                 )
             }
             composable(
