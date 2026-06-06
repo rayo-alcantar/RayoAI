@@ -62,7 +62,9 @@ class RayoAccessibilityService : AccessibilityService() {
     private val volumeSequenceTimes = ArrayDeque<Long>()
     private var accessibilityButtonCallback: AccessibilityButtonController.AccessibilityButtonCallback? = null
     private var lastAccessibilityFocusBounds: Rect? = null
+    private var lastAccessibilityFocusWindowId: Int = -1
     private var pendingFocusedElementBounds: Rect? = null
+    private var pendingFocusedElementWindowId: Int = -1
     private var captureModeReceiverRegistered = false
     private val captureModeReceiver = object : BroadcastReceiver() {
         override fun onReceive(context: Context?, intent: Intent?) {
@@ -83,7 +85,11 @@ class RayoAccessibilityService : AccessibilityService() {
 
     override fun onAccessibilityEvent(event: AccessibilityEvent?) {
         if (event?.eventType == AccessibilityEvent.TYPE_VIEW_ACCESSIBILITY_FOCUSED) {
-            lastAccessibilityFocusBounds = event.source?.extractVisibleBounds()
+            event.source?.let { node ->
+                lastAccessibilityFocusWindowId = node.windowId
+                lastAccessibilityFocusBounds = node.extractVisibleBounds()
+                // extractVisibleBounds recycles node
+            }
         }
     }
 
@@ -162,6 +168,7 @@ class RayoAccessibilityService : AccessibilityService() {
                 return@launch
             }
             pendingFocusedElementBounds = findAccessibilityFocusBounds()
+            pendingFocusedElementWindowId = lastAccessibilityFocusWindowId
             openCaptureModeChooser()
         }
     }
@@ -169,22 +176,27 @@ class RayoAccessibilityService : AccessibilityService() {
     private suspend fun handleCaptureMode(mode: String?, videoUrl: String?) {
         when (mode) {
             AccessibilityCaptureModeActivity.MODE_FULL_SCREEN -> {
+                val windowId = pendingFocusedElementWindowId
                 pendingFocusedElementBounds = null
+                pendingFocusedElementWindowId = -1
                 withContext(Dispatchers.Main) {
-                    captureAndDescribeScreen(null)
+                    captureAndDescribeScreen(null, windowId)
                 }
             }
             AccessibilityCaptureModeActivity.MODE_FOCUSED_ELEMENT -> {
                 val bounds = pendingFocusedElementBounds ?: findAccessibilityFocusBounds()
+                val windowId = if (pendingFocusedElementBounds != null) pendingFocusedElementWindowId else lastAccessibilityFocusWindowId
                 if (bounds == null) {
                     pendingFocusedElementBounds = null
+                    pendingFocusedElementWindowId = -1
                     isProcessing.set(false)
                     showToast(getString(R.string.accessibility_capture_no_focused_element))
                     return
                 }
-                pendingFocusedElementBounds = bounds
+                pendingFocusedElementBounds = null
+                pendingFocusedElementWindowId = -1
                 withContext(Dispatchers.Main) {
-                    captureAndDescribeScreen(bounds)
+                    captureAndDescribeScreen(bounds, windowId)
                 }
             }
             AccessibilityCaptureModeActivity.MODE_VIDEO_URL -> {
@@ -198,7 +210,7 @@ class RayoAccessibilityService : AccessibilityService() {
         }
     }
 
-    private fun captureAndDescribeScreen(focusedBounds: Rect?) {
+    private fun captureAndDescribeScreen(focusedBounds: Rect?, windowId: Int = -1) {
         if (Build.VERSION.SDK_INT < Build.VERSION_CODES.R) {
             isProcessing.set(false)
             showToast(getString(R.string.accessibility_capture_requires_android_11))
@@ -208,39 +220,55 @@ class RayoAccessibilityService : AccessibilityService() {
         serviceScope.launch captureLaunch@{
             delay(CAPTURE_CHOOSER_DISMISS_DELAY_MS)
             showToast(getString(R.string.accessibility_capture_starting))
-            takeScreenshot(
-                Display.DEFAULT_DISPLAY,
-                mainExecutor,
-                object : TakeScreenshotCallback {
-                    override fun onSuccess(screenshot: ScreenshotResult) {
-                        serviceScope.launch screenshotLaunch@{
-                            val bitmap = screenshot.toBitmapCopy()
-                            if (bitmap == null) {
+
+            val callback = object : TakeScreenshotCallback {
+                override fun onSuccess(screenshot: ScreenshotResult) {
+                    serviceScope.launch screenshotLaunch@{
+                        val bitmap = screenshot.toBitmapCopy()
+                        if (bitmap == null) {
+                            isProcessing.set(false)
+                            showToast(getString(R.string.accessibility_capture_failed))
+                            return@screenshotLaunch
+                        }
+                        val imageForDescription = if (focusedBounds != null) {
+                            val cropped = cropBitmapToBounds(bitmap, focusedBounds)
+                            if (cropped == null) {
                                 isProcessing.set(false)
-                                showToast(getString(R.string.accessibility_capture_failed))
+                                showToast(getString(R.string.accessibility_capture_invalid_focused_element))
                                 return@screenshotLaunch
                             }
-                            val imageForDescription = if (focusedBounds != null) {
-                                val cropped = cropBitmapToBounds(bitmap, focusedBounds)
-                                if (cropped == null) {
-                                    isProcessing.set(false)
-                                    showToast(getString(R.string.accessibility_capture_invalid_focused_element))
-                                    return@screenshotLaunch
-                                }
-                                cropped
-                            } else {
-                                bitmap
-                            }
-                            describeScreenshot(imageForDescription)
+                            cropped
+                        } else {
+                            bitmap
                         }
+                        describeScreenshot(imageForDescription)
+                    }
+                }
+
+                override fun onFailure(errorCode: Int) {
+                    isProcessing.set(false)
+                    showToast(screenshotErrorMessage(errorCode))
+                }
+            }
+
+            if (windowId != -1) {
+                takeScreenshotOfWindow(windowId, mainExecutor, object : TakeScreenshotCallback {
+                    override fun onSuccess(screenshot: ScreenshotResult) {
+                        callback.onSuccess(screenshot)
                     }
 
                     override fun onFailure(errorCode: Int) {
-                        isProcessing.set(false)
-                        showToast(screenshotErrorMessage(errorCode))
+                        // If capturing specific window fails, fallback to full display capture
+                        takeScreenshot(Display.DEFAULT_DISPLAY, mainExecutor, callback)
                     }
-                }
-            )
+                })
+            } else {
+                takeScreenshot(
+                    Display.DEFAULT_DISPLAY,
+                    mainExecutor,
+                    callback
+                )
+            }
         }
     }
 
@@ -399,9 +427,17 @@ class RayoAccessibilityService : AccessibilityService() {
 
     private fun findAccessibilityFocusBounds(): Rect? {
         return try {
-            findFocus(AccessibilityNodeInfo.FOCUS_ACCESSIBILITY)?.extractVisibleBounds()
-                ?: rootInActiveWindow?.findFocus(AccessibilityNodeInfo.FOCUS_ACCESSIBILITY)?.extractVisibleBounds()
-                ?: lastAccessibilityFocusBounds
+            val focusedNode = findFocus(AccessibilityNodeInfo.FOCUS_ACCESSIBILITY)
+                ?: rootInActiveWindow?.let { root ->
+                    val focus = root.findFocus(AccessibilityNodeInfo.FOCUS_ACCESSIBILITY)
+                    root.recycle()
+                    focus
+                }
+
+            focusedNode?.let { node ->
+                lastAccessibilityFocusWindowId = node.windowId
+                node.extractVisibleBounds()
+            } ?: lastAccessibilityFocusBounds
         } catch (_: Exception) {
             lastAccessibilityFocusBounds
         }
