@@ -1,4 +1,6 @@
-RayoAI - Versión 3.3.3
+RayoAI - Versión 3.3.4 (beta)
 
 NOTAS DE PUBLICACIÓN
-- Se corrigen errorres con el actualizador.
+- Se añade descripción de videos para twitter (experimental), tik tok (experimental), instagram (experimental) y para youtube. Puedes compartir el video desde las apps, menú de accesiblidad o en la app.
+- Se permite tomar campturas de pantalla aunque haya cortina oscura activa.
+- Se mejoran las descripciones de los videos.

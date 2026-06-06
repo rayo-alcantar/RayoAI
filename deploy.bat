@@ -11,47 +11,72 @@ set "REPO=%REPO_OWNER%/%REPO_NAME%"
 set "APK_PATH=C:\Users\angel_hmv3h04\Documents\git\RayoAI\app\build\outputs\apk\github\release\app-github-release.apk"
 set "NOTES_FILE=release-notes.txt"
 
-where gh >nul 2>&1 || (echo ERROR: gh no esta en PATH.& exit /b 1)
+where gh >nul 2>&1 || (
+    echo ERROR: gh no esta en PATH.
+    exit /b 1
+)
 
 if not exist "%APK_PATH%" (
-  echo ERROR: APK no encontrado.
-  exit /b 1
+    echo ERROR: APK no encontrado.
+    exit /b 1
 )
 
 if not exist "%NOTES_FILE%" (
-  echo ERROR: release-notes.txt no encontrado.
-  exit /b 1
+    echo ERROR: release-notes.txt no encontrado.
+    exit /b 1
 )
 
 REM =====================================
 REM Inputs
 REM =====================================
-set /p VERSION=Version (ej: 2026.2.13): 
+set /p VERSION=Version ^(ej: 2026.2.13^): 
 if "%VERSION%"=="" exit /b 1
 
-set /p CHANNEL=Canal (s=stable, b=beta): 
+set /p CHANNEL=Canal ^(s=stable, b=beta^): 
+
 if /I "%CHANNEL%"=="s" (
-  set "CHANNEL_NAME=stable"
+    set "CHANNEL_NAME=stable"
+    set "RELEASE_FLAG="
 ) else if /I "%CHANNEL%"=="b" (
-  set "CHANNEL_NAME=beta"
+    set "CHANNEL_NAME=beta"
+    set "RELEASE_FLAG=--prerelease"
 ) else (
-  echo Canal invalido.
-  exit /b 1
+    echo Canal invalido.
+    exit /b 1
 )
 
 set "TAG=%VERSION%-%CHANNEL_NAME%"
 
 REM =====================================
-REM Crear release en repo publico
+REM Crear o actualizar release en repo publico
 REM =====================================
 gh release view "%TAG%" --repo "%REPO%" >nul 2>&1
+
 if errorlevel 1 (
-  gh release create "%TAG%" "%APK_PATH%" --repo "%REPO%" --title "%TAG%" --notes-file "%NOTES_FILE%"
+    gh release create "%TAG%" ^
+        "%APK_PATH%" ^
+        --repo "%REPO%" ^
+        --title "%TAG%" ^
+        --notes-file "%NOTES_FILE%" ^
+        %RELEASE_FLAG%
 ) else (
-  gh release upload "%TAG%" "%APK_PATH%" --repo "%REPO%" --clobber
+    gh release upload "%TAG%" "%APK_PATH%" --repo "%REPO%" --clobber
+
+    if /I "%CHANNEL%"=="b" (
+        gh release edit "%TAG%" --repo "%REPO%" --prerelease
+    ) else (
+        gh release edit "%TAG%" --repo "%REPO%" --latest
+    )
 )
 
 echo.
 echo Release publicada: %TAG%
+
+if /I "%CHANNEL%"=="b" (
+    echo Canal: beta / prerelease
+) else (
+    echo Canal: stable
+)
+
 pause
 endlocal
