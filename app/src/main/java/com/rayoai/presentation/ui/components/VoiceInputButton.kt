@@ -24,9 +24,7 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.stringResource
-import androidx.compose.ui.semantics.LiveRegionMode
 import androidx.compose.ui.semantics.contentDescription
-import androidx.compose.ui.semantics.liveRegion
 import androidx.compose.ui.semantics.semantics
 import androidx.core.content.ContextCompat
 import com.rayoai.R
@@ -115,7 +113,6 @@ fun VoiceInputButton(
         enabled = enabled && !isTranscribingAudio,
         modifier = modifier.semantics {
             contentDescription = label
-            liveRegion = LiveRegionMode.Assertive
         }
     ) {
         Icon(
