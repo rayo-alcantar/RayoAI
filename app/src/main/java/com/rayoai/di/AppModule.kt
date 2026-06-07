@@ -33,6 +33,7 @@ import dagger.hilt.components.SingletonComponent
 import okhttp3.OkHttpClient
 import retrofit2.Retrofit
 import retrofit2.converter.gson.GsonConverterFactory
+import java.util.concurrent.TimeUnit
 import javax.inject.Qualifier
 import javax.inject.Singleton
 
@@ -133,6 +134,9 @@ object AppModule {
     @Singleton
     fun provideOkHttpClient(): OkHttpClient {
         return OkHttpClient.Builder()
+            .connectTimeout(30, TimeUnit.SECONDS)
+            .readTimeout(10, TimeUnit.MINUTES)
+            .writeTimeout(10, TimeUnit.MINUTES)
             .addInterceptor { chain ->
                 val original = chain.request()
                 val builder = original.newBuilder()
@@ -174,9 +178,10 @@ object AppModule {
     @Provides
     @Singleton
     @GeminiRetrofit
-    fun provideGeminiRetrofit(): Retrofit {
+    fun provideGeminiRetrofit(client: OkHttpClient): Retrofit {
         return Retrofit.Builder()
             .baseUrl("https://generativelanguage.googleapis.com/")
+            .client(client)
             .addConverterFactory(GsonConverterFactory.create())
             .build()
     }

@@ -1,6 +1,4 @@
-RayoAI - Versión 3.3.4 (beta)
+RayoAI - Versión 3.3.5 (beta)
 
 NOTAS DE PUBLICACIÓN
-- Se añade descripción de videos para twitter (experimental), tik tok (experimental), instagram (experimental) y para youtube. Puedes compartir el video desde las apps, menú de accesiblidad o en la app.
-- Se permite tomar campturas de pantalla aunque haya cortina oscura activa.
-- Se mejoran las descripciones de los videos.
+- Se corrige error crítico en android 14 o inferior al tomar captura de pantalla.

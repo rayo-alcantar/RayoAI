@@ -251,7 +251,7 @@ class RayoAccessibilityService : AccessibilityService() {
                 }
             }
 
-            if (windowId != -1) {
+            if (windowId != -1 && Build.VERSION.SDK_INT >= Build.VERSION_CODES.UPSIDE_DOWN_CAKE) {
                 takeScreenshotOfWindow(windowId, mainExecutor, object : TakeScreenshotCallback {
                     override fun onSuccess(screenshot: ScreenshotResult) {
                         callback.onSuccess(screenshot)
