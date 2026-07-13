@@ -93,7 +93,10 @@ fun HomeScreen(
     viewModel: HomeViewModel = hiltViewModel(),
     navController: NavController,
     imageUri: Uri? = null,
-    captureId: Long? = null
+    captureId: Long? = null,
+    sharedImageUris: List<Uri> = emptyList(),
+    onSharedImagesConsumed: () -> Unit = {},
+    onImageConsumed: () -> Unit = {}
 ) {
     val uiState by viewModel.uiState.collectAsState()
     val context = LocalContext.current
@@ -127,7 +130,27 @@ fun HomeScreen(
                 null
             }
             bitmap?.let { img -> viewModel.describeImage(img) }
+            onImageConsumed()
         }
+    }
+
+    LaunchedEffect(sharedImageUris) {
+        if (sharedImageUris.size != 2) return@LaunchedEffect
+        val firstImageUri = sharedImageUris.first()
+        val bitmap = try {
+            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.P) {
+                ImageDecoder.decodeBitmap(ImageDecoder.createSource(context.contentResolver, firstImageUri))
+            } else {
+                @Suppress("DEPRECATION")
+                MediaStore.Images.Media.getBitmap(context.contentResolver, firstImageUri)
+            }
+        } catch (e: Exception) {
+            Log.e("HomeScreen", "Error loading paired shared images", e)
+            viewModel.setError(context.getString(R.string.error_loading_shared_image))
+            null
+        }
+        bitmap?.let { viewModel.describeImage(it, firstImageUri, sharedImageUris) }
+        onSharedImagesConsumed()
     }
 
     val cameraPermissionState = rememberPermissionState(Manifest.permission.CAMERA)

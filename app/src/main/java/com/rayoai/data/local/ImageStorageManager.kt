@@ -16,6 +16,7 @@ import javax.inject.Inject
 import javax.inject.Singleton
 
 import android.graphics.ImageDecoder
+import android.util.Size
 import android.util.Log
 
 /**
@@ -26,6 +27,52 @@ import android.util.Log
 class ImageStorageManager @Inject constructor(
     @ApplicationContext private val context: Context
 ) {
+
+    /**
+     * Importa una imagen compartida a la zona privada de RayoAI antes de que el
+     * permiso temporal del proveedor de origen desaparezca. La imagen se vuelve
+     * a codificar con un tamaño acotado para no conservar ni enviar un original
+     * desproporcionadamente grande al modelo.
+     */
+    fun importSharedImage(uri: Uri): Uri? {
+        val mimeType = context.contentResolver.getType(uri)
+        if (mimeType != null && !mimeType.startsWith("image/")) {
+            Log.w("ImageStorageManager", "Rejected shared content with non-image MIME type")
+            return null
+        }
+
+        val bitmap = decodeBitmapForProcessing(uri) ?: return null
+        return saveBitmapAndGetUri(bitmap)
+    }
+
+    private fun decodeBitmapForProcessing(uri: Uri): Bitmap? {
+        return try {
+            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.P) {
+                ImageDecoder.decodeBitmap(ImageDecoder.createSource(context.contentResolver, uri)) { decoder, info, _ ->
+                    val sourceSize = info.size
+                    val targetSize = scaledSize(sourceSize, MAX_PROCESSING_IMAGE_SIDE)
+                    decoder.setTargetSize(targetSize.width, targetSize.height)
+                    decoder.allocator = ImageDecoder.ALLOCATOR_SOFTWARE
+                }
+            } else {
+                @Suppress("DEPRECATION")
+                MediaStore.Images.Media.getBitmap(context.contentResolver, uri)
+            }
+        } catch (e: Exception) {
+            Log.w("ImageStorageManager", "Unable to import shared image", e)
+            null
+        }
+    }
+
+    private fun scaledSize(size: Size, maxSide: Int): Size {
+        val largestSide = maxOf(size.width, size.height)
+        if (largestSide <= maxSide) return size
+        val scale = maxSide.toFloat() / largestSide.toFloat()
+        return Size(
+            (size.width * scale).toInt().coerceAtLeast(1),
+            (size.height * scale).toInt().coerceAtLeast(1)
+        )
+    }
 
     /**
      * Guarda un [Bitmap] en un archivo JPEG dentro del directorio de imágenes de la aplicación
@@ -162,5 +209,9 @@ class ImageStorageManager @Inject constructor(
                 e.printStackTrace()
             }
         }
+    }
+
+    private companion object {
+        const val MAX_PROCESSING_IMAGE_SIDE = 2048
     }
 }

@@ -33,6 +33,8 @@ class MainActivity : ComponentActivity() {
         const val EXTRA_CAPTURE_ID = "com.rayoai.extra.CAPTURE_ID"
         const val EXTRA_VIDEO_ID = "com.rayoai.extra.VIDEO_ID"
         const val EXTRA_VIDEO_URL = "com.rayoai.extra.VIDEO_URL"
+        const val EXTRA_SHARED_IMAGE_URIS = "com.rayoai.extra.SHARED_IMAGE_URIS"
+        const val EXTRA_SHARED_IMAGE_TRUNCATED_COUNT = "com.rayoai.extra.SHARED_IMAGE_TRUNCATED_COUNT"
     }
 
     @Inject
@@ -58,6 +60,20 @@ class MainActivity : ComponentActivity() {
         }
     }
 
+    private inline fun <reified T : Parcelable> Intent.getParcelableArrayListExtraCompat(key: String): ArrayList<T>? {
+        return try {
+            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
+                getParcelableArrayListExtra(key, T::class.java)
+            } else {
+                @Suppress("DEPRECATION")
+                getParcelableArrayListExtra(key)
+            }
+        } catch (e: Exception) {
+            Log.e("MainActivity", "Error getting parcelable list extra: $key", e)
+            null
+        }
+    }
+
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
 
@@ -79,6 +95,8 @@ class MainActivity : ComponentActivity() {
         
         val imageUri: Uri? = if (isPdf || isVideo) null 
             else intent?.getParcelableExtraCompat(Intent.EXTRA_STREAM)
+        val sharedImageUris = intent?.getParcelableArrayListExtraCompat<Uri>(EXTRA_SHARED_IMAGE_URIS).orEmpty()
+        val sharedImageTruncatedCount = intent?.getIntExtra(EXTRA_SHARED_IMAGE_TRUNCATED_COUNT, 0) ?: 0
         
         val pdfUri: Uri? = if (isPdf) 
             intent?.getParcelableExtraCompat(Intent.EXTRA_STREAM) else null
@@ -110,6 +128,8 @@ class MainActivity : ComponentActivity() {
                         }
                         AppNavigation(
                             imageUri = imageUri, 
+                            sharedImageUris = sharedImageUris,
+                            sharedImageTruncatedCount = sharedImageTruncatedCount,
                             startDestination = startDestination, 
                             pdfUri = pdfUri,
                             videoUri = videoUri,

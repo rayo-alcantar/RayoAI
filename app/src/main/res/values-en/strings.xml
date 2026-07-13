@@ -359,5 +359,15 @@ Card: 4152314082325278</string>
     <string name="home_history_capture_not_found">The capture could not be found in history.</string>
     <string name="selected_image_preview">Selected image preview</string>
     <string name="remove_image">Remove image</string>
+    <string name="shared_image_description">Shared image</string>
+    <string name="multi_image_title">Describing shared photos</string>
+    <string name="multi_image_progress">%1$d of %2$d photos ready</string>
+    <string name="multi_image_preview">Preview of photo %1$d</string>
+    <string name="multi_image_describing">Describing photo…</string>
+    <string name="multi_image_importing">Preparing shared photo…</string>
+    <string name="multi_image_open_chat">Open in chat</string>
+    <string name="multi_image_previous">Previous photo</string>
+    <string name="multi_image_next">Next photo</string>
+    <string name="multi_image_limit_reached">%1$d photos were not added to protect the device and Gemini quota.</string>
     <string name="unexpected_error">An unexpected error occurred.</string>
 </resources>

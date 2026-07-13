@@ -40,6 +40,7 @@ import com.rayoai.presentation.ui.screens.about.AboutScreen
 import com.rayoai.presentation.ui.screens.api_instructions.ApiInstructionsScreen
 import com.rayoai.presentation.ui.screens.history.HistoryScreen
 import com.rayoai.presentation.ui.screens.home.HomeScreen
+import com.rayoai.presentation.ui.screens.home.MultiImagePassageScreen
 import com.rayoai.presentation.ui.screens.settings.SettingsScreen
 import com.rayoai.presentation.ui.screens.welcome.WelcomeScreen
 import com.rayoai.presentation.ui.updates.UpdateFlowDialog
@@ -56,6 +57,7 @@ sealed class Screen(val route: String, val baseRoute: String, val labelRes: Int?
     object Home : Screen("home?captureId={captureId}", "home", R.string.tab_home, Icons.Default.Home) {
         fun createRoute(captureId: Long?) = if (captureId != null) "home?captureId=$captureId" else "home"
     }
+    object MultiImagePassage : Screen("multi_image_passage", "multi_image_passage")
     object History : Screen("history", "history", R.string.tab_history, Icons.Default.History)
     object Tools : Screen("tools", "tools", R.string.tab_tools, Icons.Default.Build)
     object ScanPdf : Screen("scan_pdf", "tools")
@@ -91,6 +93,8 @@ private fun NavDestination?.isSameRouteAs(baseRoute: String): Boolean {
 @Composable
 fun AppNavigation(
     imageUri: Uri?,
+    sharedImageUris: List<Uri> = emptyList(),
+    sharedImageTruncatedCount: Int = 0,
     startDestination: String,
     pdfUri: Uri? = null,
     videoUri: Uri? = null,
@@ -104,6 +108,25 @@ fun AppNavigation(
     var pendingPdfUri by remember { mutableStateOf<Uri?>(null) }
     var pendingVideoUri by remember { mutableStateOf<Uri?>(null) }
     var pendingVideoUrl by remember { mutableStateOf<String?>(null) }
+    var pendingImageUri by remember { mutableStateOf(imageUri) }
+    var pendingPairedImageUris by remember { mutableStateOf(emptyList<Uri>()) }
+    var pendingBatchImageUris by remember { mutableStateOf(emptyList<Uri>()) }
+    var pendingBatchTruncatedCount by remember { mutableStateOf(0) }
+
+    LaunchedEffect(imageUri) {
+        if (imageUri != null) pendingImageUri = imageUri
+    }
+
+    LaunchedEffect(sharedImageUris) {
+        when {
+            sharedImageUris.size > 2 -> {
+                pendingBatchImageUris = sharedImageUris
+                pendingBatchTruncatedCount = sharedImageTruncatedCount
+                navController.navigate(Screen.MultiImagePassage.route) { launchSingleTop = true }
+            }
+            sharedImageUris.size == 2 -> pendingPairedImageUris = sharedImageUris
+        }
+    }
 
     if (BuildConfig.GITHUB_UPDATES_ENABLED) {
         UpdateFlowDialog()
@@ -198,8 +221,22 @@ fun AppNavigation(
                 val captureId = backStackEntry.arguments?.getString("captureId")?.toLongOrNull()
                 HomeScreen(
                     navController = navController,
-                    imageUri = imageUri,
-                    captureId = captureId
+                    imageUri = pendingImageUri,
+                    captureId = captureId,
+                    sharedImageUris = pendingPairedImageUris,
+                    onSharedImagesConsumed = { pendingPairedImageUris = emptyList() },
+                    onImageConsumed = { pendingImageUri = null }
+                )
+            }
+            composable(Screen.MultiImagePassage.route) {
+                MultiImagePassageScreen(
+                    imageUris = pendingBatchImageUris,
+                    truncatedCount = pendingBatchTruncatedCount,
+                    onOpenChat = { captureId ->
+                        pendingBatchImageUris = emptyList()
+                        pendingBatchTruncatedCount = 0
+                        navController.navigate(Screen.Home.createRoute(captureId)) { launchSingleTop = true }
+                    }
                 )
             }
             composable(Screen.History.route) {

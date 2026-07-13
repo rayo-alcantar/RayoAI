@@ -244,7 +244,11 @@ class HomeViewModel @Inject constructor(
         _uiState.update { it.copy(isCapturing = value) }
     }
 
-    fun describeImage(image: Bitmap) {
+    fun describeImage(
+        image: Bitmap,
+        storedImageUri: Uri? = null,
+        initialImageUris: List<Uri>? = null
+    ) {
         Log.d("HomeViewModel", "describeImage called")
         viewModelScope.launch {
             val apiKey = userPreferencesRepository.apiKey.first()
@@ -254,7 +258,7 @@ class HomeViewModel @Inject constructor(
                 return@launch
             }
             _uiState.update { it.copy(isCapturing = false, isLoading = true, error = null) }
-            val imageUri = imageStorageManager.saveBitmapAndGetUri(image)
+            val imageUri = storedImageUri ?: imageStorageManager.saveBitmapAndGetUri(image)
             if (imageUri == null) {
                 Log.e("HomeViewModel", "Failed to save bitmap and get URI.")
                 _uiState.update { it.copy(error = appContext.getString(R.string.home_save_image_failed), isLoading = false) }
@@ -270,7 +274,7 @@ class HomeViewModel @Inject constructor(
                     currentImageBitmap = image,
                     currentImageUri = imageUri,
                     chatMessages = listOf(initialPromptMessage),
-                    selectedImageUris = listOf(imageUri), // Add the described image to selectedImageUris
+                    selectedImageUris = initialImageUris ?: listOf(imageUri),
                     prePromptText = "",
                     showPrePromptInput = false
                 )
