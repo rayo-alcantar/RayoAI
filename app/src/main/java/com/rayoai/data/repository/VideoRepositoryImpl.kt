@@ -19,13 +19,17 @@ import com.rayoai.data.remote.dto.SystemInstruction
 import com.rayoai.data.remote.dto.ThinkingConfigDto
 import com.rayoai.data.remote.dto.UploadedFile
 import com.rayoai.domain.model.GeminiModelConfig
+import com.rayoai.domain.model.ChatMessage
+import com.rayoai.domain.model.VideoDocument
 import com.rayoai.domain.model.VideoAnalysisResult
 import com.rayoai.domain.model.VideoLinkValidator
 import com.rayoai.domain.repository.UserPreferencesRepository
 import com.rayoai.domain.repository.VideoRepository
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.delay
+import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.firstOrNull
+import kotlinx.coroutines.flow.flow
 import kotlinx.coroutines.withContext
 import okhttp3.FormBody
 import okhttp3.MediaType.Companion.toMediaTypeOrNull
@@ -49,7 +53,7 @@ class VideoRepositoryImpl @Inject constructor(
         uri: Uri,
         context: Context,
         systemPrompt: String
-    ): ResultWrapper<String> = withContext(Dispatchers.IO) {
+    ): ResultWrapper<VideoAnalysisResult> = withContext(Dispatchers.IO) {
         val apiKey = userPreferencesRepository.apiKey.firstOrNull()
             ?: return@withContext ResultWrapper.Error(context.getString(R.string.video_upload_missing_api_key))
         val (fileName, sizeBytes, mimeType) = getVideoInfo(context, uri)
@@ -58,7 +62,7 @@ class VideoRepositoryImpl @Inject constructor(
         }
         val body = contentUriRequestBody(context, uri, mimeType)
             ?: return@withContext ResultWrapper.Error(context.getString(R.string.video_upload_read_failed))
-        uploadAnalyzeAndCleanup(
+        when (val result = uploadAndKeepFile(
             apiKey = apiKey,
             context = context,
             displayName = fileName,
@@ -66,7 +70,23 @@ class VideoRepositoryImpl @Inject constructor(
             mimeType = mimeType,
             body = body,
             systemPrompt = systemPrompt
-        )
+        )) {
+            is ResultWrapper.Success -> ResultWrapper.Success(
+                VideoAnalysisResult(
+                    displayName = fileName,
+                    sourceUri = uri.toString(),
+                    description = result.data.description,
+                    durationSeconds = 0,
+                    sizeBytes = sizeBytes,
+                    geminiFileUri = result.data.file.uri,
+                    geminiFileName = result.data.file.name,
+                    geminiMimeType = result.data.file.mimeType,
+                    geminiFileExpiresAt = fileExpiryTime()
+                )
+            )
+            is ResultWrapper.Error -> result
+            ResultWrapper.Loading -> ResultWrapper.Loading
+        }
     }
 
     override suspend fun analyzeVideoFromUrl(
@@ -95,7 +115,8 @@ class VideoRepositoryImpl @Inject constructor(
                         sourceUri = supportedUrl,
                         description = result.data,
                         durationSeconds = 0,
-                        sizeBytes = 0L
+                        sizeBytes = 0L,
+                        geminiFileUri = supportedUrl
                     )
                 )
                 is ResultWrapper.Error -> result
@@ -116,7 +137,7 @@ class VideoRepositoryImpl @Inject constructor(
             }
 
             onStatus(context.getString(R.string.scan_video_uploading))
-            val analysis = uploadAnalyzeAndCleanup(
+            val analysis = uploadAndKeepFile(
                 apiKey = apiKey,
                 context = context,
                 displayName = tempFile.name,
@@ -132,9 +153,13 @@ class VideoRepositoryImpl @Inject constructor(
                     VideoAnalysisResult(
                         displayName = platformDisplayName(supportedUrl, context),
                         sourceUri = supportedUrl,
-                        description = analysis.data,
-                        durationSeconds = 0,
-                        sizeBytes = tempFile.length()
+                    description = analysis.data.description,
+                    durationSeconds = 0,
+                    sizeBytes = tempFile.length(),
+                    geminiFileUri = analysis.data.file.uri,
+                    geminiFileName = analysis.data.file.name,
+                    geminiMimeType = analysis.data.file.mimeType,
+                    geminiFileExpiresAt = fileExpiryTime()
                     )
                 )
                 is ResultWrapper.Error -> analysis
@@ -149,7 +174,37 @@ class VideoRepositoryImpl @Inject constructor(
 
     override fun isSupportedVideoUrl(url: String): Boolean = VideoLinkValidator.isSupportedUrl(url)
 
-    private suspend fun uploadAnalyzeAndCleanup(
+    override fun continueVideoChat(
+        apiKey: String,
+        question: String,
+        video: VideoDocument,
+        history: List<ChatMessage>,
+        systemPrompt: String,
+        context: Context
+    ): Flow<ResultWrapper<String>> = flow {
+        emit(ResultWrapper.Loading)
+        val fileUri = video.geminiFileUri
+        if (fileUri.isNullOrBlank()) {
+            emit(ResultWrapper.Error(context.getString(R.string.video_chat_not_available)))
+            return@flow
+        }
+        if (video.geminiFileExpiresAt?.let { it <= System.currentTimeMillis() } == true) {
+            emit(ResultWrapper.Error(context.getString(R.string.video_chat_file_expired)))
+            return@flow
+        }
+        emit(
+            generateWithFallback(
+                apiKey = apiKey,
+                context = context,
+                systemPrompt = systemPrompt,
+                fileData = FileDataDto(mimeType = video.geminiMimeType, fileUri = fileUri),
+                prompt = question,
+                history = history
+            )
+        )
+    }
+
+    private suspend fun uploadAndKeepFile(
         apiKey: String,
         context: Context,
         displayName: String,
@@ -158,8 +213,9 @@ class VideoRepositoryImpl @Inject constructor(
         body: RequestBody,
         systemPrompt: String,
         onStatus: (String) -> Unit = {}
-    ): ResultWrapper<String> {
+    ): ResultWrapper<UploadedVideoAnalysis> {
         var uploadedFile: UploadedFile? = null
+        var keepUploadedFile = false
         return try {
             val uploadResponse = geminiFilesApiService.startResumableUpload(
                 contentLength = sizeBytes,
@@ -177,6 +233,7 @@ class VideoRepositoryImpl @Inject constructor(
                 file = body
             )
             uploadedFile = uploadResult.file
+            val finalizedFile = uploadedFile
             onStatus(context.getString(R.string.scan_video_processing))
 
             val activeFile = waitForFileReadyOrSpeculate(
@@ -186,7 +243,7 @@ class VideoRepositoryImpl @Inject constructor(
                 systemPrompt = systemPrompt,
                 mimeType = mimeType
             )
-            when (activeFile) {
+            val analysis = when (activeFile) {
                 is WaitResult.Active -> generateWithFallback(
                     apiKey = apiKey,
                     context = context,
@@ -196,10 +253,18 @@ class VideoRepositoryImpl @Inject constructor(
                 is WaitResult.Generated -> ResultWrapper.Success(activeFile.description)
                 is WaitResult.Error -> ResultWrapper.Error(activeFile.message)
             }
+            when (analysis) {
+                is ResultWrapper.Success -> {
+                    keepUploadedFile = true
+                    ResultWrapper.Success(UploadedVideoAnalysis(analysis.data, finalizedFile))
+                }
+                is ResultWrapper.Error -> analysis
+                ResultWrapper.Loading -> ResultWrapper.Loading
+            }
         } catch (e: Exception) {
             ResultWrapper.Error(context.getString(R.string.video_process_error, e.message))
         } finally {
-            uploadedFile?.let { file ->
+            uploadedFile?.takeUnless { keepUploadedFile }?.let { file ->
                 runCatching { geminiFilesApiService.deleteFile(file.name, apiKey) }
             }
         }
@@ -241,7 +306,9 @@ class VideoRepositoryImpl @Inject constructor(
         apiKey: String,
         context: Context,
         systemPrompt: String,
-        fileData: FileDataDto
+        fileData: FileDataDto,
+        prompt: String = context.getString(R.string.video_user_prompt),
+        history: List<ChatMessage> = emptyList()
     ): ResultWrapper<String> {
         val preferredModel = userPreferencesRepository.defaultModel.firstOrNull()
             ?.ifBlank { GeminiModelConfig.DEFAULT_MODEL }
@@ -254,14 +321,14 @@ class VideoRepositoryImpl @Inject constructor(
         for (model in models) {
             val request = GeminiRequest(
                 systemInstruction = SystemInstruction(parts = listOf(PartDto(text = systemPrompt))),
-                contents = listOf(
+                contents = history.map { message ->
                     ContentDto(
-                        role = "user",
-                        parts = listOf(
-                            PartDto(text = context.getString(R.string.video_user_prompt)),
-                            PartDto(fileData = fileData)
-                        )
+                        role = if (message.isFromUser) "user" else "model",
+                        parts = listOf(PartDto(text = message.content))
                     )
+                } + ContentDto(
+                    role = "user",
+                    parts = listOf(PartDto(fileData = fileData), PartDto(text = prompt))
                 ),
                 generationConfig = GenerationConfigDto(
                     thinkingConfig = ThinkingConfigDto(includeThoughts = true, thinkingLevel = "MINIMAL")
@@ -465,10 +532,16 @@ class VideoRepositoryImpl @Inject constructor(
         data class Error(val message: String) : WaitResult()
     }
 
+    private data class UploadedVideoAnalysis(
+        val description: String,
+        val file: UploadedFile
+    )
+
     companion object {
         private const val MAX_VIDEO_BYTES = 550L * 1024L * 1024L
         private const val MAX_PROCESSING_ATTEMPTS = 240
         private const val SPECULATIVE_ATTEMPT = 120
+        private const val FILE_RETENTION_MILLIS = 48L * 60L * 60L * 1000L
         private val VIDEO_MODEL_FALLBACK_ORDER = listOf(
             "gemini-3.1-pro-preview",
             "gemini-2.5-pro",
@@ -480,4 +553,6 @@ class VideoRepositoryImpl @Inject constructor(
         private val MP4_REGEX = Regex("""href=["']([^"']+\.mp4[^"']*)["']|["'](https?://[^"']+\.mp4[^"']*)["']""", RegexOption.IGNORE_CASE)
         private val ESCAPED_MP4_REGEX = Regex("""(https?:\\?/\\?/[^"'\\]+\.mp4[^"']*)""", RegexOption.IGNORE_CASE)
     }
+
+    private fun fileExpiryTime(): Long = System.currentTimeMillis() + FILE_RETENTION_MILLIS
 }

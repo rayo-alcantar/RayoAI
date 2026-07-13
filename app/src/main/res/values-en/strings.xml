@@ -365,6 +365,12 @@ Card: 4152314082325278</string>
     <string name="multi_image_preview">Preview of photo %1$d</string>
     <string name="multi_image_describing">Describing photo…</string>
     <string name="multi_image_importing">Preparing shared photo…</string>
+    <string name="video_chat_about">Ask about this video</string>
+    <string name="video_chat_title">Video chat</string>
+    <string name="video_chat_ask_hint">Ask about the video…</string>
+    <string name="video_chat_empty">Ask a question about this video.</string>
+    <string name="video_chat_not_available">This video has no available reference for questions. Analyze it again to create a chat.</string>
+    <string name="video_chat_file_expired">The temporary Gemini reference for this video has expired. Analyze it again to continue asking questions.</string>
     <string name="multi_image_open_chat">Open in chat</string>
     <string name="multi_image_previous">Previous photo</string>
     <string name="multi_image_next">Next photo</string>

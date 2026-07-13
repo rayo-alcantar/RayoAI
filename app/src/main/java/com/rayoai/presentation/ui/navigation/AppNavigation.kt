@@ -71,6 +71,9 @@ sealed class Screen(val route: String, val baseRoute: String, val labelRes: Int?
     object ViewVideo : Screen("view_video?id={id}", "tools") {
         fun createRoute(id: Long) = "view_video?id=$id"
     }
+    object VideoChat : Screen("video_chat?id={id}", "tools") {
+        fun createRoute(id: Long) = "video_chat?id=$id"
+    }
     object About : Screen("about?showDonationDialog={showDonationDialog}", "about", R.string.tab_about, Icons.Default.Info) {
         fun createRoute(showDonationDialog: Boolean = false) = "about?showDonationDialog=$showDonationDialog"
     }
@@ -305,6 +308,15 @@ fun AppNavigation(
                 val id = backStackEntry.arguments?.getLong("id") ?: 0L
                 com.rayoai.presentation.ui.screens.tools.VideoResultScreen(
                     videoId = id,
+                    onNavigateBack = { navController.popBackStack() },
+                    onChatVideo = { videoId -> navController.navigate(Screen.VideoChat.createRoute(videoId)) }
+                )
+            }
+            composable(
+                route = Screen.VideoChat.route,
+                arguments = listOf(navArgument("id") { type = NavType.LongType })
+            ) {
+                com.rayoai.presentation.ui.screens.tools.VideoChatScreen(
                     onNavigateBack = { navController.popBackStack() }
                 )
             }

@@ -136,7 +136,8 @@ class ScanVideoViewModel @Inject constructor(
 
                 when (result) {
                     is ResultWrapper.Success -> {
-                        resultText = result.data
+                        val data = result.data
+                        resultText = data.description
                         status = context.getString(R.string.scan_pdf_ready)
                         uploadProgress = 1f
                         isLoading = false
@@ -145,10 +146,14 @@ class ScanVideoViewModel @Inject constructor(
                         saveVideoDocumentUseCase(
                             name = name,
                             uri = uri.toString(),
-                            content = result.data,
+                            content = data.description,
                             timestamp = System.currentTimeMillis(),
                             durationSeconds = durationSeconds.toInt(),
-                            sizeBytes = sizeBytes
+                            sizeBytes = sizeBytes,
+                            geminiFileUri = data.geminiFileUri,
+                            geminiFileName = data.geminiFileName,
+                            geminiMimeType = data.geminiMimeType,
+                            geminiFileExpiresAt = data.geminiFileExpiresAt
                         )
                     }
                     is ResultWrapper.Error -> {
@@ -218,7 +223,11 @@ class ScanVideoViewModel @Inject constructor(
                             content = data.description,
                             timestamp = System.currentTimeMillis(),
                             durationSeconds = data.durationSeconds,
-                            sizeBytes = data.sizeBytes
+                            sizeBytes = data.sizeBytes,
+                            geminiFileUri = data.geminiFileUri,
+                            geminiFileName = data.geminiFileName,
+                            geminiMimeType = data.geminiMimeType,
+                            geminiFileExpiresAt = data.geminiFileExpiresAt
                         )
                     }
                     is ResultWrapper.Error -> {

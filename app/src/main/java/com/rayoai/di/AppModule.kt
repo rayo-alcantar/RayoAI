@@ -16,6 +16,8 @@ import com.rayoai.data.local.pdfdb.PdfDatabase
 import com.rayoai.data.local.pdfdb.PDF_MIGRATION_1_2
 import com.rayoai.data.local.videodb.VideoDao
 import com.rayoai.data.local.videodb.VideoDatabase
+import com.rayoai.data.local.videodb.VideoChatDao
+import com.rayoai.data.local.videodb.VIDEO_MIGRATION_1_2
 import com.rayoai.data.remote.GeminiFilesApiService
 import com.rayoai.data.remote.GithubApiService
 import com.rayoai.data.repository.UserPreferencesRepositoryImpl
@@ -122,12 +124,17 @@ object AppModule {
             context,
             VideoDatabase::class.java,
             "rayo_ai_video_db"
-        ).build()
+        ).addMigrations(VIDEO_MIGRATION_1_2).build()
     }
 
     @Provides
     fun provideVideoDao(database: VideoDatabase): VideoDao {
         return database.videoDao()
+    }
+
+    @Provides
+    fun provideVideoChatDao(database: VideoDatabase): VideoChatDao {
+        return database.videoChatDao()
     }
 
     @Provides

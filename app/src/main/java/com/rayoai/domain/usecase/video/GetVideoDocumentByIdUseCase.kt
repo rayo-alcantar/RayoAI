@@ -26,6 +26,10 @@ class GetVideoDocumentByIdUseCase @Inject constructor(
         content = content,
         timestamp = timestamp,
         durationSeconds = durationSeconds,
-        sizeBytes = sizeBytes
+        sizeBytes = sizeBytes,
+        geminiFileUri = geminiFileUri,
+        geminiFileName = geminiFileName,
+        geminiMimeType = geminiMimeType,
+        geminiFileExpiresAt = geminiFileExpiresAt
     )
 }

@@ -4,6 +4,9 @@ import android.content.Context
 import android.net.Uri
 import com.rayoai.core.ResultWrapper
 import com.rayoai.domain.model.VideoAnalysisResult
+import com.rayoai.domain.model.VideoDocument
+import com.rayoai.domain.model.ChatMessage
+import kotlinx.coroutines.flow.Flow
 
 /**
  * Repositorio para operaciones relacionadas con videos.
@@ -23,7 +26,7 @@ interface VideoRepository {
         uri: Uri,
         context: Context,
         systemPrompt: String
-    ): ResultWrapper<String>
+    ): ResultWrapper<VideoAnalysisResult>
 
     suspend fun analyzeVideoFromUrl(
         url: String,
@@ -33,4 +36,13 @@ interface VideoRepository {
     ): ResultWrapper<VideoAnalysisResult>
 
     fun isSupportedVideoUrl(url: String): Boolean
+
+    fun continueVideoChat(
+        apiKey: String,
+        question: String,
+        video: VideoDocument,
+        history: List<ChatMessage>,
+        systemPrompt: String,
+        context: Context
+    ): Flow<ResultWrapper<String>>
 }

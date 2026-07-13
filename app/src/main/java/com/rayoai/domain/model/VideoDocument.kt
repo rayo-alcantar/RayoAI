@@ -10,5 +10,9 @@ data class VideoDocument(
     val content: String,           // Descripción generada por Gemini
     val timestamp: Long,
     val durationSeconds: Int,      // Duración del video en segundos
-    val sizeBytes: Long            // Tamaño del archivo en bytes
+    val sizeBytes: Long,           // Tamaño del archivo en bytes
+    val geminiFileUri: String? = null,
+    val geminiFileName: String? = null,
+    val geminiMimeType: String? = null,
+    val geminiFileExpiresAt: Long? = null
 )

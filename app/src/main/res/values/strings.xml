@@ -374,6 +374,12 @@ Tarjeta: 4152314082325278</string>
     <string name="multi_image_preview">Vista previa de la foto %1$d</string>
     <string name="multi_image_describing">Describiendo foto…</string>
     <string name="multi_image_importing">Preparando foto compartida…</string>
+    <string name="video_chat_about">Preguntar sobre este video</string>
+    <string name="video_chat_title">Chat sobre video</string>
+    <string name="video_chat_ask_hint">Pregunta sobre el video…</string>
+    <string name="video_chat_empty">Haz una pregunta sobre este video.</string>
+    <string name="video_chat_not_available">Este video no conserva una referencia disponible para preguntas. Vuelve a analizarlo para crear un chat.</string>
+    <string name="video_chat_file_expired">La referencia temporal de Gemini para este video ya expiró. Vuelve a analizarlo para seguir preguntando.</string>
     <string name="multi_image_open_chat">Abrir en chat</string>
     <string name="multi_image_previous">Foto anterior</string>
     <string name="multi_image_next">Foto siguiente</string>

@@ -49,6 +49,7 @@ class VideoResultViewModel @Inject constructor(
 fun VideoResultScreen(
     videoId: Long,
     onNavigateBack: () -> Unit,
+    onChatVideo: (Long) -> Unit,
     viewModel: VideoResultViewModel = hiltViewModel()
 ) {
     val doc by viewModel.getVideoDocument(videoId).collectAsState()
@@ -101,6 +102,13 @@ fun VideoResultScreen(
                     clipboard.setText(androidx.compose.ui.text.AnnotatedString(video.content))
                 }) {
                     Text(stringResource(R.string.copy_content))
+                }
+
+                Button(
+                    onClick = { onChatVideo(video.id) },
+                    enabled = !video.geminiFileUri.isNullOrBlank()
+                ) {
+                    Text(stringResource(R.string.video_chat_about))
                 }
 
                 Button(onClick = onNavigateBack) {

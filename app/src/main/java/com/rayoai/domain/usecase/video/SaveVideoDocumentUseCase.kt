@@ -16,7 +16,11 @@ class SaveVideoDocumentUseCase @Inject constructor(
         content: String,
         timestamp: Long,
         durationSeconds: Int,
-        sizeBytes: Long
+        sizeBytes: Long,
+        geminiFileUri: String? = null,
+        geminiFileName: String? = null,
+        geminiMimeType: String? = null,
+        geminiFileExpiresAt: Long? = null
     ): Long {
         val entity = VideoDocumentEntity(
             name = name,
@@ -24,7 +28,11 @@ class SaveVideoDocumentUseCase @Inject constructor(
             content = content,
             timestamp = timestamp,
             durationSeconds = durationSeconds,
-            sizeBytes = sizeBytes
+            sizeBytes = sizeBytes,
+            geminiFileUri = geminiFileUri,
+            geminiFileName = geminiFileName,
+            geminiMimeType = geminiMimeType,
+            geminiFileExpiresAt = geminiFileExpiresAt
         )
         return videoDao.insert(entity)
     }

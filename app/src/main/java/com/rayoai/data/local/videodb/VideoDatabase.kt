@@ -7,10 +7,11 @@ import androidx.room.RoomDatabase
  * Base de datos Room para videos analizados.
  */
 @Database(
-    entities = [VideoDocumentEntity::class],
-    version = 1,
+    entities = [VideoDocumentEntity::class, VideoChatMessageEntity::class],
+    version = 2,
     exportSchema = false
 )
 abstract class VideoDatabase : RoomDatabase() {
     abstract fun videoDao(): VideoDao
+    abstract fun videoChatDao(): VideoChatDao
 }
