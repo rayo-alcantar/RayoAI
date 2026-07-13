@@ -1,4 +1,11 @@
-RayoAI - Versión 3.3.5 (beta)
+RayoAI - Versión 3.3.6
 
 NOTAS DE PUBLICACIÓN
-- Se corrige error crítico en android 14 o inferior al tomar captura de pantalla.
+- Ahora puedes seleccionar tres o más fotos desde la galería, elegir Compartir con RayoAI y recibir una descripción de cada una sin tener que abrirlas por separado.
+- RayoAI procesa las fotos una a una para cuidar la memoria, la conexión y el uso de tu clave de Gemini.
+- La nueva pasarela muestra el avance, la vista previa y la descripción de cada foto. Cuando termina, puedes abrir cada resultado en su propio chat desde el historial.
+- La navegación entre fotos y los anuncios de preparación y descripción están pensados para usarse con TalkBack.
+- Se mejoró la compatibilidad con galerías que comparten imágenes mediante distintos formatos de Android.
+- Ahora puedes abrir el resultado de un video analizado y elegir "Preguntar sobre este video" para conversar sobre su contenido.
+- El chat de video guarda tus preguntas y las respuestas de Gemini, igual que el chat de PDF, y vuelve a usar el video como contexto en cada respuesta.
+- Por privacidad y por el funcionamiento de Gemini, la referencia temporal de un video subido dura hasta 48 horas. Cuando vence, RayoAI te indicará que debes analizarlo de nuevo para continuar el chat.
