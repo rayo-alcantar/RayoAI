@@ -24,8 +24,8 @@ android {
         applicationId = "com.rayoai"
         minSdk = 29
         targetSdk = 35
-        versionCode = 41
-        versionName = "3.3.6"
+        versionCode = 42
+        versionName = "3.3.7"
         testInstrumentationRunner = "com.rayoai.CustomTestRunner"
         vectorDrawables { useSupportLibrary = true }
     }

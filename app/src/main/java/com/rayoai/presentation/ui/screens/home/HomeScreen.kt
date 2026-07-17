@@ -87,6 +87,8 @@ import com.google.android.play.core.review.ReviewManagerFactory
 import com.rayoai.presentation.ui.findActivity
 import com.rayoai.presentation.ui.openPlayStoreListing
 
+private const val MAX_GALLERY_BATCH_IMAGES = 50
+
 @OptIn(ExperimentalMaterial3Api::class, ExperimentalPermissionsApi::class)
 @Composable
 fun HomeScreen(
@@ -96,7 +98,8 @@ fun HomeScreen(
     captureId: Long? = null,
     sharedImageUris: List<Uri> = emptyList(),
     onSharedImagesConsumed: () -> Unit = {},
-    onImageConsumed: () -> Unit = {}
+    onImageConsumed: () -> Unit = {},
+    onOpenMultiImagePassage: (List<Uri>) -> Unit = {}
 ) {
     val uiState by viewModel.uiState.collectAsState()
     val context = LocalContext.current
@@ -158,23 +161,27 @@ fun HomeScreen(
     val writeStoragePermissionState = rememberPermissionState(Manifest.permission.WRITE_EXTERNAL_STORAGE)
 
     val galleryLauncher = rememberLauncherForActivityResult(
-    contract = ActivityResultContracts.PickVisualMedia()
-) { uri: Uri? ->
-    uri?.let {
-        try {
-            val bitmap = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.P) {
-                val source = ImageDecoder.createSource(context.contentResolver, it)
-                ImageDecoder.decodeBitmap(source)
-            } else {
-                MediaStore.Images.Media.getBitmap(context.contentResolver, it)
+        contract = PickMultipleVisualMedia(MAX_GALLERY_BATCH_IMAGES)
+    ) { uris: List<Uri> ->
+        if (uris.size >= 3) {
+            onOpenMultiImagePassage(uris)
+        } else {
+            uris.firstOrNull()?.let {
+                try {
+                    val bitmap = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.P) {
+                        val source = ImageDecoder.createSource(context.contentResolver, it)
+                        ImageDecoder.decodeBitmap(source)
+                    } else {
+                        MediaStore.Images.Media.getBitmap(context.contentResolver, it)
+                    }
+                    viewModel.processGalleryImage(bitmap)
+                } catch (e: Exception) {
+                    Log.e("HomeScreen", "Error loading gallery image", e)
+                    viewModel.setError(context.getString(R.string.error_loading_gallery_image))
+                }
             }
-            viewModel.processGalleryImage(bitmap)
-        } catch (e: Exception) {
-            Log.e("HomeScreen", "Error loading gallery image", e)
-            viewModel.setError(context.getString(R.string.error_loading_gallery_image))
         }
     }
-}
 
     val multipleGalleryLauncher = rememberLauncherForActivityResult(
         contract = PickMultipleVisualMedia(uiState.maxImagesInChat),

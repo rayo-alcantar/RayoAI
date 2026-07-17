@@ -229,7 +229,12 @@ fun AppNavigation(
                     captureId = captureId,
                     sharedImageUris = pendingPairedImageUris,
                     onSharedImagesConsumed = { pendingPairedImageUris = emptyList() },
-                    onImageConsumed = { pendingImageUri = null }
+                    onImageConsumed = { pendingImageUri = null },
+                    onOpenMultiImagePassage = { imageUris ->
+                        pendingBatchImageUris = imageUris
+                        pendingBatchTruncatedCount = 0
+                        navController.navigate(Screen.MultiImagePassage.route) { launchSingleTop = true }
+                    }
                 )
             }
             composable(Screen.MultiImagePassage.route) {
