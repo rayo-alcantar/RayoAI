@@ -29,6 +29,7 @@ import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.LightMode
 import androidx.compose.material.icons.filled.PictureAsPdf
+import androidx.compose.material.icons.filled.QrCodeScanner
 import androidx.compose.material.icons.filled.VideoLibrary
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
@@ -328,13 +329,16 @@ private fun Context.appVibrator(): Vibrator {
 @Composable
 fun ToolsScreen(
     onScanPdf: () -> Unit,
-    onScanVideo: () -> Unit
+    onScanVideo: () -> Unit,
+    onScanQr: () -> Unit
 ) {
     val toolsTitle = stringResource(R.string.tools_title)
     val scanPdfText = stringResource(R.string.tool_scan_pdf)
     val scanPdfDescription = stringResource(R.string.tool_scan_pdf_description)
     val scanVideoText = stringResource(R.string.scan_video)
     val scanVideoDescription = stringResource(R.string.tool_scan_video_description)
+    val scanQrText = stringResource(R.string.tool_scan_qr)
+    val scanQrDescription = stringResource(R.string.tool_scan_qr_description)
 
     Scaffold(
         topBar = { TopAppBar(title = { Text(text = toolsTitle) }) }
@@ -348,6 +352,28 @@ fun ToolsScreen(
         ) {
             item {
                 LightDetectorCard()
+            }
+
+            item {
+                Card(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .semantics {
+                            role = Role.Button
+                            contentDescription = scanQrText
+                        }
+                        .clickable(onClick = onScanQr),
+                    colors = CardDefaults.cardColors(MaterialTheme.colorScheme.tertiaryContainer)
+                ) {
+                    Column(Modifier.padding(16.dp)) {
+                        Icon(
+                            imageVector = Icons.Filled.QrCodeScanner,
+                            contentDescription = null
+                        )
+                        Text(text = scanQrText, style = MaterialTheme.typography.titleMedium)
+                        Text(text = scanQrDescription)
+                    }
+                }
             }
 
             item {

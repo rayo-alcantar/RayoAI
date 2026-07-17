@@ -136,6 +136,8 @@ dependencies {
 
     // On-device focus assistance
     implementation("com.google.android.gms:play-services-mlkit-face-detection:17.1.0")
+    // Lector QR local: disponible desde el primer uso y sin conexión.
+    implementation("com.google.mlkit:barcode-scanning:17.3.0")
 
     // Room & DataStore
     val roomVersion = "2.6.1"

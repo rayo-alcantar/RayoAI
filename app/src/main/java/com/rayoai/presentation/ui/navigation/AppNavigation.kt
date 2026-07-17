@@ -68,6 +68,7 @@ sealed class Screen(val route: String, val baseRoute: String, val labelRes: Int?
         fun createRoute(id: Long) = "pdf_chat?id=$id"
     }
     object ScanVideo : Screen("scan_video", "tools")
+    object ScanQr : Screen("scan_qr", "tools")
     object ViewVideo : Screen("view_video?id={id}", "tools") {
         fun createRoute(id: Long) = "view_video?id=$id"
     }
@@ -253,7 +254,13 @@ fun AppNavigation(
             composable(Screen.Tools.route) {
                 com.rayoai.presentation.ui.screens.tools.ToolsScreen(
                     onScanPdf = { navController.navigate(Screen.ScanPdf.route) },
-                    onScanVideo = { navController.navigate(Screen.ScanVideo.route) }
+                    onScanVideo = { navController.navigate(Screen.ScanVideo.route) },
+                    onScanQr = { navController.navigate(Screen.ScanQr.route) }
+                )
+            }
+            composable(Screen.ScanQr.route) {
+                com.rayoai.presentation.ui.screens.tools.ScanQrScreen(
+                    onNavigateBack = { navController.popBackStack() }
                 )
             }
             composable(Screen.ScanPdf.route) {
