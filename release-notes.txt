@@ -1,8 +1,9 @@
-RayoAI - Versión 3.3.7
+RayoAI - Versión 3.3.8
 
 NOTAS DE PUBLICACIÓN
-- Nuevo lector de códigos QR en Herramientas: carga una imagen o apunta la cámara y RayoAI detectará el código automáticamente.
-- Al reconocer un QR, RayoAI vibra y permite abrir enlaces web o copiar el contenido al portapapeles.
-- Ahora puedes elegir tres o más fotos desde la galería de RayoAI para recibir una descripción individual de cada una en el carrusel.
-- Las fotos del carrusel se procesan una por una para cuidar la memoria, la conexión y el uso de tu clave de Gemini.
-- El carrusel mantiene las vistas previas, el progreso y los anuncios de accesibilidad para TalkBack.
+- Ahora puedes elegir por separado el nivel de detalle de las descripciones de imágenes y videos: extensivo, medio o mínimo.
+- Las descripciones se concentran en lo que realmente aparece en la imagen o el video; las interpretaciones, conclusiones y explicaciones de bromas se incluyen únicamente cuando las solicitas.
+- Los chats de videos locales pueden volver a subir automáticamente el archivo original cuando caduca la referencia temporal de Gemini.
+- La guía fotográfica vuelve a anunciar indicaciones aunque el rostro permanezca en la misma posición y avisa cuando no detecta ningún rostro.
+- Al usar la guía fotográfica, el flash activado ilumina inmediatamente la escena y el modo automático adapta la linterna según la luz disponible.
+- Se corrigieron bloqueos de la captura automática después de errores de cámara y respuestas atrasadas del detector facial.
