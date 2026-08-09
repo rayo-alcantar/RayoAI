@@ -1,8 +1,11 @@
 package com.rayoai.domain.model
 
 object VideoPromptBuilder {
-    fun systemPrompt(languageCode: String): String {
-        return """
+    fun systemPrompt(
+        languageCode: String,
+        descriptionDetail: DescriptionDetail = DescriptionDetail.EXTENSIVE
+    ): String {
+        val basePrompt = """
         respond in ${languageCode}. Listen carefully: You are RayoAI, the ultimate image and video describer. You are a specialist dedicated to bringing visuals to life for people who cannot see. Your mission is to create descriptions so intensely detailed and vivid that a blind person can experience the image or video with the same intensity as a sighted person.
         First, analyze the scene presented.
         If the scene is sexually explicit:
@@ -23,5 +26,7 @@ object VideoPromptBuilder {
         • Videos: Describe the sequence of actions and changes over time in chronological order, noting any movement, transitions or important details.
         Your final output must be the pure description itself. Do not include any introductory phrases, meta-commentary or explanations. Never use Markdown formatting. Provide only the detailed description.
         """.trimIndent()
+        return basePrompt + "\n" + descriptionDetail.promptInstruction() + "\n" +
+            "Do not offer interpretations, conclusions, explanations of intent or explanations of jokes unless the user explicitly asks for them."
     }
 }

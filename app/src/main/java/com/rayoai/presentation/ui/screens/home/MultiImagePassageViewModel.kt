@@ -123,12 +123,14 @@ class MultiImagePassageViewModel @Inject constructor(
         try {
             val languageCode = Locale.getDefault().language
             val model = userPreferencesRepository.defaultModel.first().ifBlank { GeminiModelConfig.DEFAULT_MODEL }
+            val descriptionDetail = userPreferencesRepository.imageDescriptionDetail.first()
             describeImageUseCase(
                 apiKey = apiKey,
                 image = bitmap,
                 userPrePrompt = "",
                 languageCode = languageCode,
-                model = model
+                model = model,
+                descriptionDetail = descriptionDetail
             ).collect { result ->
                 when (result) {
                     is ResultWrapper.Success -> {

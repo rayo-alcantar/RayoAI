@@ -40,4 +40,22 @@ interface VideoDao {
      */
     @Query("DELETE FROM video_documents")
     suspend fun deleteAll()
+
+    @Query(
+        """
+        UPDATE video_documents
+        SET geminiFileUri = :fileUri,
+            geminiFileName = :fileName,
+            geminiMimeType = :mimeType,
+            geminiFileExpiresAt = :expiresAt
+        WHERE id = :id
+        """
+    )
+    suspend fun updateGeminiFileReference(
+        id: Long,
+        fileUri: String,
+        fileName: String,
+        mimeType: String,
+        expiresAt: Long
+    )
 }

@@ -212,14 +212,6 @@ fun HomeScreen(
 
     var textToSpeech: TextToSpeech? = null
     var ttsInitialized by remember { mutableStateOf(false) }
-    var focusAssistAnnouncement by remember { mutableStateOf("") }
-
-    LaunchedEffect(focusAssistAnnouncement) {
-        if (focusAssistAnnouncement.isNotBlank()) {
-            view.announceForAccessibility(focusAssistAnnouncement)
-        }
-    }
-
     DisposableEffect(context) {
         textToSpeech = TextToSpeech(context) { status ->
             if (status == TextToSpeech.SUCCESS) {
@@ -341,8 +333,7 @@ fun HomeScreen(
                                     viewModel.describeImage(bitmap)
                                 },
                                 onError = { errorMessage ->
-                                    viewModel.setError(errorMessage)
-                                    viewModel.setCapturing(false) // nuevo
+                                    viewModel.onImageCaptureFailed(errorMessage)
                                 },
                                 isCapturing = uiState.isCapturing,
                                 cameraSelector = uiState.currentCameraSelector,
@@ -350,7 +341,7 @@ fun HomeScreen(
                                 isFocusAssistEnabled = uiState.focusAssistMode != FocusAssistMode.OFF &&
                                     !uiState.isLoading &&
                                     !uiState.isCapturing,
-                                onFocusAssistAnnouncement = { focusAssistAnnouncement = it },
+                                onFocusAssistAnnouncement = { view.announceForAccessibility(it) },
                                 onFocusAssistCentered = {
                                     if (
                                         uiState.focusAssistMode == FocusAssistMode.AUTO_CAPTURE &&

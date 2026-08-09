@@ -304,6 +304,7 @@ class RayoAccessibilityService : AccessibilityService() {
             val userMessage = ChatMessage(getString(R.string.accessibility_capture_chat_user_message), true)
             val prompt = getString(R.string.accessibility_capture_prompt)
             val model = userPreferencesRepository.defaultModel.first().ifBlank { GeminiModelConfig.DEFAULT_MODEL }
+            val descriptionDetail = userPreferencesRepository.imageDescriptionDetail.first()
             val languageCode = Locale.getDefault().language
 
             withContext(Dispatchers.IO) {
@@ -313,7 +314,8 @@ class RayoAccessibilityService : AccessibilityService() {
                     userPrePrompt = prompt,
                     history = emptyList(),
                     languageCode = languageCode,
-                    model = model
+                    model = model,
+                    descriptionDetail = descriptionDetail
                 ).collect { result ->
                     when (result) {
                         ResultWrapper.Loading -> Unit
@@ -356,7 +358,8 @@ class RayoAccessibilityService : AccessibilityService() {
             }
 
             val languageCode = Locale.getDefault().language
-            val systemPrompt = VideoPromptBuilder.systemPrompt(languageCode)
+            val descriptionDetail = userPreferencesRepository.videoDescriptionDetail.first()
+            val systemPrompt = VideoPromptBuilder.systemPrompt(languageCode, descriptionDetail)
             val result = videoRepository.analyzeVideoFromUrl(
                 url = supportedUrl,
                 context = this,

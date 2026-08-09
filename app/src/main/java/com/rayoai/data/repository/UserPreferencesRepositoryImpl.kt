@@ -9,6 +9,7 @@ import androidx.datastore.preferences.core.intPreferencesKey
 import androidx.datastore.preferences.core.longPreferencesKey
 import androidx.datastore.preferences.core.stringPreferencesKey
 import com.rayoai.domain.model.GeminiModelConfig
+import com.rayoai.domain.model.DescriptionDetail
 import com.rayoai.domain.repository.ThemeMode
 import com.rayoai.domain.repository.UserPreferencesRepository
 import kotlinx.coroutines.flow.Flow
@@ -22,6 +23,8 @@ class UserPreferencesRepositoryImpl @Inject constructor(
     private object PreferencesKeys {
         val API_KEY = stringPreferencesKey("api_key")
         val DEFAULT_MODEL = stringPreferencesKey("default_model")
+        val IMAGE_DESCRIPTION_DETAIL = stringPreferencesKey("image_description_detail")
+        val VIDEO_DESCRIPTION_DETAIL = stringPreferencesKey("video_description_detail")
         val THEME_MODE = stringPreferencesKey("theme_mode")
         val TEXT_SCALE = floatPreferencesKey("text_scale")
         val AUTO_DESCRIBE_ON_SHARE = booleanPreferencesKey("auto_describe_on_share")
@@ -49,6 +52,14 @@ class UserPreferencesRepositoryImpl @Inject constructor(
         } else {
             savedModel
         }
+    }
+
+    override val imageDescriptionDetail: Flow<DescriptionDetail> = dataStore.data.map {
+        DescriptionDetail.fromStored(it[PreferencesKeys.IMAGE_DESCRIPTION_DETAIL])
+    }
+
+    override val videoDescriptionDetail: Flow<DescriptionDetail> = dataStore.data.map {
+        DescriptionDetail.fromStored(it[PreferencesKeys.VIDEO_DESCRIPTION_DETAIL])
     }
 
     override val themeMode: Flow<ThemeMode> = dataStore.data.map {
@@ -108,6 +119,18 @@ class UserPreferencesRepositoryImpl @Inject constructor(
     override suspend fun saveDefaultModel(model: String) {
         dataStore.edit {
             it[PreferencesKeys.DEFAULT_MODEL] = model
+        }
+    }
+
+    override suspend fun saveImageDescriptionDetail(detail: DescriptionDetail) {
+        dataStore.edit {
+            it[PreferencesKeys.IMAGE_DESCRIPTION_DETAIL] = detail.name
+        }
+    }
+
+    override suspend fun saveVideoDescriptionDetail(detail: DescriptionDetail) {
+        dataStore.edit {
+            it[PreferencesKeys.VIDEO_DESCRIPTION_DETAIL] = detail.name
         }
     }
 

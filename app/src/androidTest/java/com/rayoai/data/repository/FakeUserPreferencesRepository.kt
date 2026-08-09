@@ -1,6 +1,7 @@
 package com.rayoai.data.repository
 
 import com.rayoai.domain.model.GeminiModelConfig
+import com.rayoai.domain.model.DescriptionDetail
 import com.rayoai.domain.repository.ThemeMode
 import com.rayoai.domain.repository.UserPreferencesRepository
 import kotlinx.coroutines.flow.Flow
@@ -13,6 +14,12 @@ class FakeUserPreferencesRepository : UserPreferencesRepository {
 
     private val _defaultModel = MutableStateFlow(GeminiModelConfig.DEFAULT_MODEL)
     override val defaultModel: Flow<String> = _defaultModel
+
+    private val _imageDescriptionDetail = MutableStateFlow(DescriptionDetail.EXTENSIVE)
+    override val imageDescriptionDetail: Flow<DescriptionDetail> = _imageDescriptionDetail
+
+    private val _videoDescriptionDetail = MutableStateFlow(DescriptionDetail.EXTENSIVE)
+    override val videoDescriptionDetail: Flow<DescriptionDetail> = _videoDescriptionDetail
 
     private val _themeMode = MutableStateFlow(ThemeMode.SYSTEM)
     override val themeMode: Flow<ThemeMode> = _themeMode
@@ -47,12 +54,23 @@ class FakeUserPreferencesRepository : UserPreferencesRepository {
     private val _showHiddenChats = MutableStateFlow(false)
     override val showHiddenChats: Flow<Boolean> = _showHiddenChats
 
+    private val _accessibilityQuickCaptureEnabled = MutableStateFlow(false)
+    override val accessibilityQuickCaptureEnabled: Flow<Boolean> = _accessibilityQuickCaptureEnabled
+
     override suspend fun saveApiKey(apiKey: String) {
         _apiKey.value = apiKey
     }
 
     override suspend fun saveDefaultModel(model: String) {
         _defaultModel.value = model
+    }
+
+    override suspend fun saveImageDescriptionDetail(detail: DescriptionDetail) {
+        _imageDescriptionDetail.value = detail
+    }
+
+    override suspend fun saveVideoDescriptionDetail(detail: DescriptionDetail) {
+        _videoDescriptionDetail.value = detail
     }
 
     override suspend fun saveThemeMode(mode: ThemeMode) {
@@ -97,5 +115,9 @@ class FakeUserPreferencesRepository : UserPreferencesRepository {
 
     override suspend fun saveShowHiddenChats(show: Boolean) {
         _showHiddenChats.value = show
+    }
+
+    override suspend fun saveAccessibilityQuickCaptureEnabled(enabled: Boolean) {
+        _accessibilityQuickCaptureEnabled.value = enabled
     }
 }

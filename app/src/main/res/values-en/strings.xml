@@ -278,6 +278,8 @@ Card: 4152314082325278</string>
     <string name="focus_assist_position_left">on the left</string>
     <string name="focus_assist_position_center">in the center</string>
     <string name="focus_assist_position_right">on the right</string>
+    <string name="focus_assist_no_face_detected">No face is detected. Improve the lighting or point the camera toward the face.</string>
+    <string name="focus_assist_analysis_unavailable">Photo guidance is not available yet. Check your connection and try again.</string>
     <string name="light_level_unavailable">Light sensor unavailable</string>
     <string name="light_level_none">No light</string>
     <string name="light_level_low">Low intensity</string>
@@ -386,9 +388,18 @@ Card: 4152314082325278</string>
     <string name="video_chat_empty">Ask a question about this video.</string>
     <string name="video_chat_not_available">This video has no available reference for questions. Analyze it again to create a chat.</string>
     <string name="video_chat_file_expired">The temporary Gemini reference for this video has expired. Analyze it again to continue asking questions.</string>
+    <string name="video_chat_reupload_unavailable">The Gemini reference expired and the original video is no longer available to upload again.</string>
+    <string name="video_chat_reupload_failed">The original video could not be uploaded again: %1$s</string>
     <string name="multi_image_open_chat">Open in chat</string>
     <string name="multi_image_previous">Previous photo</string>
     <string name="multi_image_next">Next photo</string>
     <string name="multi_image_limit_reached">%1$d photos were not added to protect the device and Gemini quota.</string>
     <string name="unexpected_error">An unexpected error occurred.</string>
+    <string name="settings_description_section_title">Description</string>
+    <string name="settings_description_section_description">Choose how much information to include in new descriptions.</string>
+    <string name="settings_image_description_detail_label">Image description level</string>
+    <string name="settings_video_description_detail_label">Video description level</string>
+    <string name="description_detail_extensive">Extensive</string>
+    <string name="description_detail_medium">Medium detail</string>
+    <string name="description_detail_minimum">Minimum detail</string>
 </resources>

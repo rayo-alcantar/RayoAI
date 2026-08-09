@@ -1,9 +1,9 @@
 package com.rayoai.di
 
-import com.rayoai.data.repository.UserPreferencesRepositoryImpl
+import com.rayoai.data.repository.FakeUserPreferencesRepository
 import com.rayoai.domain.repository.UserPreferencesRepository
-import dagger.Binds
 import dagger.Module
+import dagger.Provides
 import dagger.hilt.components.SingletonComponent
 import dagger.hilt.testing.TestInstallIn
 import javax.inject.Singleton

@@ -8,6 +8,7 @@ import com.rayoai.R
 import com.rayoai.core.ResultWrapper
 import com.rayoai.data.remote.GeminiApiService
 import com.rayoai.data.remote.GeminiFilesApiService
+import com.rayoai.data.local.videodb.VideoDao
 import com.rayoai.data.remote.dto.ContentDto
 import com.rayoai.data.remote.dto.FileDataDto
 import com.rayoai.data.remote.dto.FileInfo
@@ -46,7 +47,8 @@ class VideoRepositoryImpl @Inject constructor(
     private val geminiFilesApiService: GeminiFilesApiService,
     private val geminiApiService: GeminiApiService,
     private val userPreferencesRepository: UserPreferencesRepository,
-    private val httpClient: OkHttpClient
+    private val httpClient: OkHttpClient,
+    private val videoDao: VideoDao
 ) : VideoRepository {
 
     override suspend fun uploadAndAnalyzeVideo(
@@ -183,25 +185,125 @@ class VideoRepositoryImpl @Inject constructor(
         context: Context
     ): Flow<ResultWrapper<String>> = flow {
         emit(ResultWrapper.Loading)
-        val fileUri = video.geminiFileUri
-        if (fileUri.isNullOrBlank()) {
-            emit(ResultWrapper.Error(context.getString(R.string.video_chat_not_available)))
+        val fileData = resolveVideoFileData(apiKey, video, context)
+        if (fileData is ResultWrapper.Error) {
+            emit(fileData)
             return@flow
         }
-        if (video.geminiFileExpiresAt?.let { it <= System.currentTimeMillis() } == true) {
-            emit(ResultWrapper.Error(context.getString(R.string.video_chat_file_expired)))
-            return@flow
-        }
+        val usableFile = (fileData as ResultWrapper.Success).data
         emit(
             generateWithFallback(
                 apiKey = apiKey,
                 context = context,
                 systemPrompt = systemPrompt,
-                fileData = FileDataDto(mimeType = video.geminiMimeType, fileUri = fileUri),
+                fileData = usableFile,
                 prompt = question,
                 history = history
             )
         )
+    }
+
+    private suspend fun resolveVideoFileData(
+        apiKey: String,
+        video: VideoDocument,
+        context: Context
+    ): ResultWrapper<FileDataDto> {
+        val fileUri = video.geminiFileUri
+        val isExpired = video.geminiFileExpiresAt?.let { it <= System.currentTimeMillis() } == true
+        if (!fileUri.isNullOrBlank() && !isExpired) {
+            return ResultWrapper.Success(FileDataDto(video.geminiMimeType, fileUri))
+        }
+
+        val sourceUri = Uri.parse(video.uri)
+        if (sourceUri.scheme !in setOf("content", "file")) {
+            return ResultWrapper.Error(context.getString(R.string.video_chat_reupload_unavailable))
+        }
+
+        var reuploadedFile: UploadedFile? = null
+        return try {
+            val (fileName, sizeBytes, mimeType) = getVideoInfo(context, sourceUri)
+            if (sizeBytes > MAX_VIDEO_BYTES) {
+                return ResultWrapper.Error(context.getString(R.string.scan_video_too_large))
+            }
+            val body = contentUriRequestBody(context, sourceUri, mimeType)
+                ?: error(context.getString(R.string.video_upload_read_failed))
+            val uploadedFile = uploadFileAndWaitUntilActive(
+                apiKey = apiKey,
+                context = context,
+                displayName = fileName,
+                sizeBytes = sizeBytes,
+                mimeType = mimeType,
+                body = body
+            )
+            reuploadedFile = uploadedFile
+            val expiresAt = fileExpiryTime()
+            videoDao.updateGeminiFileReference(
+                id = video.id,
+                fileUri = uploadedFile.uri,
+                fileName = uploadedFile.name,
+                mimeType = uploadedFile.mimeType.ifBlank { mimeType },
+                expiresAt = expiresAt
+            )
+            ResultWrapper.Success(
+                FileDataDto(
+                    mimeType = uploadedFile.mimeType.ifBlank { mimeType },
+                    fileUri = uploadedFile.uri
+                )
+            )
+        } catch (error: Exception) {
+            reuploadedFile?.let { file ->
+                runCatching { geminiFilesApiService.deleteFile(file.name, apiKey) }
+            }
+            ResultWrapper.Error(
+                context.getString(
+                    R.string.video_chat_reupload_failed,
+                    error.message ?: context.getString(R.string.scan_pdf_unknown_error)
+                )
+            )
+        }
+    }
+
+    private suspend fun uploadFileAndWaitUntilActive(
+        apiKey: String,
+        context: Context,
+        displayName: String,
+        sizeBytes: Long,
+        mimeType: String,
+        body: RequestBody
+    ): UploadedFile {
+        var uploadedFile: UploadedFile? = null
+        try {
+            val uploadResponse = geminiFilesApiService.startResumableUpload(
+                contentLength = sizeBytes,
+                contentType = mimeType,
+                apiKey = apiKey,
+                metadata = FileMetadata(FileInfo(displayName.toAsciiSafeName()))
+            )
+            val uploadUrl = uploadResponse.headers()["x-goog-upload-url"]
+                ?: error(context.getString(R.string.video_upload_url_missing))
+            var file = geminiFilesApiService.uploadFileBytes(
+                uploadUrl = uploadUrl,
+                contentLength = sizeBytes,
+                offset = 0,
+                file = body
+            ).file
+            uploadedFile = file
+            repeat(MAX_PROCESSING_ATTEMPTS) {
+                when (file.state) {
+                    "ACTIVE" -> return file
+                    "FAILED" -> error(context.getString(R.string.video_processing_failed))
+                }
+                delay(1000)
+                file = geminiFilesApiService.getFile(file.name, apiKey)
+                uploadedFile = file
+            }
+            error(context.getString(R.string.video_processing_timeout))
+        } catch (error: Exception) {
+            uploadedFile?.let { file ->
+                runCatching { geminiFilesApiService.deleteFile(file.name, apiKey) }
+            }
+            throw error
+        }
     }
 
     private suspend fun uploadAndKeepFile(
@@ -475,6 +577,11 @@ class VideoRepositoryImpl @Inject constructor(
     }
 
     private fun getVideoInfo(context: Context, uri: Uri): Triple<String, Long, String> {
+        if (uri.scheme == "file") {
+            val file = uri.path?.let(::File)
+                ?: return Triple("video.mp4", 0L, "video/mp4")
+            return Triple(file.name, file.length(), context.contentResolver.getType(uri) ?: "video/mp4")
+        }
         var fileName = "video.mp4"
         var sizeBytes = 0L
         context.contentResolver.query(uri, null, null, null, null)?.use { cursor ->
@@ -484,6 +591,11 @@ class VideoRepositoryImpl @Inject constructor(
                 val sizeIndex = cursor.getColumnIndex(OpenableColumns.SIZE)
                 if (sizeIndex != -1) sizeBytes = cursor.getLong(sizeIndex)
             }
+        }
+        if (sizeBytes <= 0L) {
+            sizeBytes = runCatching {
+                context.contentResolver.openFileDescriptor(uri, "r")?.use { it.statSize }
+            }.getOrNull()?.takeIf { it >= 0L } ?: 0L
         }
         return Triple(fileName, sizeBytes, context.contentResolver.getType(uri) ?: "video/mp4")
     }

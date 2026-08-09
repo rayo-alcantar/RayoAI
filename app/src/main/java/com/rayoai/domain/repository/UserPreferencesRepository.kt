@@ -1,12 +1,15 @@
 package com.rayoai.domain.repository
 
 import kotlinx.coroutines.flow.Flow
+import com.rayoai.domain.model.DescriptionDetail
 
 enum class ThemeMode { SYSTEM, LIGHT, DARK, HIGH_CONTRAST }
 
 interface UserPreferencesRepository {
     val apiKey: Flow<String?>
     val defaultModel: Flow<String>
+    val imageDescriptionDetail: Flow<DescriptionDetail>
+    val videoDescriptionDetail: Flow<DescriptionDetail>
     val themeMode: Flow<ThemeMode>
     val textScale: Flow<Float>
     val autoDescribeOnShare: Flow<Boolean>
@@ -22,6 +25,8 @@ interface UserPreferencesRepository {
 
     suspend fun saveApiKey(apiKey: String)
     suspend fun saveDefaultModel(model: String)
+    suspend fun saveImageDescriptionDetail(detail: DescriptionDetail)
+    suspend fun saveVideoDescriptionDetail(detail: DescriptionDetail)
     suspend fun saveThemeMode(mode: ThemeMode)
     suspend fun saveTextScale(scale: Float)
     suspend fun saveAutoDescribeOnShare(enabled: Boolean)

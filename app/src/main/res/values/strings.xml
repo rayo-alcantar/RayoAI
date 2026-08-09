@@ -287,6 +287,8 @@ Tarjeta: 4152314082325278</string>
     <string name="focus_assist_position_left">a la izquierda</string>
     <string name="focus_assist_position_center">al centro</string>
     <string name="focus_assist_position_right">a la derecha</string>
+    <string name="focus_assist_no_face_detected">No se detecta ningún rostro. Mejora la iluminación o apunta la cámara hacia el rostro.</string>
+    <string name="focus_assist_analysis_unavailable">La guía de foto aún no está disponible. Comprueba la conexión e inténtalo de nuevo.</string>
     <string name="light_level_unavailable">Sensor de luz no disponible</string>
     <string name="light_level_none">Ausencia de luz</string>
     <string name="light_level_low">Intensidad baja</string>
@@ -395,10 +397,19 @@ Tarjeta: 4152314082325278</string>
     <string name="video_chat_empty">Haz una pregunta sobre este video.</string>
     <string name="video_chat_not_available">Este video no conserva una referencia disponible para preguntas. Vuelve a analizarlo para crear un chat.</string>
     <string name="video_chat_file_expired">La referencia temporal de Gemini para este video ya expiró. Vuelve a analizarlo para seguir preguntando.</string>
+    <string name="video_chat_reupload_unavailable">La referencia de Gemini expiró y el video original ya no está disponible para volver a subirlo.</string>
+    <string name="video_chat_reupload_failed">No se pudo volver a subir el video original: %1$s</string>
     <string name="multi_image_open_chat">Abrir en chat</string>
     <string name="multi_image_previous">Foto anterior</string>
     <string name="multi_image_next">Foto siguiente</string>
     <string name="multi_image_limit_reached">%1$d fotos no se agregaron para proteger el dispositivo y la cuota de Gemini.</string>
     <string name="unexpected_error">Ocurrió un error inesperado.</string>
+    <string name="settings_description_section_title">Descripción</string>
+    <string name="settings_description_section_description">Elige cuánta información incluir en las nuevas descripciones.</string>
+    <string name="settings_image_description_detail_label">Nivel de descripción de imágenes</string>
+    <string name="settings_video_description_detail_label">Nivel de descripción de videos</string>
+    <string name="description_detail_extensive">Extensivo</string>
+    <string name="description_detail_medium">Detalle medio</string>
+    <string name="description_detail_minimum">Detalle mínimo</string>
 </resources>
 

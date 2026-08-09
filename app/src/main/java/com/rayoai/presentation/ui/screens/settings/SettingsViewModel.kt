@@ -4,6 +4,7 @@ import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.rayoai.data.local.UpdatePreferences
 import com.rayoai.domain.model.GeminiModelConfig
+import com.rayoai.domain.model.DescriptionDetail
 import com.rayoai.domain.model.UpdateChannel
 import com.rayoai.domain.repository.ThemeMode
 import com.rayoai.domain.repository.UserPreferencesRepository
@@ -22,6 +23,8 @@ data class SettingsUiState(
     val isApiKeySaved: Boolean = false,
     val apiKeyInput: String = "",
     val currentDefaultModel: String = GeminiModelConfig.DEFAULT_MODEL,
+    val imageDescriptionDetail: DescriptionDetail = DescriptionDetail.EXTENSIVE,
+    val videoDescriptionDetail: DescriptionDetail = DescriptionDetail.EXTENSIVE,
     val currentThemeMode: ThemeMode = ThemeMode.SYSTEM,
     val currentTextScale: Float = 1.0f,
     val currentAutoDescribeOnShare: Boolean = false,
@@ -56,6 +59,16 @@ class SettingsViewModel @Inject constructor(
         viewModelScope.launch {
             userPreferencesRepository.defaultModel.collect { model ->
                 _uiState.update { it.copy(currentDefaultModel = model) }
+            }
+        }
+        viewModelScope.launch {
+            userPreferencesRepository.imageDescriptionDetail.collect { detail ->
+                _uiState.update { it.copy(imageDescriptionDetail = detail) }
+            }
+        }
+        viewModelScope.launch {
+            userPreferencesRepository.videoDescriptionDetail.collect { detail ->
+                _uiState.update { it.copy(videoDescriptionDetail = detail) }
             }
         }
         viewModelScope.launch {
@@ -114,6 +127,18 @@ class SettingsViewModel @Inject constructor(
     fun saveDefaultModel(model: String) {
         viewModelScope.launch {
             userPreferencesRepository.saveDefaultModel(model)
+        }
+    }
+
+    fun saveImageDescriptionDetail(detail: DescriptionDetail) {
+        viewModelScope.launch {
+            userPreferencesRepository.saveImageDescriptionDetail(detail)
+        }
+    }
+
+    fun saveVideoDescriptionDetail(detail: DescriptionDetail) {
+        viewModelScope.launch {
+            userPreferencesRepository.saveVideoDescriptionDetail(detail)
         }
     }
 

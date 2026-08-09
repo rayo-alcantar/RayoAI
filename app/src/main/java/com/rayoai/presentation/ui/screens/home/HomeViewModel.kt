@@ -31,6 +31,7 @@ import android.util.Log
 import java.util.Locale
 import androidx.lifecycle.SavedStateHandle
 import com.rayoai.domain.model.GeminiModelConfig
+import com.rayoai.domain.model.DescriptionDetail
 import com.rayoai.data.local.db.CaptureDao
 import dagger.hilt.android.qualifiers.ApplicationContext
 import javax.inject.Inject
@@ -65,6 +66,7 @@ data class HomeUiState(
     val error: String? = null,
     val apiKey: String? = null,
     val defaultModel: String = GeminiModelConfig.DEFAULT_MODEL,
+    val imageDescriptionDetail: DescriptionDetail = DescriptionDetail.EXTENSIVE,
     val currentImageBitmap: Bitmap? = null,
     val currentImageDescription: String? = null,
     val currentImageUri: Uri? = null,
@@ -119,6 +121,11 @@ class HomeViewModel @Inject constructor(
         viewModelScope.launch {
             userPreferencesRepository.defaultModel.collect { model ->
                 _uiState.update { it.copy(defaultModel = model) }
+            }
+        }
+        viewModelScope.launch {
+            userPreferencesRepository.imageDescriptionDetail.collect { detail ->
+                _uiState.update { it.copy(imageDescriptionDetail = detail) }
             }
         }
         savedStateHandle.get<String>("captureId")?.toLongOrNull()?.let {
@@ -233,15 +240,19 @@ class HomeViewModel @Inject constructor(
         if (_uiState.value.isLoading || _uiState.value.isCountingDown) return
     
         Log.d("HomeViewModel", "triggerImageCapture called")
-        viewModelScope.launch {
-            _uiState.update { it.copy(isLoading = true, isCapturing = true, focusAssistMode = FocusAssistMode.OFF) }
-            Log.d("HomeViewModel", "isLoading + isCapturing set to true by triggerImageCapture")
-            // SIN cuenta regresiva aquí. La UI ya hizo la suya antes de llamar a este método.
-        }
+        _uiState.update { it.copy(isLoading = true, isCapturing = true, focusAssistMode = FocusAssistMode.OFF) }
+        Log.d("HomeViewModel", "isLoading + isCapturing set to true by triggerImageCapture")
+        // SIN cuenta regresiva aquí. La UI ya hizo la suya antes de llamar a este método.
     }
 
     fun setCapturing(value: Boolean) {
         _uiState.update { it.copy(isCapturing = value) }
+    }
+
+    fun onImageCaptureFailed(message: String) {
+        _uiState.update {
+            it.copy(error = message, isLoading = false, isCapturing = false)
+        }
     }
 
     fun describeImage(
@@ -254,14 +265,26 @@ class HomeViewModel @Inject constructor(
             val apiKey = userPreferencesRepository.apiKey.first()
             if (apiKey.isNullOrBlank()) {
                 Log.e("HomeViewModel", "API Key is null or blank.")
-                _uiState.update { it.copy(error = appContext.getString(R.string.scan_pdf_user_message_missing_api_key), isLoading = false) }
+                _uiState.update {
+                    it.copy(
+                        error = appContext.getString(R.string.scan_pdf_user_message_missing_api_key),
+                        isLoading = false,
+                        isCapturing = false
+                    )
+                }
                 return@launch
             }
             _uiState.update { it.copy(isCapturing = false, isLoading = true, error = null) }
             val imageUri = storedImageUri ?: imageStorageManager.saveBitmapAndGetUri(image)
             if (imageUri == null) {
                 Log.e("HomeViewModel", "Failed to save bitmap and get URI.")
-                _uiState.update { it.copy(error = appContext.getString(R.string.home_save_image_failed), isLoading = false) }
+                _uiState.update {
+                    it.copy(
+                        error = appContext.getString(R.string.home_save_image_failed),
+                        isLoading = false,
+                        isCapturing = false
+                    )
+                }
                 return@launch
             }
             _playCaptureSound.emit(Unit)
@@ -283,7 +306,14 @@ class HomeViewModel @Inject constructor(
             try {
                 val languageCode = Locale.getDefault().language
                 val model = _uiState.value.defaultModel.ifBlank { GeminiModelConfig.DEFAULT_MODEL }
-                describeImageUseCase(apiKey, image, prePrompt, languageCode = languageCode, model = model).collect { result ->
+                describeImageUseCase(
+                    apiKey = apiKey,
+                    image = image,
+                    userPrePrompt = prePrompt,
+                    languageCode = languageCode,
+                    model = model,
+                    descriptionDetail = _uiState.value.imageDescriptionDetail
+                ).collect { result ->
                     when (result) {
                         is ResultWrapper.Loading -> {
                             Log.d("HomeViewModel", "describeImage: ResultWrapper.Loading")

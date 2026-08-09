@@ -5,6 +5,10 @@ import android.content.Context
 import android.graphics.Bitmap
 import android.graphics.Matrix
 import android.graphics.Rect
+import android.hardware.Sensor
+import android.hardware.SensorEvent
+import android.hardware.SensorEventListener
+import android.hardware.SensorManager
 import android.util.Log
 import android.view.ViewGroup.LayoutParams.MATCH_PARENT
 import androidx.compose.runtime.DisposableEffect
@@ -29,7 +33,11 @@ import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.rememberUpdatedState
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
@@ -50,6 +58,7 @@ import com.google.mlkit.vision.face.FaceDetector
 import com.google.mlkit.vision.face.FaceDetectorOptions
 import com.rayoai.R
 import java.util.concurrent.atomic.AtomicBoolean
+import java.util.concurrent.atomic.AtomicLong
 
 /**
  * Composable que muestra una vista previa de la cámara y permite capturar imágenes.
@@ -73,6 +82,7 @@ fun CameraView(
 ) {
     val context = LocalContext.current
     val lifecycleOwner = LocalLifecycleOwner.current
+    val permissionState = rememberPermissionState(permission = Manifest.permission.CAMERA)
     val requestCameraPermission = stringResource(R.string.camera_permission_request)
     val captureError = stringResource(R.string.camera_capture_error)
     val cameraNotReady = stringResource(R.string.camera_not_ready)
@@ -81,6 +91,17 @@ fun CameraView(
     val faceLeft = stringResource(R.string.focus_assist_position_left)
     val faceCenter = stringResource(R.string.focus_assist_position_center)
     val faceRight = stringResource(R.string.focus_assist_position_right)
+    val noFaceDetected = stringResource(R.string.focus_assist_no_face_detected)
+    val analysisUnavailable = stringResource(R.string.focus_assist_analysis_unavailable)
+    val currentAnnouncement by rememberUpdatedState(onFocusAssistAnnouncement)
+    val currentCenteredCallback by rememberUpdatedState(onFocusAssistCentered)
+    val currentFlashMode by rememberUpdatedState(flashMode)
+    val currentFocusAssistEnabled by rememberUpdatedState(isFocusAssistEnabled)
+    val sensorManager = remember {
+        context.getSystemService(Context.SENSOR_SERVICE) as SensorManager
+    }
+    val ambientLightSensor = remember { sensorManager.getDefaultSensor(Sensor.TYPE_LIGHT) }
+    var autoTorchEnabled by remember { mutableStateOf(false) }
     // Controlador de la cámara que gestiona el ciclo de vida y las operaciones de la cámara.
     val cameraController = remember { LifecycleCameraController(context) }
     val faceDetector = remember {
@@ -93,30 +114,72 @@ fun CameraView(
     }
     val focusAssistAnalyzer = remember(
         faceDetector,
-        onFocusAssistAnnouncement,
         facesDetectedTemplate,
         faceDetectedTemplate,
         faceLeft,
         faceCenter,
         faceRight,
-        onFocusAssistCentered
+        noFaceDetected,
+        analysisUnavailable
     ) {
         FocusAssistAnalyzer(
             faceDetector = faceDetector,
-            onAnnouncement = onFocusAssistAnnouncement,
-            onCentered = onFocusAssistCentered,
+            onAnnouncement = { currentAnnouncement(it) },
+            onCentered = { currentCenteredCallback() },
+            onAverageLuma = { luma ->
+                if (
+                    ambientLightSensor == null &&
+                    currentFocusAssistEnabled &&
+                    currentFlashMode == ImageCapture.FLASH_MODE_AUTO &&
+                    !autoTorchEnabled &&
+                    FocusAssistLightingPolicy.isFrameTooDark(luma)
+                ) {
+                    autoTorchEnabled = true
+                }
+            },
             facesDetectedTemplate = facesDetectedTemplate,
             faceDetectedTemplate = faceDetectedTemplate,
             leftLabel = faceLeft,
             centerLabel = faceCenter,
-            rightLabel = faceRight
+            rightLabel = faceRight,
+            noFaceDetected = noFaceDetected,
+            analysisUnavailable = analysisUnavailable
         )
     }
 
     DisposableEffect(Unit) {
         onDispose {
             cameraController.clearImageAnalysisAnalyzer()
+            runCatching { cameraController.enableTorch(false) }
+            cameraController.unbind()
             faceDetector.close()
+        }
+    }
+    DisposableEffect(isFocusAssistEnabled, flashMode, ambientLightSensor) {
+        if (
+            isFocusAssistEnabled &&
+            flashMode == ImageCapture.FLASH_MODE_AUTO &&
+            ambientLightSensor != null
+        ) {
+            val listener = object : SensorEventListener {
+                override fun onSensorChanged(event: SensorEvent) {
+                    autoTorchEnabled = FocusAssistLightingPolicy.updateAutoTorchFromLux(
+                        previous = autoTorchEnabled,
+                        lux = event.values.firstOrNull() ?: Float.NaN
+                    )
+                }
+
+                override fun onAccuracyChanged(sensor: Sensor?, accuracy: Int) = Unit
+            }
+            sensorManager.registerListener(listener, ambientLightSensor, SensorManager.SENSOR_DELAY_NORMAL)
+            onDispose { sensorManager.unregisterListener(listener) }
+        } else {
+            onDispose { }
+        }
+    }
+    LaunchedEffect(isFocusAssistEnabled, flashMode) {
+        if (!isFocusAssistEnabled || flashMode != ImageCapture.FLASH_MODE_AUTO) {
+            autoTorchEnabled = false
         }
     }
     LaunchedEffect(cameraController, cameraSelector, flashMode) {
@@ -125,6 +188,7 @@ fun CameraView(
     }
     LaunchedEffect(cameraController, isFocusAssistEnabled, focusAssistAnalyzer) {
         if (isFocusAssistEnabled) {
+            focusAssistAnalyzer.start()
             cameraController.setEnabledUseCases(CameraController.IMAGE_CAPTURE or CameraController.IMAGE_ANALYSIS)
             cameraController.imageAnalysisBackpressureStrategy = ImageAnalysis.STRATEGY_KEEP_ONLY_LATEST
             cameraController.setImageAnalysisAnalyzer(
@@ -137,9 +201,25 @@ fun CameraView(
             focusAssistAnalyzer.reset()
         }
     }
+    val shouldUseTorch = FocusAssistLightingPolicy.shouldUseTorch(
+        focusAssistEnabled = isFocusAssistEnabled,
+        flashMode = flashMode,
+        autoTorchEnabled = autoTorchEnabled
+    )
+    LaunchedEffect(cameraController, cameraSelector, shouldUseTorch, permissionState.status.isGranted) {
+        if (permissionState.status.isGranted) {
+            val future = runCatching { cameraController.enableTorch(shouldUseTorch) }.getOrNull()
+            future?.addListener(
+                {
+                    runCatching { future.get() }.onFailure {
+                        Log.w("CameraView", "No se pudo cambiar el estado de la linterna", it)
+                    }
+                },
+                ContextCompat.getMainExecutor(context)
+            )
+        }
+    }
     // Estado del permiso de la cámara utilizando Accompanist Permissions.
-    val permissionState = rememberPermissionState(permission = Manifest.permission.CAMERA)
-
     LaunchedEffect(isCapturing) {
         Log.d("CameraView", "isCapturing changed to: $isCapturing")
         if (isCapturing) {
@@ -232,11 +312,14 @@ private class FocusAssistAnalyzer(
     private val faceDetector: FaceDetector,
     private val onAnnouncement: (String) -> Unit,
     private val onCentered: () -> Unit,
+    private val onAverageLuma: (Float) -> Unit,
     private val facesDetectedTemplate: String,
     private val faceDetectedTemplate: String,
     private val leftLabel: String,
     private val centerLabel: String,
-    private val rightLabel: String
+    private val rightLabel: String,
+    private val noFaceDetected: String,
+    private val analysisUnavailable: String
 ) : ImageAnalysis.Analyzer {
 
     private val isAnalyzing = AtomicBoolean(false)
@@ -244,6 +327,14 @@ private class FocusAssistAnalyzer(
     private var lastAnnouncement = ""
     private var lastAnnouncementTime = 0L
     private var hasTriggeredCentered = false
+    private val generation = AtomicLong(0L)
+    @Volatile private var active = false
+
+    fun start() {
+        generation.incrementAndGet()
+        active = true
+        hasTriggeredCentered = false
+    }
 
     @androidx.annotation.OptIn(ExperimentalGetImage::class)
     override fun analyze(imageProxy: ImageProxy) {
@@ -253,6 +344,8 @@ private class FocusAssistAnalyzer(
             return
         }
         lastAnalysisTime = now
+        val analysisGeneration = generation.get()
+        onAverageLuma(averageLuma(imageProxy))
 
         val mediaImage = imageProxy.image
         if (mediaImage == null) {
@@ -262,22 +355,41 @@ private class FocusAssistAnalyzer(
         }
 
         val image = InputImage.fromMediaImage(mediaImage, imageProxy.imageInfo.rotationDegrees)
-        val faceTask = faceDetector.process(image)
+        val faceTask = try {
+            faceDetector.process(image)
+        } catch (error: Exception) {
+            if (active && generation.get() == analysisGeneration) {
+                announceIfNeeded(analysisUnavailable)
+            }
+            isAnalyzing.set(false)
+            imageProxy.close()
+            return
+        }
 
         faceTask
             .addOnSuccessListener { faces ->
+                if (!active || generation.get() != analysisGeneration) return@addOnSuccessListener
                 buildAnnouncement(faces, image.width)?.let { announcement ->
                     announceIfNeeded(announcement)
                 }
                 notifyCenteredIfNeeded(faces, image.width)
             }
+            .addOnFailureListener {
+                if (active && generation.get() == analysisGeneration) {
+                    announceIfNeeded(analysisUnavailable)
+                }
+            }
             .addOnCompleteListener {
-                isAnalyzing.set(false)
+                if (generation.get() == analysisGeneration) {
+                    isAnalyzing.set(false)
+                }
                 imageProxy.close()
             }
     }
 
     fun reset() {
+        active = false
+        generation.incrementAndGet()
         lastAnnouncement = ""
         lastAnalysisTime = 0L
         lastAnnouncementTime = 0L
@@ -290,7 +402,7 @@ private class FocusAssistAnalyzer(
             return facesDetectedTemplate.format(faces.size)
         }
         val largestFace = faces.maxByOrNull { it.boundingBox.width() * it.boundingBox.height() }
-            ?: return null
+            ?: return noFaceDetected
         return faceDetectedTemplate.format(horizontalPosition(largestFace.boundingBox, imageWidth))
     }
 
@@ -336,8 +448,26 @@ private class FocusAssistAnalyzer(
         return normalizedCenter in 0.38f..0.62f
     }
 
+    private fun averageLuma(imageProxy: ImageProxy): Float {
+        val buffer = imageProxy.planes.firstOrNull()?.buffer ?: return Float.NaN
+        val size = buffer.remaining()
+        if (size <= 0) return Float.NaN
+        val firstIndex = buffer.position()
+        val sampleStep = maxOf(1, size / MAX_LUMA_SAMPLES)
+        var total = 0L
+        var samples = 0
+        var index = 0
+        while (index < size) {
+            total += buffer.get(firstIndex + index).toInt() and 0xFF
+            samples++
+            index += sampleStep
+        }
+        return if (samples == 0) Float.NaN else total.toFloat() / samples.toFloat()
+    }
+
     private companion object {
         private const val ANALYSIS_INTERVAL_MS = 900L
         private const val REPEAT_ANNOUNCEMENT_INTERVAL_MS = 6000L
+        private const val MAX_LUMA_SAMPLES = 1024
     }
 }

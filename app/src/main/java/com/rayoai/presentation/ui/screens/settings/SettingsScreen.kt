@@ -70,6 +70,7 @@ import com.rayoai.BuildConfig
 import com.rayoai.R
 import com.rayoai.accessibility.RayoAccessibilityService
 import com.rayoai.domain.model.GeminiModelConfig
+import com.rayoai.domain.model.DescriptionDetail
 import com.rayoai.domain.model.UpdateChannel
 import com.rayoai.domain.repository.ThemeMode
 import com.rayoai.presentation.ui.components.SecureTextField
@@ -98,10 +99,13 @@ fun SettingsScreen(
     val focusManager = LocalFocusManager.current
 
     var isModelMenuExpanded by remember { mutableStateOf(false) }
+    var isImageDetailMenuExpanded by remember { mutableStateOf(false) }
+    var isVideoDetailMenuExpanded by remember { mutableStateOf(false) }
     var isThemeMenuExpanded by remember { mutableStateOf(false) }
     var isUpdateChannelMenuExpanded by remember { mutableStateOf(false) }
     var showAccessibilitySetupDialog by remember { mutableStateOf(false) }
     var googleSectionExpanded by remember { mutableStateOf(false) }
+    var descriptionSectionExpanded by remember { mutableStateOf(false) }
     var appearanceSectionExpanded by remember { mutableStateOf(false) }
     var accessibilitySectionExpanded by remember { mutableStateOf(false) }
 
@@ -117,6 +121,11 @@ fun SettingsScreen(
         ThemeMode.LIGHT to stringResource(R.string.theme_mode_light),
         ThemeMode.DARK to stringResource(R.string.theme_mode_dark),
         ThemeMode.HIGH_CONTRAST to stringResource(R.string.theme_mode_high_contrast)
+    )
+    val descriptionDetailOptions = listOf(
+        DescriptionDetail.EXTENSIVE to stringResource(R.string.description_detail_extensive),
+        DescriptionDetail.MEDIUM to stringResource(R.string.description_detail_medium),
+        DescriptionDetail.MINIMUM to stringResource(R.string.description_detail_minimum)
     )
     val updateChannelOptions = listOf(
         UpdateChannel.STABLE to stringResource(R.string.update_channel_stable),
@@ -267,6 +276,55 @@ fun SettingsScreen(
                             .height(56.dp)
                     ) {
                         Text(stringResource(R.string.settings_max_images_save_compact))
+                    }
+                }
+            }
+
+            ExpandableSettingsSection(
+                title = stringResource(R.string.settings_description_section_title),
+                description = stringResource(R.string.settings_description_section_description),
+                expanded = descriptionSectionExpanded,
+                onExpandedChange = { descriptionSectionExpanded = it }
+            ) {
+                val selectedImageDetail = descriptionDetailOptions
+                    .first { it.first == uiState.imageDescriptionDetail }
+                    .second
+                BoxedDropdownField(
+                    value = selectedImageDetail,
+                    label = stringResource(R.string.settings_image_description_detail_label),
+                    expanded = isImageDetailMenuExpanded,
+                    onExpand = { isImageDetailMenuExpanded = true },
+                    onDismiss = { isImageDetailMenuExpanded = false }
+                ) {
+                    descriptionDetailOptions.forEach { (detail, label) ->
+                        DropdownMenuItem(
+                            text = { Text(label) },
+                            onClick = {
+                                viewModel.saveImageDescriptionDetail(detail)
+                                isImageDetailMenuExpanded = false
+                            }
+                        )
+                    }
+                }
+
+                val selectedVideoDetail = descriptionDetailOptions
+                    .first { it.first == uiState.videoDescriptionDetail }
+                    .second
+                BoxedDropdownField(
+                    value = selectedVideoDetail,
+                    label = stringResource(R.string.settings_video_description_detail_label),
+                    expanded = isVideoDetailMenuExpanded,
+                    onExpand = { isVideoDetailMenuExpanded = true },
+                    onDismiss = { isVideoDetailMenuExpanded = false }
+                ) {
+                    descriptionDetailOptions.forEach { (detail, label) ->
+                        DropdownMenuItem(
+                            text = { Text(label) },
+                            onClick = {
+                                viewModel.saveVideoDescriptionDetail(detail)
+                                isVideoDetailMenuExpanded = false
+                            }
+                        )
                     }
                 }
             }

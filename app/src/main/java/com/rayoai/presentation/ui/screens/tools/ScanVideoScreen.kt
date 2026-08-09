@@ -56,6 +56,7 @@ import com.rayoai.R
 import com.rayoai.domain.repository.UserPreferencesRepository
 import com.rayoai.domain.repository.VideoRepository
 import com.rayoai.domain.model.VideoDocument
+import com.rayoai.domain.model.DescriptionDetail
 import com.rayoai.domain.usecase.video.SaveVideoDocumentUseCase
 import com.rayoai.domain.usecase.video.GetVideoDocumentsUseCase
 import com.rayoai.domain.usecase.video.DeleteVideoDocumentUseCase
@@ -63,6 +64,7 @@ import com.rayoai.core.ResultWrapper
 import com.rayoai.domain.model.VideoLinkValidator
 import com.rayoai.domain.model.VideoPromptBuilder
 import dagger.hilt.android.lifecycle.HiltViewModel
+import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.flow.firstOrNull
 import kotlinx.coroutines.launch
 import javax.inject.Inject
@@ -122,7 +124,8 @@ class ScanVideoViewModel @Inject constructor(
 
                 // El system prompt se crea con el mismo que se usa para imágenes
                 val languageCode = java.util.Locale.getDefault().language
-                val systemPrompt = createSystemPrompt(languageCode)
+                val descriptionDetail = userPreferencesRepository.videoDescriptionDetail.first()
+                val systemPrompt = createSystemPrompt(languageCode, descriptionDetail)
 
                 uploadProgress = 0.5f
                 status = context.getString(R.string.scan_video_processing)
@@ -191,7 +194,8 @@ class ScanVideoViewModel @Inject constructor(
                 status = context.getString(R.string.video_link_resolving)
 
                 val languageCode = java.util.Locale.getDefault().language
-                val systemPrompt = createSystemPrompt(languageCode)
+                val descriptionDetail = userPreferencesRepository.videoDescriptionDetail.first()
+                val systemPrompt = createSystemPrompt(languageCode, descriptionDetail)
                 val result = videoRepository.analyzeVideoFromUrl(
                     url = supportedUrl,
                     context = context,
@@ -278,7 +282,10 @@ class ScanVideoViewModel @Inject constructor(
         return Triple(fileName, sizeBytes, durationSeconds)
     }
 
-    private fun createSystemPrompt(languageCode: String): String = VideoPromptBuilder.systemPrompt(languageCode)
+    private fun createSystemPrompt(
+        languageCode: String,
+        descriptionDetail: DescriptionDetail
+    ): String = VideoPromptBuilder.systemPrompt(languageCode, descriptionDetail)
 }
 
 @Composable
