@@ -18,14 +18,14 @@ val keystoreProperties = Properties().apply {
 
 android {
     namespace = "com.rayoai"
-    compileSdk = 35
+    compileSdk = 36
 
     defaultConfig {
         applicationId = "com.rayoai"
         minSdk = 29
-        targetSdk = 35
-        versionCode = 43
-        versionName = "3.3.8"
+        targetSdk = 36
+        versionCode = 45
+        versionName = "3.3.10"
         testInstrumentationRunner = "com.rayoai.CustomTestRunner"
         vectorDrawables { useSupportLibrary = true }
     }
@@ -35,10 +35,12 @@ android {
         create("github") {
             dimension = "distribution"
             buildConfigField("boolean", "GITHUB_UPDATES_ENABLED", "true")
+            buildConfigField("boolean", "DONATIONS_ENABLED", "true")
         }
         create("play") {
             dimension = "distribution"
             buildConfigField("boolean", "GITHUB_UPDATES_ENABLED", "false")
+            buildConfigField("boolean", "DONATIONS_ENABLED", "false")
         }
     }
 

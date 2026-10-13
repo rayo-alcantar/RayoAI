@@ -5,6 +5,7 @@ import android.graphics.Bitmap
 import android.net.Uri
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
+import com.rayoai.BuildConfig
 import com.rayoai.core.ResultWrapper
 import com.rayoai.R
 import com.rayoai.data.local.ImageStorageManager
@@ -151,17 +152,19 @@ class HomeViewModel @Inject constructor(
             }
         }
 
-        viewModelScope.launch {
-            val hasDonated = userPreferencesRepository.hasDonated.first()
-            if (!hasDonated) {
-                val lastDonationPromptTime = userPreferencesRepository.lastDonationPromptTime.first()
-                val currentTime = System.currentTimeMillis()
-                val donationPromptIntervalMillis = 4 * 24 * 60 * 60 * 1000L // 4 days in milliseconds
+        if (BuildConfig.DONATIONS_ENABLED) {
+            viewModelScope.launch {
+                val hasDonated = userPreferencesRepository.hasDonated.first()
+                if (!hasDonated) {
+                    val lastDonationPromptTime = userPreferencesRepository.lastDonationPromptTime.first()
+                    val currentTime = System.currentTimeMillis()
+                    val donationPromptIntervalMillis = 4 * 24 * 60 * 60 * 1000L // 4 days in milliseconds
 
-                if (lastDonationPromptTime == 0L) {
-                    userPreferencesRepository.saveLastDonationPromptTime(currentTime)
-                } else if ((currentTime - lastDonationPromptTime) > donationPromptIntervalMillis) {
-                    _uiState.update { it.copy(showDonationBanner = true) }
+                    if (lastDonationPromptTime == 0L) {
+                        userPreferencesRepository.saveLastDonationPromptTime(currentTime)
+                    } else if ((currentTime - lastDonationPromptTime) > donationPromptIntervalMillis) {
+                        _uiState.update { it.copy(showDonationBanner = true) }
+                    }
                 }
             }
         }

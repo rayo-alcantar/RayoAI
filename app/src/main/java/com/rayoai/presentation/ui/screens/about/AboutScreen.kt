@@ -28,21 +28,22 @@ import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
+import com.rayoai.BuildConfig
 import com.rayoai.R
 
 @Composable
 fun AboutScreen(showDonationDialogInitially: Boolean = false) {
     val context = LocalContext.current
-    var showDonateDialog by remember { mutableStateOf(showDonationDialogInitially) }
+    var showDonateDialog by remember { mutableStateOf(BuildConfig.DONATIONS_ENABLED && showDonationDialogInitially) }
     var showBbvaDialog by remember { mutableStateOf(false) }
 
     LaunchedEffect(showDonationDialogInitially) {
-        if (showDonationDialogInitially) {
+        if (BuildConfig.DONATIONS_ENABLED && showDonationDialogInitially) {
             showDonateDialog = true
         }
     }
 
-    if (showDonateDialog) {
+    if (BuildConfig.DONATIONS_ENABLED && showDonateDialog) {
         AlertDialog(
             onDismissRequest = { showDonateDialog = false },
             title = { Text(stringResource(R.string.donate_dialog_title)) },
@@ -74,7 +75,7 @@ fun AboutScreen(showDonationDialogInitially: Boolean = false) {
         )
     }
 
-    if (showBbvaDialog) {
+    if (BuildConfig.DONATIONS_ENABLED && showBbvaDialog) {
         AlertDialog(
             onDismissRequest = { showBbvaDialog = false },
             title = { Text(stringResource(R.string.donate_bbva_dialog_title)) },
@@ -118,19 +119,23 @@ fun AboutScreen(showDonationDialogInitially: Boolean = false) {
             style = MaterialTheme.typography.bodyLarge,
             textAlign = TextAlign.Center
         )
-        Spacer(modifier = Modifier.height(24.dp))
-        Text(
-            text = stringResource(R.string.about_donation_message),
-            style = MaterialTheme.typography.bodyMedium,
-            textAlign = TextAlign.Center
-        )
-        Spacer(modifier = Modifier.height(24.dp))
-        Button(onClick = {
-            showDonateDialog = true
-        }) {
-            Text(stringResource(R.string.about_donate_paypal))
+        if (BuildConfig.DONATIONS_ENABLED) {
+            Spacer(modifier = Modifier.height(24.dp))
+            Text(
+                text = stringResource(R.string.about_donation_message),
+                style = MaterialTheme.typography.bodyMedium,
+                textAlign = TextAlign.Center
+            )
+            Spacer(modifier = Modifier.height(24.dp))
+            Button(onClick = {
+                showDonateDialog = true
+            }) {
+                Text(stringResource(R.string.about_donate_paypal))
+            }
+            Spacer(modifier = Modifier.height(8.dp))
+        } else {
+            Spacer(modifier = Modifier.height(24.dp))
         }
-        Spacer(modifier = Modifier.height(8.dp))
         Button(onClick = {
             val emailIntent = Intent(Intent.ACTION_SENDTO).apply {
                 data = Uri.parse("mailto:${context.getString(R.string.about_email)}")

@@ -64,6 +64,7 @@ import androidx.navigation.NavController
 import com.google.accompanist.permissions.ExperimentalPermissionsApi
 import com.google.accompanist.permissions.isGranted
 import com.google.accompanist.permissions.rememberPermissionState
+import com.rayoai.BuildConfig
 import com.rayoai.R
 import com.rayoai.presentation.ui.components.CameraView
 import com.rayoai.presentation.ui.components.ChatBubble
@@ -265,7 +266,7 @@ fun HomeScreen(
                     onRateLater = { viewModel.onRateLaterClicked() }
                 )
             }
-            if (uiState.showDonationBanner) {
+            if (BuildConfig.DONATIONS_ENABLED && uiState.showDonationBanner) {
                 DonationBanner(
                     onDonateNow = {
                         viewModel.onDonationNowClicked()
