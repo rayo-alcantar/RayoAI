@@ -43,13 +43,30 @@ import com.rayoai.R
 import androidx.compose.foundation.lazy.items
 import androidx.compose.material.icons.filled.AddAPhoto
 import androidx.compose.material.icons.filled.Close
+import androidx.compose.material.icons.filled.RestartAlt
+import androidx.compose.material.icons.filled.ZoomIn
+import androidx.compose.material.icons.filled.ZoomOut
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.graphicsLayer
+import androidx.compose.ui.input.pointer.pointerInput
+import androidx.compose.ui.layout.onSizeChanged
 import androidx.compose.ui.res.painterResource
+import androidx.compose.ui.semantics.Role
+import androidx.compose.ui.semantics.role
+import androidx.compose.ui.semantics.stateDescription
+import androidx.compose.ui.unit.IntSize
+import androidx.compose.ui.window.Dialog
+import androidx.compose.ui.window.DialogProperties
 import coil.compose.rememberAsyncImagePainter
 import androidx.compose.foundation.background
+import androidx.compose.foundation.clickable
+import androidx.compose.foundation.gestures.detectTapGestures
+import androidx.compose.foundation.gestures.detectTransformGestures
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.lazy.LazyRow
+import kotlin.math.roundToInt
 
 @OptIn(ExperimentalPermissionsApi::class)
 @Composable
@@ -78,6 +95,7 @@ fun ChatSection(
     val focusRequester = remember { FocusRequester() }
 
     val capturedImageDesc = stringResource(R.string.captured_image_description)
+    val openFullscreenImageDesc = stringResource(R.string.open_fullscreen_image)
     val saveImageDesc = stringResource(R.string.save_image)
     val noImageToSave = context.getString(R.string.no_image_to_save)
     val shareImageDesc = stringResource(R.string.share_image)
@@ -91,30 +109,31 @@ fun ChatSection(
     val transcribingAudioText = stringResource(R.string.scan_pdf_transcribing_audio)
     val selectedImagePreviewDesc = stringResource(R.string.selected_image_preview)
     val removeImageDesc = stringResource(R.string.remove_image)
+    var showFullScreenImage by remember { mutableStateOf(false) }
 
     LaunchedEffect(chatMessages, listState) {
         val lastIndex = chatMessages.indices.last
         if (lastIndex < 0) return@LaunchedEffect
 
-        val lastMessage = chatMessages.last()
-        val shouldSpeak = !lastMessage.isFromUser && (chatMessages.size == 2 || chatMessages.size > 2)
-
-        if (shouldSpeak) {
-            textToSpeech?.speak(lastMessage.content, TextToSpeech.QUEUE_FLUSH, null, null)
-        }
-
         // Always try to scroll to the last item and focus.
+        // TTS is NOT triggered automatically here; the user activates it on demand from ChatBubble.
         try {
-            // Use a coroutine to avoid blocking the main thread, but stay within the LaunchedEffect
             launch {
                 listState.animateScrollToItem(lastIndex)
-                // The focus request should happen after the scroll and composition update.
-                delay(100) // A small delay can help ensure the item is composed and ready for focus.
+                delay(100)
                 focusRequester.requestFocus()
             }
         } catch (e: Exception) {
             Log.w("ChatSection", "Failed to scroll or focus on new message", e)
         }
+    }
+
+    if (showFullScreenImage && capturedImage != null) {
+        FullScreenZoomableImageDialog(
+            bitmap = capturedImage,
+            imageDescription = capturedImageDesc,
+            onDismiss = { showFullScreenImage = false }
+        )
     }
 
     Column(
@@ -123,10 +142,20 @@ fun ChatSection(
         capturedImage?.let { bitmap ->
             Image(
                 bitmap = bitmap.asImageBitmap(),
-                contentDescription = capturedImageDesc,
+                contentDescription = openFullscreenImageDesc,
                 modifier = Modifier
                     .fillMaxWidth()
-                    .height(200.dp),
+                    .height(200.dp)
+                    .clickable(
+                        onClickLabel = openFullscreenImageDesc,
+                        role = Role.Button
+                    ) {
+                        showFullScreenImage = true
+                    }
+                    .semantics {
+                        role = Role.Button
+                        contentDescription = openFullscreenImageDesc
+                    },
                 contentScale = ContentScale.Crop
             )
         }
@@ -311,3 +340,167 @@ fun ChatSection(
         }
     }
 }
+
+@Composable
+private fun FullScreenZoomableImageDialog(
+    bitmap: Bitmap,
+    imageDescription: String,
+    onDismiss: () -> Unit
+) {
+    val closeDesc = stringResource(R.string.close_fullscreen_image)
+    val zoomInDesc = stringResource(R.string.zoom_in_image)
+    val zoomOutDesc = stringResource(R.string.zoom_out_image)
+    val zoomResetDesc = stringResource(R.string.zoom_reset_image)
+
+    var scale by remember { mutableFloatStateOf(1f) }
+    var offset by remember { mutableStateOf(Offset.Zero) }
+    var containerSize by remember { mutableStateOf(IntSize.Zero) }
+    val zoomPercent = (scale * 100f).roundToInt()
+    val zoomLabel = stringResource(R.string.zoom_level_label, zoomPercent)
+
+    fun clampOffset(candidate: Offset, targetScale: Float): Offset {
+        if (targetScale <= 1f || containerSize.width == 0 || containerSize.height == 0) {
+            return Offset.Zero
+        }
+        val maxX = (containerSize.width * (targetScale - 1f)) / 2f
+        val maxY = (containerSize.height * (targetScale - 1f)) / 2f
+        return Offset(
+            x = candidate.x.coerceIn(-maxX, maxX),
+            y = candidate.y.coerceIn(-maxY, maxY)
+        )
+    }
+
+    fun updateScale(newScale: Float) {
+        val coerced = newScale.coerceIn(MIN_ZOOM_SCALE, MAX_ZOOM_SCALE)
+        scale = coerced
+        offset = clampOffset(offset, coerced)
+    }
+
+    Dialog(
+        onDismissRequest = onDismiss,
+        properties = DialogProperties(
+            usePlatformDefaultWidth = false,
+            dismissOnBackPress = true,
+            dismissOnClickOutside = false
+        )
+    ) {
+        Box(
+            modifier = Modifier
+                .fillMaxSize()
+                .background(Color.Black)
+                .onSizeChanged { containerSize = it }
+        ) {
+            Image(
+                bitmap = bitmap.asImageBitmap(),
+                contentDescription = imageDescription,
+                contentScale = ContentScale.Fit,
+                modifier = Modifier
+                    .fillMaxSize()
+                    .pointerInput(Unit) {
+                        detectTapGestures(
+                            onDoubleTap = {
+                                val nextScale = when {
+                                    scale < 2f -> 2.5f
+                                    scale < 4f -> 4.5f
+                                    else -> 1f
+                                }
+                                updateScale(nextScale)
+                            }
+                        )
+                    }
+                    .pointerInput(Unit) {
+                        detectTransformGestures { _, pan, zoom, _ ->
+                            val newScale = (scale * zoom).coerceIn(MIN_ZOOM_SCALE, MAX_ZOOM_SCALE)
+                            scale = newScale
+                            offset = clampOffset(offset + pan, newScale)
+                        }
+                    }
+                    .graphicsLayer {
+                        scaleX = scale
+                        scaleY = scale
+                        translationX = offset.x
+                        translationY = offset.y
+                    }
+                    .semantics {
+                        contentDescription = imageDescription
+                        stateDescription = zoomLabel
+                    }
+            )
+
+            FilledIconButton(
+                onClick = onDismiss,
+                modifier = Modifier
+                    .align(Alignment.TopEnd)
+                    .padding(16.dp)
+                    .size(48.dp)
+                    .semantics { contentDescription = closeDesc }
+            ) {
+                Icon(
+                    imageVector = Icons.Default.Close,
+                    contentDescription = null
+                )
+            }
+
+            Surface(
+                modifier = Modifier
+                    .align(Alignment.BottomCenter)
+                    .padding(16.dp),
+                shape = CircleShape,
+                color = MaterialTheme.colorScheme.surface.copy(alpha = 0.9f),
+                tonalElevation = 6.dp
+            ) {
+                Row(
+                    modifier = Modifier.padding(horizontal = 12.dp, vertical = 6.dp),
+                    horizontalArrangement = Arrangement.spacedBy(12.dp),
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    IconButton(
+                        onClick = { updateScale(scale - ZOOM_STEP) },
+                        enabled = scale > MIN_ZOOM_SCALE,
+                        modifier = Modifier.semantics { contentDescription = zoomOutDesc }
+                    ) {
+                        Icon(
+                            imageVector = Icons.Default.ZoomOut,
+                            contentDescription = null
+                        )
+                    }
+
+                    Text(
+                        text = zoomLabel,
+                        style = MaterialTheme.typography.labelLarge,
+                        modifier = Modifier.semantics {
+                            liveRegion = LiveRegionMode.Polite
+                            contentDescription = zoomLabel
+                        }
+                    )
+
+                    IconButton(
+                        onClick = { updateScale(1f) },
+                        enabled = scale > MIN_ZOOM_SCALE || offset != Offset.Zero,
+                        modifier = Modifier.semantics { contentDescription = zoomResetDesc }
+                    ) {
+                        Icon(
+                            imageVector = Icons.Default.RestartAlt,
+                            contentDescription = null
+                        )
+                    }
+
+                    IconButton(
+                        onClick = { updateScale(scale + ZOOM_STEP) },
+                        enabled = scale < MAX_ZOOM_SCALE,
+                        modifier = Modifier.semantics { contentDescription = zoomInDesc }
+                    ) {
+                        Icon(
+                            imageVector = Icons.Default.ZoomIn,
+                            contentDescription = null
+                        )
+                    }
+                }
+            }
+        }
+    }
+}
+
+private const val MIN_ZOOM_SCALE = 1f
+private const val MAX_ZOOM_SCALE = 6f
+private const val ZOOM_STEP = 0.75f

@@ -411,5 +411,11 @@ Tarjeta: 4152314082325278</string>
     <string name="description_detail_extensive">Extensivo</string>
     <string name="description_detail_medium">Detalle medio</string>
     <string name="description_detail_minimum">Detalle mínimo</string>
+    <string name="open_fullscreen_image">Imagen capturada. Toca para ver en pantalla completa y hacer zoom</string>
+    <string name="close_fullscreen_image">Cerrar vista en pantalla completa</string>
+    <string name="zoom_in_image">Acercar imagen</string>
+    <string name="zoom_out_image">Alejar imagen</string>
+    <string name="zoom_reset_image">Restablecer zoom</string>
+    <string name="zoom_level_label">Zoom %1$d%%</string>
 </resources>
 

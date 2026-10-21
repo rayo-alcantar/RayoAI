@@ -402,4 +402,10 @@ Card: 4152314082325278</string>
     <string name="description_detail_extensive">Extensive</string>
     <string name="description_detail_medium">Medium detail</string>
     <string name="description_detail_minimum">Minimum detail</string>
+    <string name="open_fullscreen_image">Captured image. Tap to view full screen and zoom</string>
+    <string name="close_fullscreen_image">Close full screen view</string>
+    <string name="zoom_in_image">Zoom in</string>
+    <string name="zoom_out_image">Zoom out</string>
+    <string name="zoom_reset_image">Reset zoom</string>
+    <string name="zoom_level_label">Zoom %1$d%%</string>
 </resources>
