@@ -13,8 +13,10 @@ import com.rayoai.domain.model.ChatMessage
 import com.rayoai.domain.model.GeminiModelConfig
 import com.rayoai.domain.repository.VisionRepository
 import kotlinx.coroutines.CancellationException
+import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.flow
+import kotlinx.coroutines.flow.flowOn
 import kotlinx.coroutines.flow.map
 import java.io.ByteArrayOutputStream
 import javax.inject.Inject
@@ -64,10 +66,13 @@ class VisionRepositoryImpl @Inject constructor(
 
         // 3. Preparar Mensaje Actual (Imágenes + Texto)
         val currentParts = mutableListOf<PartDto>()
+        val isStructuredDocument = responseMimeType == "application/json"
+        val maxImageSide = if (isStructuredDocument) MAX_DOCUMENT_IMAGE_SIDE else MAX_VISION_IMAGE_SIDE
+        val jpegQuality = if (isStructuredDocument) 82 else 76
 
-        // Convertir imágenes a Base64 y agregarlas como inline data
+        // Convertir imágenes a Base64 (escaladas en Dispatchers.IO) y agregarlas como inline data
         images.forEach { bitmap ->
-            val base64String = bitmapToBase64(bitmap)
+            val base64String = bitmapToBase64(bitmap, maxImageSide, jpegQuality)
             currentParts.add(
                 PartDto(
                     inlineData = InlineDataDto(
@@ -91,26 +96,22 @@ class VisionRepositoryImpl @Inject constructor(
             )
         )
 
-        // 4. Construir Request Completo
-        val request = GeminiRequest(
-            systemInstruction = systemInstructionDto,
-            contents = contentsDto,
-            generationConfig = GenerationConfigDto(
-                maxOutputTokens = if (responseMimeType == "application/json") 8192 else null,
-                responseMimeType = responseMimeType,
-                thinkingConfig = ThinkingConfigDto(
-                    includeThoughts = true, // Se pueden incluir pensamientos para debugging futuro si es necesario, pero se filtran al parsear
-                    thinkingLevel = "MINIMAL" // Recomendado para visión rápida
-                )
-            )
-        )
-
-        // 5. Lógica de Fallback de Modelos (mantiene compatibilidad con lógica original)
-        val modelPriority = buildModelPriority(model)
+        // 4. Lógica de Fallback de Modelos (priorizando velocidad y adaptando ThinkingConfig por familia)
+        val modelPriority = GeminiModelConfig.buildModelPriority(model)
         var lastError: String? = null
 
         for (modelName in modelPriority) {
             try {
+                val request = GeminiRequest(
+                    systemInstruction = systemInstructionDto,
+                    contents = contentsDto,
+                    generationConfig = GenerationConfigDto(
+                        maxOutputTokens = if (isStructuredDocument) 8192 else null,
+                        responseMimeType = responseMimeType,
+                        thinkingConfig = GeminiModelConfig.thinkingConfigFor(modelName)
+                    )
+                )
+
                 val response = geminiApiService.generateContent(
                     model = modelName,
                     apiKey = apiKey,
@@ -118,61 +119,52 @@ class VisionRepositoryImpl @Inject constructor(
                 )
 
                 if (response.isSuccessful && response.body() != null) {
-                    // Extraer texto de la respuesta (Gemini 3.1 puede devolver múltiples partes)
                     val candidate = response.body()!!.candidates?.firstOrNull()
                     val parts = candidate?.content?.parts
-                    
-                    // Algoritmo de extracción para Gemini 3.1:
-                    // 1. Recorrer partes. 2. Ignorar "thought": true. 3. Concatenar texto.
+
                     val text = parts?.filter { it.thought != true }
                         ?.mapNotNull { it.text }
                         ?.joinToString("")
 
                     if (!text.isNullOrBlank()) {
                         emit(ResultWrapper.Success(text))
-                        return@flow // Éxito, salimos del flujo
+                        return@flow
                     } else {
-                        // Respuesta vacía o bloqueada
                         val finishReason = candidate?.finishReason ?: "UNKNOWN"
                         lastError = "$modelName: Empty response (Reason: $finishReason)"
                     }
                 } else {
-                    // Error HTTP (400, 429, etc.)
+                    val httpCode = response.code()
                     val errorBody = response.errorBody()?.string() ?: "Unknown error"
-                    lastError = "$modelName: HTTP ${response.code()} - $errorBody"
+                    lastError = "$modelName: HTTP $httpCode - $errorBody"
+                    if (GeminiModelConfig.isFatalAuthOrKeyError(httpCode, errorBody)) {
+                        break
+                    }
                 }
             } catch (e: CancellationException) {
-                // No capturar CancellationException, dejarlo propagarse
                 throw e
             } catch (e: Exception) {
-                // Cualquier otro error (red, parsing, etc.)
                 lastError = "$modelName: ${e.localizedMessage ?: e.message ?: "Unknown error"}"
             }
         }
 
-        // Si llegamos aquí, todos los modelos fallaron
         emit(ResultWrapper.Error(lastError ?: "No se pudo obtener respuesta de los modelos configurados."))
-    }
+    }.flowOn(Dispatchers.IO)
 
     /**
-     * Convierte un Bitmap a Base64 (JPEG comprimido al 80%).
-     * Necesario porque la API REST requiere imágenes en Base64.
+     * Escala y convierte un Bitmap a Base64 JPEG para minimizar el tamaño del payload y tiempo de subida.
      */
-    private fun bitmapToBase64(bitmap: Bitmap): String {
+    private fun bitmapToBase64(bitmap: Bitmap, maxSide: Int, jpegQuality: Int): String {
+        val scaledBitmap = imageStorageManager.scaleBitmapForProcessing(bitmap, maxSide)
         val outputStream = ByteArrayOutputStream()
-        // Comprimir a JPEG para reducir tamaño del payload
-        bitmap.compress(Bitmap.CompressFormat.JPEG, 80, outputStream)
+        scaledBitmap.compress(Bitmap.CompressFormat.JPEG, jpegQuality, outputStream)
         val bytes = outputStream.toByteArray()
         return Base64.encodeToString(bytes, Base64.NO_WRAP)
     }
 
-    /**
-     * Construye la lista priorizada de modelos para intentar.
-     * Primero el modelo preferido, luego los fallbacks.
-     */
-    private fun buildModelPriority(preferredModel: String): List<String> {
-        val normalizedPreferred = preferredModel.ifBlank { GeminiModelConfig.DEFAULT_MODEL }
-        return (listOf(normalizedPreferred) + GeminiModelConfig.fallbackOrder).distinct()
+    private companion object {
+        const val MAX_VISION_IMAGE_SIDE = 1280
+        const val MAX_DOCUMENT_IMAGE_SIDE = 1536
     }
 
     // ============ MÉTODOS DE PERSISTENCIA (sin cambios) ============

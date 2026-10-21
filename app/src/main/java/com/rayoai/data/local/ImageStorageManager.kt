@@ -45,6 +45,15 @@ class ImageStorageManager @Inject constructor(
         return saveBitmapAndGetUri(bitmap)
     }
 
+    fun scaleBitmapForProcessing(bitmap: Bitmap, maxSide: Int = MAX_PROCESSING_IMAGE_SIDE): Bitmap {
+        val largestSide = maxOf(bitmap.width, bitmap.height)
+        if (largestSide <= maxSide || largestSide <= 0) return bitmap
+        val scale = maxSide.toFloat() / largestSide.toFloat()
+        val targetWidth = (bitmap.width * scale).toInt().coerceAtLeast(1)
+        val targetHeight = (bitmap.height * scale).toInt().coerceAtLeast(1)
+        return Bitmap.createScaledBitmap(bitmap, targetWidth, targetHeight, true)
+    }
+
     private fun decodeBitmapForProcessing(uri: Uri): Bitmap? {
         return try {
             if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.P) {
@@ -56,7 +65,9 @@ class ImageStorageManager @Inject constructor(
                 }
             } else {
                 @Suppress("DEPRECATION")
-                MediaStore.Images.Media.getBitmap(context.contentResolver, uri)
+                MediaStore.Images.Media.getBitmap(context.contentResolver, uri)?.let {
+                    scaleBitmapForProcessing(it)
+                }
             }
         } catch (e: Exception) {
             Log.w("ImageStorageManager", "Unable to import shared image", e)
@@ -94,11 +105,12 @@ class ImageStorageManager @Inject constructor(
         val imageFile = File(storageDir, filename)
 
         return try {
+            val scaledBitmap = scaleBitmapForProcessing(bitmap)
             // Escribir el Bitmap en el archivo.
-            val fos = FileOutputStream(imageFile)
-            bitmap.compress(Bitmap.CompressFormat.JPEG, 90, fos) // Comprimir a JPEG con calidad 90%.
-            fos.flush()
-            fos.close()
+            FileOutputStream(imageFile).use { fos ->
+                scaledBitmap.compress(Bitmap.CompressFormat.JPEG, 82, fos)
+                fos.flush()
+            }
             // Obtener una URI segura utilizando FileProvider.
             FileProvider.getUriForFile(context, "${context.packageName}.fileprovider", imageFile)
         } catch (e: IOException) {
@@ -148,10 +160,16 @@ class ImageStorageManager @Inject constructor(
     fun getBitmapFromUri(uri: Uri): Bitmap? {
         return try {
             if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.P) {
-                ImageDecoder.decodeBitmap(ImageDecoder.createSource(context.contentResolver, uri))
+                ImageDecoder.decodeBitmap(ImageDecoder.createSource(context.contentResolver, uri)) { decoder, info, _ ->
+                    val targetSize = scaledSize(info.size, MAX_PROCESSING_IMAGE_SIDE)
+                    decoder.setTargetSize(targetSize.width, targetSize.height)
+                    decoder.allocator = ImageDecoder.ALLOCATOR_SOFTWARE
+                }
             } else {
                 @Suppress("DEPRECATION")
-                MediaStore.Images.Media.getBitmap(context.contentResolver, uri)
+                MediaStore.Images.Media.getBitmap(context.contentResolver, uri)?.let {
+                    scaleBitmapForProcessing(it)
+                }
             }
         } catch (e: SecurityException) {
             Log.e("ImageStorageManager", "SecurityException loading image from URI: $uri - permission may have expired", e)
@@ -212,6 +230,6 @@ class ImageStorageManager @Inject constructor(
     }
 
     private companion object {
-        const val MAX_PROCESSING_IMAGE_SIDE = 2048
+        const val MAX_PROCESSING_IMAGE_SIDE = 1280
     }
 }

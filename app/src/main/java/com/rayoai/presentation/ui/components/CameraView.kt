@@ -57,6 +57,8 @@ import com.google.mlkit.vision.face.FaceDetection
 import com.google.mlkit.vision.face.FaceDetector
 import com.google.mlkit.vision.face.FaceDetectorOptions
 import com.rayoai.R
+import java.util.concurrent.ExecutorService
+import java.util.concurrent.Executors
 import java.util.concurrent.atomic.AtomicBoolean
 import java.util.concurrent.atomic.AtomicLong
 
@@ -104,6 +106,7 @@ fun CameraView(
     var autoTorchEnabled by remember { mutableStateOf(false) }
     // Controlador de la cámara que gestiona el ciclo de vida y las operaciones de la cámara.
     val cameraController = remember { LifecycleCameraController(context) }
+    val cameraBackgroundExecutor = remember { Executors.newSingleThreadExecutor() }
     val faceDetector = remember {
         FaceDetection.getClient(
             FaceDetectorOptions.Builder()
@@ -153,6 +156,7 @@ fun CameraView(
             runCatching { cameraController.enableTorch(false) }
             cameraController.unbind()
             faceDetector.close()
+            cameraBackgroundExecutor.shutdown()
         }
     }
     DisposableEffect(isFocusAssistEnabled, flashMode, ambientLightSensor) {
@@ -192,7 +196,7 @@ fun CameraView(
             cameraController.setEnabledUseCases(CameraController.IMAGE_CAPTURE or CameraController.IMAGE_ANALYSIS)
             cameraController.imageAnalysisBackpressureStrategy = ImageAnalysis.STRATEGY_KEEP_ONLY_LATEST
             cameraController.setImageAnalysisAnalyzer(
-                ContextCompat.getMainExecutor(context),
+                cameraBackgroundExecutor,
                 focusAssistAnalyzer
             )
         } else {
@@ -223,7 +227,15 @@ fun CameraView(
     LaunchedEffect(isCapturing) {
         Log.d("CameraView", "isCapturing changed to: $isCapturing")
         if (isCapturing) {
-            captureImage(cameraController, context, onImageCaptured, onError, captureError, cameraNotReady)
+            captureImage(
+                cameraController = cameraController,
+                backgroundExecutor = cameraBackgroundExecutor,
+                context = context,
+                onImageCaptured = onImageCaptured,
+                onError = onError,
+                captureError = captureError,
+                cameraNotReady = cameraNotReady
+            )
         }
     }
 
@@ -264,6 +276,7 @@ fun CameraView(
  */
 private fun captureImage(
     cameraController: LifecycleCameraController,
+    backgroundExecutor: ExecutorService,
     context: Context,
     onImageCaptured: (Bitmap) -> Unit,
     onError: (String) -> Unit,
@@ -271,22 +284,35 @@ private fun captureImage(
     cameraNotReady: String
 ) {
     Log.d("CameraView", "Attempting to capture image...")
+    val mainExecutor = ContextCompat.getMainExecutor(context)
     try {
         cameraController.takePicture(
-            ContextCompat.getMainExecutor(context),
+            backgroundExecutor,
             object : ImageCapture.OnImageCapturedCallback() {
                 override fun onCaptureSuccess(image: ImageProxy) {
                     Log.d("CameraView", "onCaptureSuccess: Image captured")
-                    val bitmap = image.toBitmap()
-                    val rotationDegrees = image.imageInfo.rotationDegrees
-                    val rotatedBitmap = rotateBitmap(bitmap, rotationDegrees)
-                    onImageCaptured(rotatedBitmap)
-                    image.close()
+                    try {
+                        val bitmap = image.toBitmap()
+                        val rotationDegrees = image.imageInfo.rotationDegrees
+                        val processedBitmap = rotateAndScaleBitmap(bitmap, rotationDegrees)
+                        mainExecutor.execute {
+                            onImageCaptured(processedBitmap)
+                        }
+                    } catch (e: Exception) {
+                        Log.e("CameraView", "Error processing captured bitmap: ", e)
+                        mainExecutor.execute {
+                            onError(e.localizedMessage ?: captureError)
+                        }
+                    } finally {
+                        image.close()
+                    }
                 }
 
                 override fun onError(exception: ImageCaptureException) {
                     Log.e("CameraView", "Error capturing image: ", exception)
-                    onError(exception.localizedMessage ?: captureError)
+                    mainExecutor.execute {
+                        onError(exception.localizedMessage ?: captureError)
+                    }
                 }
             }
         )
@@ -297,15 +323,35 @@ private fun captureImage(
 }
 
 /**
- * Rota un [Bitmap] dado un número de grados.
- * @param bitmap El [Bitmap] a rotar.
- * @param rotationDegrees Los grados de rotación (ej. 90, 180, 270).
- * @return El [Bitmap] rotado.
+ * Rota y escala un [Bitmap] en una sola pasada de [Matrix] fuera del hilo principal
+ * para evitar enviar imágenes de 12MP–50MP innecesarias a la API.
  */
-private fun rotateBitmap(bitmap: Bitmap, rotationDegrees: Int): Bitmap {
-    val matrix = Matrix()
-    matrix.postRotate(rotationDegrees.toFloat())
-    return Bitmap.createBitmap(bitmap, 0, 0, bitmap.width, bitmap.height, matrix, true)
+private fun rotateAndScaleBitmap(
+    bitmap: Bitmap,
+    rotationDegrees: Int,
+    maxSide: Int = 1280
+): Bitmap {
+    val largestSide = maxOf(bitmap.width, bitmap.height)
+    val scale = if (largestSide > maxSide && largestSide > 0) {
+        maxSide.toFloat() / largestSide.toFloat()
+    } else {
+        1f
+    }
+    if (rotationDegrees == 0 && scale == 1f) return bitmap
+
+    val matrix = Matrix().apply {
+        if (scale < 1f) {
+            postScale(scale, scale)
+        }
+        if (rotationDegrees != 0) {
+            postRotate(rotationDegrees.toFloat())
+        }
+    }
+    val transformed = Bitmap.createBitmap(bitmap, 0, 0, bitmap.width, bitmap.height, matrix, true)
+    if (transformed !== bitmap) {
+        bitmap.recycle()
+    }
+    return transformed
 }
 
 private class FocusAssistAnalyzer(

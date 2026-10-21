@@ -20,6 +20,7 @@ import com.rayoai.presentation.voice.AndroidSpeechFileTranscriber
 import dagger.hilt.android.lifecycle.HiltViewModel
 import androidx.camera.core.CameraSelector
 import androidx.camera.core.ImageCapture
+import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.flow.MutableSharedFlow
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.SharedFlow
@@ -28,6 +29,7 @@ import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.withContext
 import android.util.Log
 import java.util.Locale
 import androidx.lifecycle.SavedStateHandle
@@ -77,6 +79,7 @@ data class HomeUiState(
     val isTimerEnabled: Boolean = false,
     val timerSeconds: Int = 0,
     val isCountingDown: Boolean = false,
+    val captureImageUris: List<Uri> = emptyList(),
     val selectedImageUris: List<Uri> = emptyList(),
     val showApiUsageWarning: Boolean = false,
     val showAddImageDialog: Boolean = false,
@@ -258,6 +261,37 @@ class HomeViewModel @Inject constructor(
         }
     }
 
+    fun describeImageFromUri(
+        uri: Uri,
+        pairedUris: List<Uri>? = null,
+        errorResId: Int = R.string.error_loading_shared_image
+    ) {
+        viewModelScope.launch {
+            _uiState.update { it.copy(isLoading = true, error = null) }
+            val (bitmap, importedUris) = withContext(Dispatchers.IO) {
+                val mainBitmap = imageStorageManager.getBitmapFromUri(uri)
+                val importedPaired = pairedUris?.mapNotNull { sourceUri ->
+                    imageStorageManager.importSharedImage(sourceUri) ?: sourceUri
+                }
+                mainBitmap to importedPaired
+            }
+            if (bitmap == null) {
+                _uiState.update {
+                    it.copy(
+                        isLoading = false,
+                        error = appContext.getString(errorResId)
+                    )
+                }
+                return@launch
+            }
+            describeImage(
+                image = bitmap,
+                storedImageUri = importedUris?.firstOrNull(),
+                initialImageUris = importedUris
+            )
+        }
+    }
+
     fun describeImage(
         image: Bitmap,
         storedImageUri: Uri? = null,
@@ -278,7 +312,11 @@ class HomeViewModel @Inject constructor(
                 return@launch
             }
             _uiState.update { it.copy(isCapturing = false, isLoading = true, error = null) }
-            val imageUri = storedImageUri ?: imageStorageManager.saveBitmapAndGetUri(image)
+            val (processedBitmap, imageUri) = withContext(Dispatchers.IO) {
+                val scaled = imageStorageManager.scaleBitmapForProcessing(image)
+                val uri = storedImageUri ?: imageStorageManager.saveBitmapAndGetUri(scaled)
+                scaled to uri
+            }
             if (imageUri == null) {
                 Log.e("HomeViewModel", "Failed to save bitmap and get URI.")
                 _uiState.update {
@@ -294,13 +332,20 @@ class HomeViewModel @Inject constructor(
 
             val initialPromptMessage = ChatMessage(content = appContext.getString(R.string.captured_image_description), isFromUser = true)
             val prePrompt = _uiState.value.prePromptText
+            val baseUris = initialImageUris ?: listOf(imageUri)
+            val extraPendingUris = if (initialImageUris != null && initialImageUris.size > 1) {
+                initialImageUris.drop(1)
+            } else {
+                emptyList()
+            }
             _uiState.update {
                 it.copy(
                     error = null,
-                    currentImageBitmap = image,
+                    currentImageBitmap = processedBitmap,
                     currentImageUri = imageUri,
                     chatMessages = listOf(initialPromptMessage),
-                    selectedImageUris = initialImageUris ?: listOf(imageUri),
+                    captureImageUris = baseUris,
+                    selectedImageUris = extraPendingUris,
                     prePromptText = "",
                     showPrePromptInput = false
                 )
@@ -311,7 +356,7 @@ class HomeViewModel @Inject constructor(
                 val model = _uiState.value.defaultModel.ifBlank { GeminiModelConfig.DEFAULT_MODEL }
                 describeImageUseCase(
                     apiKey = apiKey,
-                    image = image,
+                    image = processedBitmap,
                     userPrePrompt = prePrompt,
                     languageCode = languageCode,
                     model = model,
@@ -325,13 +370,14 @@ class HomeViewModel @Inject constructor(
                             Log.d("HomeViewModel", "describeImage: ResultWrapper.Success")
                             val newMessages = _uiState.value.chatMessages +
                                     ChatMessage(content = result.data, isFromUser = false)
-                            val newCaptureId = saveCaptureUseCase(_uiState.value.selectedImageUris.map { it.toString() }, newMessages)
+                            val persistedUris = _uiState.value.captureImageUris.ifEmpty { listOf(imageUri) }
+                            val newCaptureId = saveCaptureUseCase(persistedUris.map { it.toString() }, newMessages)
                             _uiState.update {
                                 it.copy(
                                     isLoading = false,
                                     chatMessages = newMessages,
                                     currentImageDescription = result.data,
-                                    screenState = HomeScreenState.ImageCaptured(image, result.data, imageUri),
+                                    screenState = HomeScreenState.ImageCaptured(processedBitmap, result.data, imageUri),
                                     currentCaptureId = newCaptureId
                                 )
                             }
@@ -378,34 +424,60 @@ class HomeViewModel @Inject constructor(
 
             if (message.isBlank() && _uiState.value.selectedImageUris.isEmpty()) return@launch
 
+            val existingMessages = _uiState.value.chatMessages
+            val isRetryingSameMessage = existingMessages.lastOrNull()?.let {
+                it.isFromUser && it.content == message && _uiState.value.failedActionType == FailedActionType.SEND_MESSAGE
+            } == true
+            val historyBeforeCurrentTurn = if (isRetryingSameMessage) {
+                existingMessages.dropLast(1)
+            } else {
+                existingMessages
+            }
             val userMessage = ChatMessage(content = message, isFromUser = true)
-            _uiState.update { 
+            _uiState.update {
                 it.copy(
-                    chatMessages = it.chatMessages + userMessage,
+                    chatMessages = historyBeforeCurrentTurn + userMessage,
                     isAiTyping = true
                 )
             }
 
-            val imageBitmaps = _uiState.value.selectedImageUris.mapNotNull { uri ->
-                imageStorageManager.getBitmapFromUri(uri)
+            val allConversationImageUris = (
+                _uiState.value.captureImageUris.ifEmpty { listOfNotNull(_uiState.value.currentImageUri) } +
+                    _uiState.value.selectedImageUris
+                ).distinct()
+
+            val imageBitmaps = withContext(Dispatchers.IO) {
+                allConversationImageUris.mapNotNull { uri ->
+                    imageStorageManager.getBitmapFromUri(uri)
+                }.ifEmpty {
+                    listOfNotNull(_uiState.value.currentImageBitmap)
+                }
             }
             try {
                 val languageCode = Locale.getDefault().language
                 val model = _uiState.value.defaultModel.ifBlank { GeminiModelConfig.DEFAULT_MODEL }
-                continueChatUseCase(apiKey, message, _uiState.value.chatMessages, imageBitmaps, languageCode, model).collect { result ->
+                continueChatUseCase(
+                    apiKey = apiKey,
+                    prompt = message,
+                    history = historyBeforeCurrentTurn,
+                    images = imageBitmaps,
+                    languageCode = languageCode,
+                    model = model
+                ).collect { result ->
                     when (result) {
                         is ResultWrapper.Loading -> {
                         }
                         is ResultWrapper.Success -> {
                             val newMessages = _uiState.value.chatMessages +
                                     ChatMessage(content = result.data, isFromUser = false)
-                            val currentImageUris = _uiState.value.selectedImageUris.map { it.toString() }
-                            val newCaptureId = saveCaptureUseCase(currentImageUris, newMessages, _uiState.value.currentCaptureId)
+                            val persistedImageUris = allConversationImageUris.map { it.toString() }
+                            val newCaptureId = saveCaptureUseCase(persistedImageUris, newMessages, _uiState.value.currentCaptureId)
                             _uiState.update {
                                 it.copy(
                                     isLoading = false,
                                     isAiTyping = false,
                                     chatMessages = newMessages,
+                                    captureImageUris = allConversationImageUris,
                                     selectedImageUris = emptyList(),
                                     currentCaptureId = newCaptureId
                                 )
@@ -528,10 +600,9 @@ class HomeViewModel @Inject constructor(
             if (state.failedActionType == FailedActionType.DESCRIBE_IMAGE && state.isNewCapture) {
                 // Cleanup abandoned image
                 state.currentImageUri?.let { uri ->
-                     // Best effort to delete. ImageStorageManager might need a delete method that takes a single URI
-                     // or we can use content resolver directly or reuse existing deleteImages.
-                     // The existing deleteImages takes a list.
-                     imageStorageManager.deleteImages(listOf(uri))
+                    withContext(Dispatchers.IO) {
+                        imageStorageManager.deleteImages(listOf(uri))
+                    }
                 }
                 
                 // Return to camera state
@@ -541,6 +612,7 @@ class HomeViewModel @Inject constructor(
                         currentImageUri = null,
                         currentImageDescription = null,
                         chatMessages = emptyList(), // Clear the "Imagen capturada" message
+                        captureImageUris = emptyList(),
                         selectedImageUris = emptyList(),
                         screenState = HomeScreenState.Initial
                     )
@@ -566,6 +638,7 @@ class HomeViewModel @Inject constructor(
                 isLoading = false,
                 error = null,
                 isCapturing = false,
+                captureImageUris = emptyList(),
                 selectedImageUris = emptyList(),
                 focusAssistMode = FocusAssistMode.OFF
             )
@@ -574,7 +647,9 @@ class HomeViewModel @Inject constructor(
 
     fun saveImageToGallery(bitmap: Bitmap) {
         viewModelScope.launch {
-            val uri = imageStorageManager.saveBitmapToGallery(bitmap)
+            val uri = withContext(Dispatchers.IO) {
+                imageStorageManager.saveBitmapToGallery(bitmap)
+            }
             if (uri != null) {
                 _uiState.update { it.copy(error = appContext.getString(R.string.home_image_saved), currentImageUri = uri) }
             } else {
@@ -612,7 +687,9 @@ class HomeViewModel @Inject constructor(
             if (capture != null) {
                 val imageUris = capture.imageUris.map { Uri.parse(it) }
                 val firstImageUri = imageUris.firstOrNull()
-                val firstImageBitmap = firstImageUri?.let { imageStorageManager.getBitmapFromUri(it) }
+                val firstImageBitmap = withContext(Dispatchers.IO) {
+                    firstImageUri?.let { imageStorageManager.getBitmapFromUri(it) }
+                }
 
                 if (firstImageBitmap != null) {
                     _uiState.update {
@@ -623,7 +700,8 @@ class HomeViewModel @Inject constructor(
                             currentImageUri = imageUris.firstOrNull(),
                             chatMessages = capture.chatHistory,
                             currentCaptureId = capture.id,
-                            selectedImageUris = imageUris
+                            captureImageUris = imageUris,
+                            selectedImageUris = emptyList()
                         )
                     }
                 } else {
@@ -641,7 +719,9 @@ class HomeViewModel @Inject constructor(
         viewModelScope.launch {
             val capture = captureDao.getCaptureById(captureId)
             capture?.let { 
-                imageStorageManager.deleteImages(it.imageUris.map { uriString -> Uri.parse(uriString) })
+                withContext(Dispatchers.IO) {
+                    imageStorageManager.deleteImages(it.imageUris.map { uriString -> Uri.parse(uriString) })
+                }
                 captureDao.deleteCapture(captureId)
             }
         }
@@ -650,8 +730,10 @@ class HomeViewModel @Inject constructor(
     fun deleteAllChats() {
         viewModelScope.launch {
             val allCaptures = captureDao.getAllCapturesList()
-            allCaptures.forEach { capture ->
-                imageStorageManager.deleteImages(capture.imageUris.map { uriString -> Uri.parse(uriString) })
+            withContext(Dispatchers.IO) {
+                allCaptures.forEach { capture ->
+                    imageStorageManager.deleteImages(capture.imageUris.map { uriString -> Uri.parse(uriString) })
+                }
             }
             captureDao.deleteAllCaptures()
         }
@@ -685,13 +767,15 @@ class HomeViewModel @Inject constructor(
             val remainingSlots = _uiState.value.maxImagesInChat - currentSelectedCount
             if (remainingSlots <= 0) return@launch
 
-            val newImageUris = uris.take(remainingSlots).mapNotNull { uri ->
-                try {
-                    val bitmap = imageStorageManager.getBitmapFromUri(uri)
-                    bitmap?.let { imageStorageManager.saveBitmapAndGetUri(it) }
-                } catch (e: Exception) {
-                    Log.e("HomeViewModel", "Error processing selected image URI: $uri", e)
-                    null
+            val newImageUris = withContext(Dispatchers.IO) {
+                uris.take(remainingSlots).mapNotNull { uri ->
+                    try {
+                        val bitmap = imageStorageManager.getBitmapFromUri(uri)
+                        bitmap?.let { imageStorageManager.saveBitmapAndGetUri(it) }
+                    } catch (e: Exception) {
+                        Log.e("HomeViewModel", "Error processing selected image URI: $uri", e)
+                        null
+                    }
                 }
             }
 

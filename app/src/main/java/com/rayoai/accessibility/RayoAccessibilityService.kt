@@ -293,7 +293,10 @@ class RayoAccessibilityService : AccessibilityService() {
                 return
             }
 
-            val imageUri = imageStorageManager.saveBitmapAndGetUri(bitmap)
+            val (scaledBitmap, imageUri) = withContext(Dispatchers.IO) {
+                val scaled = imageStorageManager.scaleBitmapForProcessing(bitmap)
+                scaled to imageStorageManager.saveBitmapAndGetUri(scaled)
+            }
             if (imageUri == null) {
                 isProcessing.set(false)
                 showToast(getString(R.string.accessibility_capture_save_failed))
@@ -310,7 +313,7 @@ class RayoAccessibilityService : AccessibilityService() {
             withContext(Dispatchers.IO) {
                 describeImageUseCase(
                     apiKey = apiKey,
-                    image = bitmap,
+                    image = scaledBitmap,
                     userPrePrompt = prompt,
                     history = emptyList(),
                     languageCode = languageCode,

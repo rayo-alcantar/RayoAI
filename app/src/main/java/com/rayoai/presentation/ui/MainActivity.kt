@@ -14,15 +14,20 @@ import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Surface
 import androidx.compose.runtime.CompositionLocalProvider
 import androidx.compose.runtime.DisposableEffect
+import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
 import com.rayoai.domain.repository.UserPreferencesRepository
 import com.rayoai.presentation.ui.navigation.AppNavigation
 import com.rayoai.presentation.ui.navigation.Screen
 import com.rayoai.presentation.ui.theme.RayoAITheme
 import dagger.hilt.android.AndroidEntryPoint
+import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.flow.first
-import kotlinx.coroutines.runBlocking
+import kotlinx.coroutines.withContext
 import java.util.Locale
 import javax.inject.Inject
 
@@ -79,9 +84,10 @@ class MainActivity : ComponentActivity() {
 
         textToSpeech = TextToSpeech(this) {
             if (it == TextToSpeech.SUCCESS) {
-                val result = textToSpeech?.setLanguage(Locale("es", "ES"))
+                val preferredLocale = Locale.getDefault().takeIf { loc -> loc.language.isNotBlank() } ?: Locale("es", "ES")
+                val result = textToSpeech?.setLanguage(preferredLocale)
                 if (result == TextToSpeech.LANG_MISSING_DATA || result == TextToSpeech.LANG_NOT_SUPPORTED) {
-                    Log.e("TTS", "El idioma español no está soportado o faltan datos.")
+                    textToSpeech?.setLanguage(Locale("es", "ES"))
                 }
             } else {
                 Log.e("TTS", "Fallo en la inicialización de TTS.")
@@ -115,27 +121,34 @@ class MainActivity : ComponentActivity() {
                         modifier = Modifier.fillMaxSize(),
                         color = MaterialTheme.colorScheme.background
                     ) {
-                        val isFirstRun = runBlocking { userPreferencesRepository.isFirstRun.first() }
-                        val apiKey = runBlocking { userPreferencesRepository.apiKey.first() }
-                        val startDestination = if (isFirstRun || apiKey.isNullOrEmpty()) {
-                            Screen.Welcome.route
-                        } else if (captureId != null) {
-                            Screen.Home.createRoute(captureId)
-                        } else if (videoId != null || videoUrl != null) {
-                            Screen.Tools.route
-                        } else {
-                            Screen.Home.route
+                        var startDestination by remember { mutableStateOf<String?>(null) }
+                        LaunchedEffect(captureId, videoId, videoUrl) {
+                            startDestination = withContext(Dispatchers.IO) {
+                                val isFirstRun = userPreferencesRepository.isFirstRun.first()
+                                val apiKey = userPreferencesRepository.apiKey.first()
+                                if (isFirstRun || apiKey.isNullOrEmpty()) {
+                                    Screen.Welcome.route
+                                } else if (captureId != null) {
+                                    Screen.Home.createRoute(captureId)
+                                } else if (videoId != null || videoUrl != null) {
+                                    Screen.Tools.route
+                                } else {
+                                    Screen.Home.route
+                                }
+                            }
                         }
-                        AppNavigation(
-                            imageUri = imageUri, 
-                            sharedImageUris = sharedImageUris,
-                            sharedImageTruncatedCount = sharedImageTruncatedCount,
-                            startDestination = startDestination, 
-                            pdfUri = pdfUri,
-                            videoUri = videoUri,
-                            videoUrl = videoUrl,
-                            openVideoId = videoId
-                        )
+                        startDestination?.let { destination ->
+                            AppNavigation(
+                                imageUri = imageUri,
+                                sharedImageUris = sharedImageUris,
+                                sharedImageTruncatedCount = sharedImageTruncatedCount,
+                                startDestination = destination,
+                                pdfUri = pdfUri,
+                                videoUri = videoUri,
+                                videoUrl = videoUrl,
+                                openVideoId = videoId
+                            )
+                        }
                     }
                 }
             }

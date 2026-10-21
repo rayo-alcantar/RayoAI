@@ -34,43 +34,43 @@ class TranscribeAudioUseCase @Inject constructor(
         """.trimIndent()
 
         val audioBytes = audioFile.readBytes()
-        val request = GeminiRequest(
-            systemInstruction = SystemInstruction(
-                parts = listOf(PartDto(text = "Eres un transcriptor literal y conservador."))
-            ),
-            contents = listOf(
-                ContentDto(
-                    role = "user",
-                    parts = listOf(
-                        PartDto(text = prompt),
-                        PartDto(
-                            inlineData = InlineDataDto(
-                                mimeType = "audio/wav",
-                                data = Base64.encodeToString(audioBytes, Base64.NO_WRAP)
+        val errors = mutableListOf<String>()
+        for (modelName in GeminiModelConfig.buildModelPriority(model)) {
+            try {
+                val request = GeminiRequest(
+                    systemInstruction = SystemInstruction(
+                        parts = listOf(PartDto(text = "Eres un transcriptor literal y conservador."))
+                    ),
+                    contents = listOf(
+                        ContentDto(
+                            role = "user",
+                            parts = listOf(
+                                PartDto(text = prompt),
+                                PartDto(
+                                    inlineData = InlineDataDto(
+                                        mimeType = "audio/wav",
+                                        data = Base64.encodeToString(audioBytes, Base64.NO_WRAP)
+                                    )
+                                )
                             )
                         )
+                    ),
+                    generationConfig = GenerationConfigDto(
+                        temperature = 0f,
+                        thinkingConfig = GeminiModelConfig.thinkingConfigFor(modelName)
                     )
                 )
-            ),
-            generationConfig = GenerationConfigDto(
-                temperature = 0f,
-                thinkingConfig = ThinkingConfigDto(
-                    includeThoughts = false,
-                    thinkingLevel = "MINIMAL"
-                )
-            )
-        )
-
-        val errors = mutableListOf<String>()
-        for (modelName in buildModelPriority(model)) {
-            try {
                 val response = geminiApiService.generateContent(
                     model = modelName,
                     apiKey = apiKey,
                     request = request
                 )
                 if (!response.isSuccessful || response.body() == null) {
-                    errors += "$modelName: HTTP ${response.code()} - ${response.errorBody()?.string().orEmpty()}"
+                    val errorBody = response.errorBody()?.string().orEmpty()
+                    errors += "$modelName: HTTP ${response.code()} - $errorBody"
+                    if (GeminiModelConfig.isFatalAuthOrKeyError(response.code(), errorBody)) {
+                        break
+                    }
                     continue
                 }
 
@@ -91,10 +91,5 @@ class TranscribeAudioUseCase @Inject constructor(
         }
 
         ResultWrapper.Error(errors.lastOrNull() ?: "No se pudo transcribir el audio.")
-    }
-
-    private fun buildModelPriority(preferredModel: String): List<String> {
-        val normalized = preferredModel.ifBlank { GeminiModelConfig.DEFAULT_MODEL }
-        return (listOf(normalized) + GeminiModelConfig.fallbackOrder).distinct()
     }
 }

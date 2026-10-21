@@ -415,7 +415,7 @@ class VideoRepositoryImpl @Inject constructor(
         val preferredModel = userPreferencesRepository.defaultModel.firstOrNull()
             ?.ifBlank { GeminiModelConfig.DEFAULT_MODEL }
             ?: GeminiModelConfig.DEFAULT_MODEL
-        val models = (VIDEO_MODEL_FALLBACK_ORDER + preferredModel)
+        val models = (listOf(preferredModel) + VIDEO_MODEL_FALLBACK_ORDER)
             .filter { it.isNotBlank() }
             .distinct()
         var lastError = context.getString(R.string.scan_pdf_unknown_error)
@@ -433,7 +433,7 @@ class VideoRepositoryImpl @Inject constructor(
                     parts = listOf(PartDto(fileData = fileData), PartDto(text = prompt))
                 ),
                 generationConfig = GenerationConfigDto(
-                    thinkingConfig = ThinkingConfigDto(includeThoughts = true, thinkingLevel = "MINIMAL")
+                    thinkingConfig = GeminiModelConfig.thinkingConfigFor(model)
                 )
             )
             val response = try {
@@ -443,7 +443,11 @@ class VideoRepositoryImpl @Inject constructor(
                 continue
             }
             if (!response.isSuccessful || response.body() == null) {
+                val errorBody = response.errorBody()?.string()
                 lastError = context.getString(R.string.video_api_error, response.code(), response.message())
+                if (GeminiModelConfig.isFatalAuthOrKeyError(response.code(), errorBody)) {
+                    break
+                }
                 continue
             }
             val candidate = response.body()!!.candidates?.firstOrNull()
@@ -655,11 +659,11 @@ class VideoRepositoryImpl @Inject constructor(
         private const val SPECULATIVE_ATTEMPT = 120
         private const val FILE_RETENTION_MILLIS = 48L * 60L * 60L * 1000L
         private val VIDEO_MODEL_FALLBACK_ORDER = listOf(
-            "gemini-3.1-pro-preview",
-            "gemini-2.5-pro",
+            GeminiModelConfig.DEFAULT_MODEL,
             "gemini-3-flash-preview",
             "gemini-2.5-flash",
-            GeminiModelConfig.DEFAULT_MODEL
+            "gemini-3.1-pro-preview",
+            "gemini-2.5-pro"
         )
         private val TOKEN_REGEX = Regex("""name=["']_token["']\s+value=["']([^"']+)["']""")
         private val MP4_REGEX = Regex("""href=["']([^"']+\.mp4[^"']*)["']|["'](https?://[^"']+\.mp4[^"']*)["']""", RegexOption.IGNORE_CASE)

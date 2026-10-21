@@ -66,11 +66,12 @@ data class GenerationConfigDto(
 )
 
 /**
- * Configuración para el modo de razonamiento (Thinking) en Gemini 3.1.
+ * Configuración para el modo de razonamiento (Thinking) en Gemini 2.5 y 3.x.
  */
 data class ThinkingConfigDto(
-    @SerializedName("include_thoughts") val includeThoughts: Boolean = true,
-    @SerializedName("thinking_level") val thinkingLevel: String = "MINIMAL"
+    @SerializedName("include_thoughts") val includeThoughts: Boolean = false,
+    @SerializedName("thinking_level") val thinkingLevel: String? = null,
+    @SerializedName("thinking_budget") val thinkingBudget: Int? = null
 )
 
 // ============ RESPONSE MODELS ============

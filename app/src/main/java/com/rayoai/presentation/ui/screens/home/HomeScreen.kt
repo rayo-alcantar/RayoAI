@@ -85,6 +85,7 @@ import androidx.activity.result.PickVisualMediaRequest
 import androidx.activity.result.contract.ActivityResultContracts.PickMultipleVisualMedia
 import android.content.ActivityNotFoundException
 import com.google.android.play.core.review.ReviewManagerFactory
+import com.rayoai.presentation.ui.LocalTextToSpeech
 import com.rayoai.presentation.ui.findActivity
 import com.rayoai.presentation.ui.openPlayStoreListing
 
@@ -112,28 +113,10 @@ fun HomeScreen(
 
     LaunchedEffect(imageUri) {
         imageUri?.let {
-            val bitmap = try {
-                if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.P) {
-                    val source = ImageDecoder.createSource(context.contentResolver, it)
-                    ImageDecoder.decodeBitmap(source)
-                } else {
-                    @Suppress("DEPRECATION")
-                    MediaStore.Images.Media.getBitmap(context.contentResolver, it)
-                }
-            } catch (e: SecurityException) {
-                Log.e("HomeScreen", "SecurityException loading shared image - permission may have expired", e)
-                viewModel.setError(context.getString(R.string.error_security_shared_image))
-                null
-            } catch (e: java.io.FileNotFoundException) {
-                Log.e("HomeScreen", "FileNotFoundException loading shared image - file may have been deleted", e)
-                viewModel.setError(context.getString(R.string.error_loading_shared_image))
-                null
-            } catch (e: Exception) {
-                Log.e("HomeScreen", "Error loading shared image", e)
-                viewModel.setError(context.getString(R.string.error_loading_shared_image))
-                null
-            }
-            bitmap?.let { img -> viewModel.describeImage(img) }
+            viewModel.describeImageFromUri(
+                uri = it,
+                errorResId = R.string.error_loading_shared_image
+            )
             onImageConsumed()
         }
     }
@@ -141,19 +124,11 @@ fun HomeScreen(
     LaunchedEffect(sharedImageUris) {
         if (sharedImageUris.size != 2) return@LaunchedEffect
         val firstImageUri = sharedImageUris.first()
-        val bitmap = try {
-            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.P) {
-                ImageDecoder.decodeBitmap(ImageDecoder.createSource(context.contentResolver, firstImageUri))
-            } else {
-                @Suppress("DEPRECATION")
-                MediaStore.Images.Media.getBitmap(context.contentResolver, firstImageUri)
-            }
-        } catch (e: Exception) {
-            Log.e("HomeScreen", "Error loading paired shared images", e)
-            viewModel.setError(context.getString(R.string.error_loading_shared_image))
-            null
-        }
-        bitmap?.let { viewModel.describeImage(it, firstImageUri, sharedImageUris) }
+        viewModel.describeImageFromUri(
+            uri = firstImageUri,
+            pairedUris = sharedImageUris,
+            errorResId = R.string.error_loading_shared_image
+        )
         onSharedImagesConsumed()
     }
 
@@ -166,20 +141,18 @@ fun HomeScreen(
     ) { uris: List<Uri> ->
         if (uris.size >= 3) {
             onOpenMultiImagePassage(uris)
+        } else if (uris.size == 2) {
+            viewModel.describeImageFromUri(
+                uri = uris.first(),
+                pairedUris = uris,
+                errorResId = R.string.error_loading_gallery_image
+            )
         } else {
             uris.firstOrNull()?.let {
-                try {
-                    val bitmap = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.P) {
-                        val source = ImageDecoder.createSource(context.contentResolver, it)
-                        ImageDecoder.decodeBitmap(source)
-                    } else {
-                        MediaStore.Images.Media.getBitmap(context.contentResolver, it)
-                    }
-                    viewModel.processGalleryImage(bitmap)
-                } catch (e: Exception) {
-                    Log.e("HomeScreen", "Error loading gallery image", e)
-                    viewModel.setError(context.getString(R.string.error_loading_gallery_image))
-                }
+                viewModel.describeImageFromUri(
+                    uri = it,
+                    errorResId = R.string.error_loading_gallery_image
+                )
             }
         }
     }
@@ -211,29 +184,37 @@ fun HomeScreen(
         }
     }
 
-    var textToSpeech: TextToSpeech? = null
-    var ttsInitialized by remember { mutableStateOf(false) }
-    DisposableEffect(context) {
-        textToSpeech = TextToSpeech(context) { status ->
-            if (status == TextToSpeech.SUCCESS) {
-                val result = textToSpeech?.setLanguage(Locale("es", "ES"))
-                if (result == TextToSpeech.LANG_MISSING_DATA || result == TextToSpeech.LANG_NOT_SUPPORTED) {
-                    Log.e("HomeScreen", "TTS language not supported or missing data.")
-                    viewModel.setError(context.getString(R.string.tts_lang_not_supported))
-                } else {
+    val sharedTts = LocalTextToSpeech.current
+    var fallbackTts by remember { mutableStateOf<TextToSpeech?>(null) }
+    var ttsInitialized by remember(sharedTts) { mutableStateOf(sharedTts != null) }
+    DisposableEffect(context, sharedTts) {
+        if (sharedTts != null) {
+            ttsInitialized = true
+            onDispose { sharedTts.stop() }
+        } else {
+            var localEngine: TextToSpeech? = null
+            localEngine = TextToSpeech(context) { status ->
+                if (status == TextToSpeech.SUCCESS) {
+                    val preferredLocale = Locale.getDefault().takeIf { it.language.isNotBlank() } ?: Locale("es", "ES")
+                    val result = localEngine?.setLanguage(preferredLocale)
+                    if (result == TextToSpeech.LANG_MISSING_DATA || result == TextToSpeech.LANG_NOT_SUPPORTED) {
+                        localEngine?.setLanguage(Locale("es", "ES"))
+                    }
                     ttsInitialized = true
+                } else {
+                    Log.e("HomeScreen", "TTS initialization failed with status: $status")
+                    viewModel.setError(context.getString(R.string.tts_init_error))
                 }
-            } else {
-                Log.e("HomeScreen", "TTS initialization failed with status: $status")
-                viewModel.setError(context.getString(R.string.tts_init_error))
+            }
+            fallbackTts = localEngine
+            onDispose {
+                localEngine?.stop()
+                localEngine?.shutdown()
+                fallbackTts = null
             }
         }
-
-        onDispose {
-            textToSpeech?.stop()
-            textToSpeech?.shutdown()
-        }
     }
+    val textToSpeech = sharedTts ?: fallbackTts
 
     Scaffold(
         modifier = Modifier.fillMaxSize(),
