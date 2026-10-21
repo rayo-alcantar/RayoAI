@@ -53,3 +53,7 @@ captures/
 j a v a _ p i d * . h p r o f 
  updater-temporal.md
 .atl/
+
+# Python cache
+__pycache__/
+*.py[cod]

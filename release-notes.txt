@@ -1,9 +1,9 @@
-RayoAI - Versión 3.3.8
+RayoAI - Versión 3.3.11
 
 NOTAS DE PUBLICACIÓN
-- Ahora puedes elegir por separado el nivel de detalle de las descripciones de imágenes y videos: extensivo, medio o mínimo.
-- Las descripciones se concentran en lo que realmente aparece en la imagen o el video; las interpretaciones, conclusiones y explicaciones de bromas se incluyen únicamente cuando las solicitas.
-- Los chats de videos locales pueden volver a subir automáticamente el archivo original cuando caduca la referencia temporal de Gemini.
-- La guía fotográfica vuelve a anunciar indicaciones aunque el rostro permanezca en la misma posición y avisa cuando no detecta ningún rostro.
-- Al usar la guía fotográfica, el flash activado ilumina inmediatamente la escena y el modo automático adapta la linterna según la luz disponible.
-- Se corrigieron bloqueos de la captura automática después de errores de cámara y respuestas atrasadas del detector facial.
+- Optimización profunda en tiempos de respuesta de Gemini: priorización de modelos Flash y ajuste automático de thinking budget para descripciones mucho más rápidas.
+- Procesamiento y compresión eficiente de imágenes en segundo plano (hilos I/O) para una interfaz fluida sin bloqueos.
+- Visor de imágenes en pantalla completa dentro del chat con zoom táctil de hasta 600%, paneo y controles dedicados accesibles para baja visión.
+- El lector de voz (TTS) en el chat ahora solo se activa cuando lo solicitas explícitamente, evitando interrupciones automáticas.
+- Corrección en el historial del chat para conservar la imagen original al hacer preguntas de seguimiento.
+- Corrección de mensajes duplicados en el chat al enviar consultas.

@@ -1,0 +1,137 @@
+name: Android release
+
+on:
+  push:
+    tags:
+      - '[0-9]*-stable'
+      - '[0-9]*-beta'
+  workflow_dispatch:
+    inputs:
+      tag:
+        description: 'Release label: X.Y.Z-stable or X.Y.Z-beta (source tag required to publish)'
+        required: true
+        type: string
+      source_ref:
+        description: 'Optional branch/commit to test without a tag; requires publish=false'
+        type: string
+        default: ''
+      publish:
+        description: 'Publish to the public distribution repository'
+        type: boolean
+        default: false
+
+permissions:
+  contents: read
+
+# Serialize channels too: a late older stable must not become Latest.
+concurrency:
+  group: rayoai-android-public-releases
+  cancel-in-progress: false
+
+env:
+  PYTHONNOUSERSITE: '1'
+  PYTHONUTF8: '1'
+
+jobs:
+  prepare:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 15
+    outputs:
+      tag: ${{ steps.metadata.outputs.tag }}
+      version: ${{ steps.metadata.outputs.version }}
+      source_sha: ${{ steps.metadata.outputs.source_sha }}
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ inputs.source_ref || inputs.tag || github.ref }}
+          fetch-depth: 0
+          persist-credentials: false
+      - name: Validate tag, version, notes and source branch
+        id: metadata
+        env:
+          RELEASE_TAG: ${{ inputs.tag || github.ref_name }}
+          SOURCE_REF: ${{ inputs.source_ref }}
+          PUBLISH_REQUESTED: ${{ inputs.publish }}
+        run: |
+          if [ -n "$SOURCE_REF" ]; then
+            if [ "$GITHUB_EVENT_NAME" != "workflow_dispatch" ] || [ "$PUBLISH_REQUESTED" != "false" ]; then
+              echo 'source_ref is only allowed for manual build-only checks.'
+              exit 1
+            fi
+            python3 scripts/release.py validate --tag "$RELEASE_TAG" --build-only
+          else
+            python3 scripts/release.py validate --tag "$RELEASE_TAG"
+          fi
+      - name: Verify strings and translations
+        run: python3 scripts/release.py strings
+
+  build:
+    needs: prepare
+    runs-on: ubuntu-24.04
+    timeout-minutes: 45
+    env:
+      RELEASE_TAG: ${{ needs.prepare.outputs.tag }}
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ needs.prepare.outputs.source_sha }}
+          persist-credentials: false
+      - name: Set up JDK 17
+        uses: actions/setup-java@v4
+        with:
+          distribution: 'temurin'
+          java-version: '17'
+      - name: Set up Gradle
+        uses: gradle/actions/setup-gradle@v4
+      - name: Configure Keystore and Signing
+        env:
+          KEYSTORE_BASE64: ${{ secrets.ANDROID_KEYSTORE_BASE64 }}
+          KEYSTORE_PASSWORD: ${{ secrets.ANDROID_KEYSTORE_PASSWORD }}
+          KEY_ALIAS: ${{ secrets.ANDROID_KEY_ALIAS }}
+          KEY_PASSWORD: ${{ secrets.ANDROID_KEY_PASSWORD }}
+        run: |
+          if [ -z "$KEYSTORE_BASE64" ]; then
+            echo "Error: ANDROID_KEYSTORE_BASE64 secret is not configured."
+            exit 1
+          fi
+          echo "$KEYSTORE_BASE64" | base64 -d > rayoai-release.jks
+          printf "storeFile=rayoai-release.jks\nstorePassword=%s\nkeyAlias=%s\nkeyPassword=%s\n" \
+            "$KEYSTORE_PASSWORD" "$KEY_ALIAS" "$KEY_PASSWORD" > keystore.properties
+      - name: Ensure gradlew is executable
+        run: chmod +x gradlew
+      - name: Run unit tests
+        run: ./gradlew test --stacktrace
+      - name: Build GitHub release APK
+        run: ./gradlew assembleGithubRelease --stacktrace
+      - name: Package release artifacts
+        run: python3 scripts/release.py package --tag "$RELEASE_TAG"
+      - uses: actions/upload-artifact@v4
+        with:
+          name: android-release
+          path: build/release/*
+          if-no-files-found: error
+          compression-level: 0
+          retention-days: 14
+
+  publish:
+    needs: [prepare, build]
+    if: github.event_name == 'push' || inputs.publish
+    runs-on: ubuntu-24.04
+    timeout-minutes: 20
+    environment: release-public
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ needs.prepare.outputs.source_sha }}
+          persist-credentials: false
+      - uses: actions/download-artifact@v4
+        with:
+          name: android-release
+          path: build/release
+      - name: Publish only verified binaries to the public repository
+        env:
+          # GITHUB_TOKEN cannot write to a different repository.
+          GH_TOKEN: ${{ secrets.RAYOAI_RELEASE_TOKEN }}
+          RELEASE_TAG: ${{ needs.prepare.outputs.tag }}
+          SOURCE_SHA: ${{ needs.prepare.outputs.source_sha }}
+        run: python3 scripts/release.py publish --tag "$RELEASE_TAG" --source-sha "$SOURCE_SHA"
