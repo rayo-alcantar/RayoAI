@@ -1,6 +1,9 @@
 # RayoAI - Tu Asistente Visual Accesible (Documentación Técnica)
 
-Publicación coordinada de Google Play y GitHub: [guía de versiones y despliegue](docs/publicacion-android.md).
+Publicación coordinada: **APK para GitHub y AAB para Google Play**, con la misma
+versión y código. La [guía de versiones y despliegue](docs/publicacion-android.md)
+incluye configuración, preparación sin publicación, orden entre destinos,
+comprobación del actualizador y recuperación sin reconstruir los binarios.
 
 ![RayoAI Logo](docs/logo.png) <!-- Placeholder para el logo -->
 
