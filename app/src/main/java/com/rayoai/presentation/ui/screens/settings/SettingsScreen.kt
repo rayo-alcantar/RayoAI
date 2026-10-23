@@ -129,8 +129,7 @@ fun SettingsScreen(
     )
     val updateChannelOptions = listOf(
         UpdateChannel.STABLE to stringResource(R.string.update_channel_stable),
-        UpdateChannel.BETA to stringResource(R.string.update_channel_beta),
-        UpdateChannel.ALL to stringResource(R.string.update_channel_all)
+        UpdateChannel.BETA to stringResource(R.string.update_channel_beta)
     )
 
     val apiKeySavedMsg = stringResource(R.string.settings_api_key_saved_message)
@@ -435,6 +434,7 @@ fun SettingsScreen(
                                 onClick = {
                                     viewModel.saveUpdateChannel(value)
                                     isUpdateChannelMenuExpanded = false
+                                    updateViewModel.checkForUpdates(manual = true)
                                 }
                             )
                         }

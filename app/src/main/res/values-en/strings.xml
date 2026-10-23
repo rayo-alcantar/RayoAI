@@ -222,7 +222,7 @@ Card: 4152314082325278</string>
     <string name="accessibility_capture_mode_full_screen">Describe full screen</string>
     <string name="accessibility_capture_mode_focused_element">Describe focused element</string>
     <string name="update_channel_stable">Stable</string>
-    <string name="update_channel_beta">Beta</string>
+    <string name="update_channel_beta">Stable and beta</string>
     <string name="update_channel_all">Beta and stable</string>
     <string name="update_available_title">New version available (%1$s)</string>
     <string name="update_changelog_empty">No version details.</string>
@@ -239,7 +239,7 @@ Card: 4152314082325278</string>
     <string name="update_checking">Checking for updates...</string>
     <string name="update_check_no_updates">No updates available.</string>
     <string name="update_check_failed">Could not check for updates.</string>
-    <string name="update_check_beta_available">A beta version is available. Change the update channel.</string>
+    <string name="update_check_beta_available">A newer beta version is available. Select the Stable and beta channel to receive it.</string>
     <string name="update_error_title">Error checking updates</string>
     <string name="update_error_copy">Copy</string>
     <string name="update_error_close">Close</string>

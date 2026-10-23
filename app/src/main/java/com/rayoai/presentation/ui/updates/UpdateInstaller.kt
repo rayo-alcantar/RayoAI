@@ -9,6 +9,7 @@ import android.os.Environment
 import com.rayoai.BuildConfig
 import com.rayoai.data.local.UpdatePreferences
 import com.rayoai.domain.model.UpdateInfo
+import com.rayoai.domain.model.AppVersion
 
 object UpdateInstaller {
     const val UPDATE_NOTIFICATION_CHANNEL_ID = "update_channel"
@@ -49,7 +50,9 @@ object UpdateInstaller {
 
     fun maybeCleanupAfterUpdate(context: Context, updatePreferences: UpdatePreferences) {
         val pending = updatePreferences.getPendingUpdate() ?: return
-        if (compareVersions(BuildConfig.VERSION_NAME, pending.version) < 0) {
+        val installed = AppVersion.parse(BuildConfig.VERSION_NAME) ?: return
+        val target = AppVersion.parse(pending.version) ?: return
+        if (installed < target) {
             return
         }
         val downloadManager = context.getSystemService(DownloadManager::class.java)
@@ -59,21 +62,4 @@ object UpdateInstaller {
         notificationManager.cancel(UPDATE_NOTIFICATION_ID)
     }
 
-    private fun compareVersions(first: String, second: String): Int {
-        val firstParts = extractVersionParts(first)
-        val secondParts = extractVersionParts(second)
-        val max = maxOf(firstParts.size, secondParts.size)
-        for (index in 0 until max) {
-            val a = firstParts.getOrElse(index) { 0 }
-            val b = secondParts.getOrElse(index) { 0 }
-            if (a != b) {
-                return a.compareTo(b)
-            }
-        }
-        return 0
-    }
-
-    private fun extractVersionParts(input: String): List<Int> {
-        return Regex("\\d+").findAll(input).map { it.value.toInt() }.toList()
-    }
 }

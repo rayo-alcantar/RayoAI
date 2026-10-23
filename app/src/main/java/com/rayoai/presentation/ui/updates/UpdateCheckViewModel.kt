@@ -7,7 +7,6 @@ import androidx.lifecycle.viewModelScope
 import com.rayoai.BuildConfig
 import com.rayoai.data.local.UpdatePreferences
 import com.rayoai.data.repository.UpdateRepository
-import com.rayoai.domain.model.UpdateChannel
 import com.rayoai.domain.model.UpdateInfo
 import dagger.hilt.android.lifecycle.HiltViewModel
 import kotlinx.coroutines.flow.MutableStateFlow
@@ -25,11 +24,6 @@ data class UpdateUiState(
     val lastCheckResult: UpdateCheckResult? = null,
     val error: UpdateError? = null
 )
-
-sealed class UpdateCheckResult {
-    object UpToDate : UpdateCheckResult()
-    object BetaAvailable : UpdateCheckResult()
-}
 
 data class UpdateError(
     val title: String,
@@ -56,27 +50,13 @@ class UpdateCheckViewModel @Inject constructor(
     }
 
     fun checkForUpdates(manual: Boolean) {
-        if (!BuildConfig.GITHUB_UPDATES_ENABLED) return
-        if (_uiState.value.isChecking) return
+        if (!canCheckForUpdates(BuildConfig.GITHUB_UPDATES_ENABLED, _uiState.value)) return
         viewModelScope.launch {
             _uiState.update { it.copy(isChecking = true, lastCheckResult = null, error = null) }
-            val result = runCatching { updateRepository.checkForUpdateVerbose() }
+            val result = loadUpdateCheck { updateRepository.checkForUpdateVerbose() }
             val response = result.getOrNull()
             val updateInfo = response?.updateInfo
-            val checkResult = if (manual) {
-                when {
-                    updateInfo == null &&
-                        response?.channel == UpdateChannel.STABLE &&
-                        response.hasStable == false &&
-                        response.hasBeta == true -> {
-                        UpdateCheckResult.BetaAvailable
-                    }
-                    updateInfo == null -> UpdateCheckResult.UpToDate
-                    else -> null
-                }
-            } else {
-                null
-            }
+            val checkResult = manualCheckResult(manual, response)
             val error = result.exceptionOrNull()?.let { formatError(it) }
             _uiState.update {
                 it.copy(

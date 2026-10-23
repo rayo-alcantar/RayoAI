@@ -225,7 +225,7 @@ Tarjeta: 4152314082325278</string>
     <string name="accessibility_capture_mode_full_screen">Describir pantalla completa</string>
     <string name="accessibility_capture_mode_focused_element">Describir elemento enfocado</string>
     <string name="update_channel_stable">Estable</string>
-    <string name="update_channel_beta">Beta</string>
+    <string name="update_channel_beta">Estables y beta</string>
     <string name="update_channel_all">Beta y estable</string>
     <string name="update_available_title">Nueva version disponible (%1$s)</string>
     <string name="update_changelog_empty">Sin detalles de la version.</string>
@@ -242,7 +242,7 @@ Tarjeta: 4152314082325278</string>
     <string name="update_checking">Buscando actualizaciones...</string>
     <string name="update_check_no_updates">No hay actualizaciones disponibles.</string>
     <string name="update_check_failed">No se pudo comprobar actualizaciones.</string>
-    <string name="update_check_beta_available">Hay una version beta disponible. Cambia el canal de actualizaciones.</string>
+    <string name="update_check_beta_available">Hay una versión beta más reciente. Selecciona el canal Estables y beta para recibirla.</string>
     <string name="update_error_title">Error al comprobar actualizaciones</string>
     <string name="update_error_copy">Copiar</string>
     <string name="update_error_close">Cerrar</string>

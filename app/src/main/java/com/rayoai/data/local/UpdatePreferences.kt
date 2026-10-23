@@ -19,8 +19,9 @@ class UpdatePreferences @Inject constructor(
     val updateChannel: StateFlow<UpdateChannel> = updateChannelFlow.asStateFlow()
 
     fun setUpdateChannel(channel: UpdateChannel) {
-        prefs.edit().putString(KEY_UPDATE_CHANNEL, channel.name).apply()
-        updateChannelFlow.value = channel
+        val canonical = channel.canonical
+        prefs.edit().putString(KEY_UPDATE_CHANNEL, canonical.name).apply()
+        updateChannelFlow.value = canonical
     }
 
     fun getUpdateChannel(): UpdateChannel = updateChannelFlow.value
@@ -50,8 +51,7 @@ class UpdatePreferences @Inject constructor(
 
     private fun readChannel(): UpdateChannel {
         val stored = prefs.getString(KEY_UPDATE_CHANNEL, null)
-        return runCatching { UpdateChannel.valueOf(stored ?: UpdateChannel.STABLE.name) }
-            .getOrDefault(UpdateChannel.STABLE)
+        return UpdateChannel.fromStored(stored)
     }
 
     data class PendingUpdate(
