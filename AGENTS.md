@@ -28,5 +28,14 @@ Run commands from the repository root only when that validation is in scope. Win
 - The Android application plugin and `github`/`play` flavors are declared in `app/build.gradle.kts`. Inspect the intended flavor before a requested build/install; do not silently build every distribution.
 - Gradle configuration reads release signing properties even before a release task. If private local prerequisites are missing, report the limitation; never invent credentials or claim tests ran.
 - Builds, device installation, and publication need their own authorization. Do not run `clean` as routine validation.
-- `deploy.bat` publishes or overwrites GitHub release assets using an existing GitHub release APK and `release-notes.txt`; it is NOT a build or a harmless check. Only run after explicit publication approval for the version/channel.
+- `deploy.bat` queues the coordinated publication workflow using an original Actions artifact run ID; it is NOT a harmless check. Only run after explicit publication approval for the version/channel/destinations.
 - Write release notes in Spanish only when requested. Report the checks actually performed and keep commit, push, build, and release separate.
+
+## Coordinated distribution
+
+- Read `docs/publicacion-android.md` before changing or executing release automation. Both distribution variants share the source version and package ID; preserve their different donation/updater flags.
+- Release tooling checks: `python -m unittest discover -s scripts/tests -v`. These use synthetic artifacts and a local HTTP server, not Google credentials or live publication.
+- `verify_play_access=true` on the release workflow checks real Play access using a temporary edit and its deletion, without builds, uploads, track changes or edit commits. It still requires authorized Google access; do not run it concurrently with a manual edit from the same service account.
+- `release.yml` builds the GitHub APK and Play AAB as one verified pair. `publish-destination.yml` publishes selected destinations from that immutable Actions artifact. Reuse the original run ID; do not rebuild or move a published tag to recover from a store failure.
+- `deploy.bat` now queues the coordinated workflow with explicit named options and an original run ID. It does not directly upload a local APK or overwrite public assets. Invoking it is still a publication request, not a harmless check.
+- Play submission success is not proof of approval or user availability. Never cancel an existing review, overwrite another draft/rollout, or enable production access without authorization.

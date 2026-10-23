@@ -1,0 +1,132 @@
+name: Publish Android destination
+
+on:
+  workflow_call:
+    inputs:
+      tag:
+        required: true
+        type: string
+      source_sha:
+        required: true
+        type: string
+      artifact_run_id:
+        required: true
+        type: string
+      destinations:
+        required: true
+        type: string
+      play_track:
+        required: true
+        type: string
+      play_status:
+        required: true
+        type: string
+      send_for_review:
+        required: true
+        type: boolean
+      inspection_only:
+        description: 'Inspect Play access without downloading artifacts or publishing'
+        type: boolean
+        default: false
+
+permissions:
+  contents: read
+  actions: read
+  id-token: write
+
+jobs:
+  publish:
+    name: ${{ inputs.inspection_only && 'Inspect Play access' || format('Publish {0}', matrix.destination) }}
+    strategy:
+      fail-fast: false
+      matrix:
+        destination: ${{ fromJSON(inputs.destinations) }}
+    runs-on: ubuntu-24.04
+    timeout-minutes: 30
+    environment: ${{ matrix.destination == 'github' && 'release-public' || (inputs.play_track == 'production' && 'release-play-production' || 'release-play-testing') }}
+    env:
+      PYTHONNOUSERSITE: '1'
+      PYTHONUTF8: '1'
+      RELEASE_TAG: ${{ inputs.tag }}
+      SOURCE_SHA: ${{ inputs.source_sha }}
+      ARTIFACT_RUN_ID: ${{ inputs.artifact_run_id }}
+      PLAY_TRACK: ${{ inputs.play_track }}
+      PLAY_STATUS: ${{ inputs.play_status }}
+      SEND_FOR_REVIEW: ${{ inputs.send_for_review }}
+      INSPECTION_ONLY: ${{ inputs.inspection_only }}
+      DESTINATION: ${{ matrix.destination }}
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
+        with:
+          ref: ${{ inputs.source_sha }}
+          persist-credentials: false
+      - name: Test and validate non-publishing inspection mode
+        if: inputs.inspection_only
+        run: |
+          python3 -m unittest discover -s scripts/tests -v
+          python3 -m scripts.distribution check-access-mode
+      - name: Verify build provenance
+        if: ${{ !inputs.inspection_only }}
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: python3 -m scripts.distribution verify-run
+      - uses: actions/download-artifact@d3f86a106a0bac45b974a628896c90dbdf5c8093 # v4
+        if: ${{ !inputs.inspection_only }}
+        with:
+          name: android-release-set
+          path: build/distribution
+          run-id: ${{ inputs.artifact_run_id }}
+          github-token: ${{ github.token }}
+      - name: Verify coordinated artifacts
+        if: ${{ !inputs.inspection_only }}
+        run: python3 -m scripts.distribution verify
+      - name: Publish GitHub APK without overwriting a public release
+        if: ${{ !inputs.inspection_only && matrix.destination == 'github' }}
+        env:
+          GH_TOKEN: ${{ secrets.RAYOAI_RELEASE_TOKEN }}
+        run: |
+          python3 scripts/release.py publish --tag "$RELEASE_TAG" --source-sha "$SOURCE_SHA" --output build/distribution/github
+          printf '\n### GitHub\nPublished or verified identical: https://github.com/rayo-alcantar/rayoai_for_android/releases/tag/%s\n' "$RELEASE_TAG" >> "$GITHUB_STEP_SUMMARY"
+      - name: Check Google authentication configuration
+        if: matrix.destination == 'play'
+        env:
+          PROVIDER: ${{ vars.GOOGLE_PLAY_WORKLOAD_IDENTITY_PROVIDER }}
+          SERVICE_ACCOUNT: ${{ vars.GOOGLE_PLAY_SERVICE_ACCOUNT }}
+          KEY_JSON: ${{ secrets.GOOGLE_PLAY_SERVICE_ACCOUNT_JSON }}
+          PRODUCTION_ENABLED: ${{ vars.GOOGLE_PLAY_PRODUCTION_ENABLED }}
+        run: |
+          if [ "$PLAY_TRACK" = 'production' ] && [ "$PRODUCTION_ENABLED" != 'true' ]; then
+            echo 'Production is not enabled. Configure GOOGLE_PLAY_PRODUCTION_ENABLED=true only after authorizing production access.'
+            exit 1
+          fi
+          if [ -n "$PROVIDER" ]; then
+            if [ -z "$SERVICE_ACCOUNT" ]; then
+              echo 'Set GOOGLE_PLAY_SERVICE_ACCOUNT for Workload Identity Federation.'
+              exit 1
+            fi
+          elif [ -z "$KEY_JSON" ]; then
+            echo 'Configure Google Workload Identity Federation (preferred), or the GOOGLE_PLAY_SERVICE_ACCOUNT_JSON secret.'
+            exit 1
+          fi
+      - name: Authenticate only for the Android Publisher API
+        if: matrix.destination == 'play'
+        id: google-auth
+        uses: google-github-actions/auth@7c6bc770dae815cd3e89ee6cdf493a5fab2cc093 # v3
+        with:
+          workload_identity_provider: ${{ vars.GOOGLE_PLAY_WORKLOAD_IDENTITY_PROVIDER }}
+          service_account: ${{ vars.GOOGLE_PLAY_SERVICE_ACCOUNT }}
+          credentials_json: ${{ vars.GOOGLE_PLAY_WORKLOAD_IDENTITY_PROVIDER == '' && secrets.GOOGLE_PLAY_SERVICE_ACCOUNT_JSON || '' }}
+          token_format: access_token
+          access_token_scopes: https://www.googleapis.com/auth/androidpublisher
+          create_credentials_file: false
+          export_environment_variables: false
+      - name: Submit and verify Play bundle and track without cancelling reviews
+        if: ${{ !inputs.inspection_only && matrix.destination == 'play' }}
+        env:
+          GOOGLE_PLAY_ACCESS_TOKEN: ${{ steps.google-auth.outputs.access_token }}
+        run: python3 -m scripts.play_publish publish
+      - name: Inspect Play bundles and tracks without submitting changes
+        if: inputs.inspection_only
+        env:
+          GOOGLE_PLAY_ACCESS_TOKEN: ${{ steps.google-auth.outputs.access_token }}
+        run: python3 -m scripts.play_publish inspect

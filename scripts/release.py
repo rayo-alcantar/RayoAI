@@ -168,10 +168,10 @@ def check_apk(path: Path) -> None:
             raise ValueError(f"APK is not signed: {path.name}")
 
 
-def package(tag: str, root: Path = ROOT) -> None:
+def package(tag: str, root: Path = ROOT, output: Path | None = None) -> None:
     data = metadata(tag, root)
     built_apk = root / "app/build/outputs/apk/github/release/app-github-release.apk"
-    output_dir = root / "build/release"
+    output_dir = output if output is not None else root / "build/release"
     output_dir.mkdir(parents=True, exist_ok=True)
 
     check_apk(built_apk)
@@ -245,10 +245,10 @@ def publication_policy(data: dict, releases: list[dict]) -> tuple[dict | None, b
     return existing, latest
 
 
-def publish(tag: str, source_sha: str) -> None:
+def publish(tag: str, source_sha: str, output: Path | None = None) -> None:
     if not os.getenv("GH_TOKEN"):
         raise ValueError("Configure the RAYOAI_RELEASE_TOKEN Actions secret for the public repository.")
-    output = ROOT / "build/release"
+    output = output if output is not None else ROOT / "build/release"
     data = verify_artifacts(output, tag, source_sha)
     repo = gh_json("api", f"repos/{PUBLIC_REPO}")
     if repo.get("private") or repo.get("archived") or repo.get("default_branch") != "main":
@@ -340,6 +340,7 @@ def main() -> None:
     parser.add_argument("command", choices=("validate", "metadata", "strings", "package", "publish"))
     parser.add_argument("--tag")
     parser.add_argument("--source-sha")
+    parser.add_argument("--output", type=Path, help="Artifact directory; does not build anything.")
     parser.add_argument(
         "--build-only",
         action="store_true",
@@ -359,9 +360,9 @@ def main() -> None:
             check_strings()
             print("Strings validated successfully.")
         elif args.command == "package":
-            package(args.tag)
+            package(args.tag, output=args.output)
         else:
-            publish(args.tag, args.source_sha or "")
+            publish(args.tag, args.source_sha or "", output=args.output)
     except (ValueError, RuntimeError, OSError, KeyError, EOFError) as exc:
         parser.exit(1, f"Release aborted: {exc}\n")
 

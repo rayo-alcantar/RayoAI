@@ -58,3 +58,7 @@ j a v a _ p i d * . h p r o f
 # Python cache
 __pycache__/
 *.py[cod]
+
+# Google release credentials must never enter source or artifacts.
+gha-creds-*.json
+/google-play-service-account.json

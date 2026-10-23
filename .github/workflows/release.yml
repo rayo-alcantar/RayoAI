@@ -1,4 +1,5 @@
 name: Android release
+run-name: ${{ inputs.verify_play_access && 'Verify Google Play access (no publication)' || format('Android {0} · {1}', inputs.tag || github.ref_name, inputs.destinations || vars.TAG_RELEASE_DESTINATIONS || 'both') }}
 
 on:
   push:
@@ -8,24 +9,53 @@ on:
   workflow_dispatch:
     inputs:
       tag:
-        description: 'Release label: X.Y.Z-stable or X.Y.Z-beta (source tag required to publish)'
-        required: true
+        description: 'X.Y.Z-stable or X.Y.Z-beta (required except for access verification)'
+        required: false
         type: string
       source_ref:
-        description: 'Optional branch/commit to test without a tag; requires publish=false'
+        description: 'Optional branch/commit for a NEW build-only check; destinations must be none'
         type: string
         default: ''
-      publish:
-        description: 'Publish to the public distribution repository'
+      destinations:
+        description: 'Build only, publish one destination, or publish both'
+        type: choice
+        options: [none, both, github, play]
+        default: none
+      publication_order:
+        description: 'For both: parallel, or stop if the first destination fails'
+        type: choice
+        options: [parallel, github-first, play-first]
+        default: parallel
+      artifact_run_id:
+        description: 'Optional ORIGINAL paired build run ID: reuse its exact binaries, never rebuild'
+        type: string
+        default: ''
+      play_track:
+        description: 'auto: stable -> production; beta -> internal'
+        type: choice
+        options: [auto, internal, alpha, beta, production]
+        default: auto
+      play_status:
+        description: 'draft holds the release; completed requests distribution, subject to Google review'
+        type: choice
+        options: [draft, completed]
+        default: draft
+      send_for_review:
+        description: 'Request review on commit (never cancels an existing review)'
+        type: boolean
+        default: false
+      verify_play_access:
+        description: 'ONLY check Play access via a temporary edit: no build/upload/commit; ignores release inputs'
         type: boolean
         default: false
 
 permissions:
   contents: read
+  actions: read
 
-# Serialize channels too: a late older stable must not become Latest.
+# One coordinator across stores and channels; never cancel a running publication.
 concurrency:
-  group: rayoai-android-public-releases
+  group: rayoai-android-coordinated-releases
   cancel-in-progress: false
 
 env:
@@ -33,105 +63,214 @@ env:
   PYTHONUTF8: '1'
 
 jobs:
+  verify-play-access:
+    if: ${{ github.event_name == 'workflow_dispatch' && inputs.verify_play_access }}
+    permissions:
+      contents: read
+      actions: read
+      id-token: write
+    uses: ./.github/workflows/publish-destination.yml
+    with:
+      tag: ''
+      source_sha: ${{ github.sha }}
+      artifact_run_id: ''
+      destinations: '["play"]'
+      play_track: internal
+      play_status: draft
+      send_for_review: false
+      inspection_only: true
+    secrets: inherit
+
   prepare:
+    if: ${{ !inputs.verify_play_access }}
     runs-on: ubuntu-24.04
     timeout-minutes: 15
     outputs:
       tag: ${{ steps.metadata.outputs.tag }}
-      version: ${{ steps.metadata.outputs.version }}
       source_sha: ${{ steps.metadata.outputs.source_sha }}
+      first: ${{ steps.plan.outputs.first }}
+      second: ${{ steps.plan.outputs.second }}
+      play_track: ${{ steps.plan.outputs.play_track }}
+      play_status: ${{ steps.plan.outputs.play_status }}
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
         with:
           ref: ${{ inputs.source_ref || inputs.tag || github.ref }}
           fetch-depth: 0
           persist-credentials: false
-      - name: Validate tag, version, notes and source branch
+      - name: Test release tooling
+        run: python3 -m unittest discover -s scripts/tests -v
+      - name: Select destinations and publication order
+        id: plan
+        env:
+          RELEASE_TAG: ${{ inputs.tag || github.ref_name }}
+          SOURCE_REF: ${{ inputs.source_ref }}
+          ARTIFACT_RUN_ID: ${{ inputs.artifact_run_id }}
+          RELEASE_DESTINATIONS: ${{ github.event_name == 'push' && (vars.TAG_RELEASE_DESTINATIONS || 'both') || inputs.destinations }}
+          RELEASE_ORDER: ${{ github.event_name == 'push' && (vars.TAG_RELEASE_ORDER || 'parallel') || inputs.publication_order }}
+          PLAY_TRACK: ${{ github.event_name == 'push' && (vars.TAG_PLAY_TRACK || 'auto') || inputs.play_track }}
+          PLAY_STATUS: ${{ github.event_name == 'push' && (vars.TAG_PLAY_STATUS || 'completed') || inputs.play_status }}
+        run: python3 -m scripts.distribution plan
+      - name: Validate tag, shared version, notes and source branch
         id: metadata
         env:
           RELEASE_TAG: ${{ inputs.tag || github.ref_name }}
           SOURCE_REF: ${{ inputs.source_ref }}
-          PUBLISH_REQUESTED: ${{ inputs.publish }}
         run: |
           if [ -n "$SOURCE_REF" ]; then
-            if [ "$GITHUB_EVENT_NAME" != "workflow_dispatch" ] || [ "$PUBLISH_REQUESTED" != "false" ]; then
-              echo 'source_ref is only allowed for manual build-only checks.'
-              exit 1
-            fi
             python3 scripts/release.py validate --tag "$RELEASE_TAG" --build-only
           else
             python3 scripts/release.py validate --tag "$RELEASE_TAG"
           fi
-      - name: Verify strings and translations
-        run: python3 scripts/release.py strings
 
   build:
+    name: Build paired artifacts
     needs: prepare
     runs-on: ubuntu-24.04
-    timeout-minutes: 45
+    timeout-minutes: 60
+    outputs:
+      artifact_run_id: ${{ steps.origin.outputs.run_id }}
     env:
       RELEASE_TAG: ${{ needs.prepare.outputs.tag }}
+      SOURCE_SHA: ${{ needs.prepare.outputs.source_sha }}
+      ARTIFACT_RUN_ID: ${{ inputs.artifact_run_id }}
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
         with:
           ref: ${{ needs.prepare.outputs.source_sha }}
           persist-credentials: false
-      - name: Set up JDK 17
-        uses: actions/setup-java@v5
+      - name: Bind artifact origin
+        id: origin
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: python3 -m scripts.distribution origin
+      - name: Download the original pair without recompilation
+        if: steps.origin.outputs.reuse == 'true'
+        uses: actions/download-artifact@d3f86a106a0bac45b974a628896c90dbdf5c8093 # v4
         with:
-          distribution: 'temurin'
+          name: android-release-set
+          path: build/distribution
+          run-id: ${{ steps.origin.outputs.run_id }}
+          github-token: ${{ github.token }}
+      - name: Set up JDK 17
+        if: steps.origin.outputs.reuse == 'false'
+        uses: actions/setup-java@b6effb05e454b25005698d916606bdc6ffcbf961 # v5
+        with:
+          distribution: temurin
           java-version: '17'
       - name: Set up Gradle
-        uses: gradle/actions/setup-gradle@v4
-      - name: Configure Keystore and Signing
+        if: steps.origin.outputs.reuse == 'false'
+        uses: gradle/actions/setup-gradle@ed408507eac070d1f99cc633dbcf757c94c7933a # v4
+      - name: Configure release signing
+        if: steps.origin.outputs.reuse == 'false'
         env:
           KEYSTORE_BASE64: ${{ secrets.ANDROID_KEYSTORE_BASE64 }}
           KEYSTORE_PASSWORD: ${{ secrets.ANDROID_KEYSTORE_PASSWORD }}
           KEY_ALIAS: ${{ secrets.ANDROID_KEY_ALIAS }}
           KEY_PASSWORD: ${{ secrets.ANDROID_KEY_PASSWORD }}
         run: |
-          if [ -z "$KEYSTORE_BASE64" ]; then
-            echo "Error: ANDROID_KEYSTORE_BASE64 secret is not configured."
+          if [ -z "$KEYSTORE_BASE64" ] || [ -z "$KEYSTORE_PASSWORD" ] || [ -z "$KEY_ALIAS" ] || [ -z "$KEY_PASSWORD" ]; then
+            echo 'Missing Android signing secrets.'
             exit 1
           fi
-          echo "$KEYSTORE_BASE64" | base64 -d > rayoai-release.jks
-          printf "storeFile=rayoai-release.jks\nstorePassword=%s\nkeyAlias=%s\nkeyPassword=%s\n" \
+          umask 077
+          printf '%s' "$KEYSTORE_BASE64" | base64 -d > rayoai-release.jks
+          printf 'storeFile=rayoai-release.jks\nstorePassword=%s\nkeyAlias=%s\nkeyPassword=%s\n' \
             "$KEYSTORE_PASSWORD" "$KEY_ALIAS" "$KEY_PASSWORD" > keystore.properties
-      - name: Ensure gradlew is executable
-        run: chmod +x gradlew
-      - name: Run unit tests
-        run: ./gradlew test --stacktrace
-      - name: Build GitHub release APK
-        run: ./gradlew assembleGithubRelease --stacktrace
-      - name: Package release artifacts
-        run: python3 scripts/release.py package --tag "$RELEASE_TAG"
-      - uses: actions/upload-artifact@v4
+      - name: Ensure the pinned Android inspection tools and platform are available
+        if: steps.origin.outputs.reuse == 'false'
+        run: '"$ANDROID_HOME/cmdline-tools/latest/bin/sdkmanager" "build-tools;35.0.0" "platforms;android-36"'
+      - name: Run Android unit tests
+        if: steps.origin.outputs.reuse == 'false'
+        run: bash ./gradlew test --stacktrace
+      - name: Build both distributions from the same commit
+        if: steps.origin.outputs.reuse == 'false'
+        run: bash ./gradlew assembleGithubRelease bundlePlayRelease --stacktrace
+      - name: Package coordinated artifacts
+        if: steps.origin.outputs.reuse == 'false'
+        run: |
+          python3 -m scripts.distribution package --tools "$ANDROID_HOME/build-tools/35.0.0"
+      - name: Verify both identities and all artifact hashes
+        run: python3 -m scripts.distribution verify
+      - name: Retain the exact pair for independent publication
+        if: steps.origin.outputs.reuse == 'false'
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
         with:
-          name: android-release
-          path: build/release/*
+          name: android-release-set
+          path: build/distribution/
           if-no-files-found: error
           compression-level: 0
-          retention-days: 14
+          retention-days: 90
 
-  publish:
+  publish-first:
     needs: [prepare, build]
-    if: github.event_name == 'push' || inputs.publish
+    if: needs.prepare.outputs.first != '[]'
+    permissions:
+      contents: read
+      actions: read
+      id-token: write
+    uses: ./.github/workflows/publish-destination.yml
+    with:
+      tag: ${{ needs.prepare.outputs.tag }}
+      source_sha: ${{ needs.prepare.outputs.source_sha }}
+      artifact_run_id: ${{ needs.build.outputs.artifact_run_id }}
+      destinations: ${{ needs.prepare.outputs.first }}
+      play_track: ${{ needs.prepare.outputs.play_track }}
+      play_status: ${{ needs.prepare.outputs.play_status }}
+      send_for_review: ${{ github.event_name == 'push' || inputs.send_for_review }}
+    secrets: inherit
+
+  publish-second:
+    needs: [prepare, build, publish-first]
+    if: ${{ !cancelled() && needs.publish-first.result == 'success' && needs.prepare.outputs.second != '[]' }}
+    permissions:
+      contents: read
+      actions: read
+      id-token: write
+    uses: ./.github/workflows/publish-destination.yml
+    with:
+      tag: ${{ needs.prepare.outputs.tag }}
+      source_sha: ${{ needs.prepare.outputs.source_sha }}
+      artifact_run_id: ${{ needs.build.outputs.artifact_run_id }}
+      destinations: ${{ needs.prepare.outputs.second }}
+      play_track: ${{ needs.prepare.outputs.play_track }}
+      play_status: ${{ needs.prepare.outputs.play_status }}
+      send_for_review: ${{ github.event_name == 'push' || inputs.send_for_review }}
+    secrets: inherit
+
+  summary:
+    if: always()
+    needs: [prepare, build, publish-first, publish-second, verify-play-access]
     runs-on: ubuntu-24.04
-    timeout-minutes: 20
-    environment: release-public
+    timeout-minutes: 5
     steps:
-      - uses: actions/checkout@v4
-        with:
-          ref: ${{ needs.prepare.outputs.source_sha }}
-          persist-credentials: false
-      - uses: actions/download-artifact@v4
-        with:
-          name: android-release
-          path: build/release
-      - name: Publish only verified binaries to the public repository
+      - name: Report build and publication separately
+        if: ${{ !inputs.verify_play_access }}
         env:
-          # GITHUB_TOKEN cannot write to a different repository.
-          GH_TOKEN: ${{ secrets.RAYOAI_RELEASE_TOKEN }}
-          RELEASE_TAG: ${{ needs.prepare.outputs.tag }}
-          SOURCE_SHA: ${{ needs.prepare.outputs.source_sha }}
-        run: python3 scripts/release.py publish --tag "$RELEASE_TAG" --source-sha "$SOURCE_SHA"
+          TAG: ${{ needs.prepare.outputs.tag }}
+          BUILD: ${{ needs.build.result }}
+          ORIGIN: ${{ needs.build.outputs.artifact_run_id }}
+          FIRST: ${{ needs.publish-first.result }}
+          SECOND: ${{ needs.publish-second.result }}
+          TRACK: ${{ needs.prepare.outputs.play_track }}
+          STATUS: ${{ needs.prepare.outputs.play_status }}
+        run: |
+          {
+            echo '## Coordinated Android release'
+            printf '\nTag: `%s`\n\nBuild: **%s** · Original artifact run: `%s`\n' "$TAG" "$BUILD" "$ORIGIN"
+            printf '\nFirst publication phase: **%s** · Second phase: **%s**\n' "$FIRST" "$SECOND"
+            printf '\nPlay requested target: `%s` / `%s`. See the Play job summary for accepted remote state.\n' "$TRACK" "$STATUS"
+            echo 'A successful Play submission does not prove Google approval or availability to users.'
+            echo 'Retry only the pending destination with artifact_run_id; never move the tag or rebuild the same versionCode.'
+          } >> "$GITHUB_STEP_SUMMARY"
+      - name: Report access verification without publication
+        if: inputs.verify_play_access
+        env:
+          ACCESS_RESULT: ${{ needs.verify-play-access.result }}
+        run: |
+          {
+            echo '## Google Play access verification'
+            printf '\nResult: **%s**\n' "$ACCESS_RESULT"
+            echo 'No Android build, binary upload, track update, edit commit or GitHub release was requested.'
+            echo 'The Play job opens and deletes a temporary edit to inspect bundles and tracks.'
+          } >> "$GITHUB_STEP_SUMMARY"

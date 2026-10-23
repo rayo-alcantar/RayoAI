@@ -1,5 +1,7 @@
 # RayoAI - Tu Asistente Visual Accesible (Documentación Técnica)
 
+Publicación coordinada de Google Play y GitHub: [guía de versiones y despliegue](docs/publicacion-android.md).
+
 ![RayoAI Logo](docs/logo.png) <!-- Placeholder para el logo -->
 
 ## 🚀 Visión General

@@ -1,0 +1,1 @@
+Descripciones más rápidas y procesamiento de imágenes sin bloquear la interfaz. Nuevo visor de imágenes con zoom y controles accesibles. La lectura en voz alta del chat se activa únicamente cuando la solicitas. Correcciones para conservar la imagen al hacer preguntas de seguimiento y evitar mensajes duplicados.
