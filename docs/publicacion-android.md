@@ -181,6 +181,10 @@ El permiso de producción que presenta Google se llama **«Lanzar a producción,
 dispositivos y usar la firma de apps de Play»** y agrupa esas capacidades; concederlo
 sólo para RayoAI y con autorización expresa. Nunca ampliar a todas las apps ni dar
 administración de usuarios, finanzas o compras para resolver un error de despliegue.
+Al seleccionar producción, Play marca además como dependencias obligatorias
+**Administrar declaraciones de políticas** y **Administrar vínculos directos**
+(casillas deshabilitadas para su edición individual). Confirmar también ese alcance
+con el propietario antes de guardar; no confundirlo con administración de la cuenta.
 La variable `GOOGLE_PLAY_PRODUCTION_ENABLED=true` es una segunda barrera, no un permiso
 de Google: hacen falta ambas cosas. Las protecciones de los environments deben
 comprobarse aparte; su mera existencia no implica revisores ni restricciones de ramas.
@@ -403,6 +407,9 @@ Revertir esos archivos no revierte una entrega ya aceptada por una tienda: esas
 operaciones requieren un plan separado. No borrar secretos, firmas o datos como rollback.
 
 ## Referencias
+
+Evidencia de una entrega real: [3.3.12, 23 de octubre de 2026](release-evidence/2026-10-23-3.3.12.md).
+Es un registro fechado, no una garantía del estado actual de revisión de Google.
 
 - [Acceso oficial a Google Play Developer API](https://developers.google.com/android-publisher/getting_started)
 - [Subida de Android App Bundles](https://developers.google.com/android-publisher/api-ref/rest/v3/edits.bundles/upload)
