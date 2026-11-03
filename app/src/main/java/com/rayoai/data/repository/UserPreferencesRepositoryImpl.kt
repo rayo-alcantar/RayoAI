@@ -37,6 +37,12 @@ class UserPreferencesRepositoryImpl @Inject constructor(
         val LAST_DONATION_PROMPT_TIME = longPreferencesKey("last_donation_prompt_time")
         val SHOW_HIDDEN_CHATS = booleanPreferencesKey("show_hidden_chats")
         val ACCESSIBILITY_QUICK_CAPTURE_ENABLED = booleanPreferencesKey("accessibility_quick_capture_enabled")
+        val LIVE_MODEL = stringPreferencesKey("live_model")
+        val LIVE_VOICE = stringPreferencesKey("live_voice")
+        val LIVE_THINKING_LEVEL = stringPreferencesKey("live_thinking_level")
+        val LIVE_VAD_SENSITIVITY = stringPreferencesKey("live_vad_sensitivity")
+        val LIVE_PUSH_TO_TALK = booleanPreferencesKey("live_push_to_talk")
+        val LIVE_CAPTURE_INTERVAL_SECONDS = floatPreferencesKey("live_capture_interval_seconds")
     }
 
     override val apiKey: Flow<String?> = dataStore.data.map {
@@ -108,6 +114,30 @@ class UserPreferencesRepositoryImpl @Inject constructor(
 
     override val accessibilityQuickCaptureEnabled: Flow<Boolean> = dataStore.data.map {
         it[PreferencesKeys.ACCESSIBILITY_QUICK_CAPTURE_ENABLED] ?: false
+    }
+
+    override val liveModel: Flow<String> = dataStore.data.map {
+        it[PreferencesKeys.LIVE_MODEL] ?: GeminiModelConfig.DEFAULT_LIVE_MODEL
+    }
+
+    override val liveVoice: Flow<String> = dataStore.data.map {
+        it[PreferencesKeys.LIVE_VOICE] ?: "Kore"
+    }
+
+    override val liveThinkingLevel: Flow<String> = dataStore.data.map {
+        it[PreferencesKeys.LIVE_THINKING_LEVEL] ?: "minimal"
+    }
+
+    override val liveVadSensitivity: Flow<String> = dataStore.data.map {
+        it[PreferencesKeys.LIVE_VAD_SENSITIVITY] ?: "high"
+    }
+
+    override val livePushToTalk: Flow<Boolean> = dataStore.data.map {
+        it[PreferencesKeys.LIVE_PUSH_TO_TALK] ?: false
+    }
+
+    override val liveCaptureIntervalSeconds: Flow<Float> = dataStore.data.map {
+        it[PreferencesKeys.LIVE_CAPTURE_INTERVAL_SECONDS] ?: 1.0f
     }
 
     override suspend fun saveApiKey(apiKey: String) {
@@ -203,6 +233,42 @@ class UserPreferencesRepositoryImpl @Inject constructor(
     override suspend fun saveAccessibilityQuickCaptureEnabled(enabled: Boolean) {
         dataStore.edit {
             it[PreferencesKeys.ACCESSIBILITY_QUICK_CAPTURE_ENABLED] = enabled
+        }
+    }
+
+    override suspend fun saveLiveModel(model: String) {
+        dataStore.edit {
+            it[PreferencesKeys.LIVE_MODEL] = model
+        }
+    }
+
+    override suspend fun saveLiveVoice(voice: String) {
+        dataStore.edit {
+            it[PreferencesKeys.LIVE_VOICE] = voice
+        }
+    }
+
+    override suspend fun saveLiveThinkingLevel(level: String) {
+        dataStore.edit {
+            it[PreferencesKeys.LIVE_THINKING_LEVEL] = level
+        }
+    }
+
+    override suspend fun saveLiveVadSensitivity(sensitivity: String) {
+        dataStore.edit {
+            it[PreferencesKeys.LIVE_VAD_SENSITIVITY] = sensitivity
+        }
+    }
+
+    override suspend fun saveLivePushToTalk(enabled: Boolean) {
+        dataStore.edit {
+            it[PreferencesKeys.LIVE_PUSH_TO_TALK] = enabled
+        }
+    }
+
+    override suspend fun saveLiveCaptureIntervalSeconds(interval: Float) {
+        dataStore.edit {
+            it[PreferencesKeys.LIVE_CAPTURE_INTERVAL_SECONDS] = interval
         }
     }
 }

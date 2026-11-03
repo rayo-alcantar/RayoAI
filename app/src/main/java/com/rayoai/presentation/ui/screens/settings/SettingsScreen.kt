@@ -27,6 +27,7 @@ import androidx.compose.material.icons.filled.ExpandLess
 import androidx.compose.material.icons.filled.ExpandMore
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Button
+import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.DropdownMenu
 import androidx.compose.material3.DropdownMenuItem
 import androidx.compose.material3.ExperimentalMaterial3Api
@@ -105,6 +106,10 @@ fun SettingsScreen(
     var isUpdateChannelMenuExpanded by remember { mutableStateOf(false) }
     var showAccessibilitySetupDialog by remember { mutableStateOf(false) }
     var googleSectionExpanded by remember { mutableStateOf(false) }
+    var liveSectionExpanded by remember { mutableStateOf(false) }
+    var isLiveModelMenuExpanded by remember { mutableStateOf(false) }
+    var isLiveVoiceMenuExpanded by remember { mutableStateOf(false) }
+    var isLiveThinkingMenuExpanded by remember { mutableStateOf(false) }
     var descriptionSectionExpanded by remember { mutableStateOf(false) }
     var appearanceSectionExpanded by remember { mutableStateOf(false) }
     var accessibilitySectionExpanded by remember { mutableStateOf(false) }
@@ -275,6 +280,138 @@ fun SettingsScreen(
                             .height(56.dp)
                     ) {
                         Text(stringResource(R.string.settings_max_images_save_compact))
+                    }
+                }
+            }
+
+            ExpandableSettingsSection(
+                title = stringResource(R.string.settings_live_section_title),
+                description = stringResource(R.string.settings_live_section_description),
+                expanded = liveSectionExpanded,
+                onExpandedChange = { liveSectionExpanded = it }
+            ) {
+                // Modelo Live
+                BoxedDropdownField(
+                    value = uiState.liveModel,
+                    label = stringResource(R.string.live_mode_model_label),
+                    expanded = isLiveModelMenuExpanded,
+                    onExpand = { isLiveModelMenuExpanded = true },
+                    onDismiss = { isLiveModelMenuExpanded = false }
+                ) {
+                    GeminiModelConfig.liveSelectableModels.forEach { model ->
+                        DropdownMenuItem(
+                            text = { Text(model) },
+                            onClick = {
+                                viewModel.saveLiveModel(model)
+                                isLiveModelMenuExpanded = false
+                            }
+                        )
+                    }
+                }
+
+                // Voz de Gemini
+                BoxedDropdownField(
+                    value = uiState.liveVoice,
+                    label = stringResource(R.string.live_mode_voice_label),
+                    expanded = isLiveVoiceMenuExpanded,
+                    onExpand = { isLiveVoiceMenuExpanded = true },
+                    onDismiss = { isLiveVoiceMenuExpanded = false }
+                ) {
+                    GeminiModelConfig.liveVoices.forEach { voice ->
+                        DropdownMenuItem(
+                            text = { Text(voice) },
+                            onClick = {
+                                viewModel.saveLiveVoice(voice)
+                                isLiveVoiceMenuExpanded = false
+                            }
+                        )
+                    }
+                }
+
+                // Nivel de Razonamiento (Thinking)
+                BoxedDropdownField(
+                    value = uiState.liveThinkingLevel.replaceFirstChar { it.uppercase() },
+                    label = stringResource(R.string.live_mode_thinking_level_label),
+                    expanded = isLiveThinkingMenuExpanded,
+                    onExpand = { isLiveThinkingMenuExpanded = true },
+                    onDismiss = { isLiveThinkingMenuExpanded = false }
+                ) {
+                    GeminiModelConfig.liveThinkingLevels.forEach { level ->
+                        DropdownMenuItem(
+                            text = { Text(level.replaceFirstChar { it.uppercase() }) },
+                            onClick = {
+                                viewModel.saveLiveThinkingLevel(level)
+                                isLiveThinkingMenuExpanded = false
+                            }
+                        )
+                    }
+                }
+
+                // Modo de Micrófono
+                Text(
+                    text = stringResource(R.string.live_mode_mic_mode_label),
+                    style = MaterialTheme.typography.labelLarge
+                )
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.spacedBy(8.dp)
+                ) {
+                    OutlinedButton(
+                        onClick = { viewModel.saveLivePushToTalk(false) },
+                        modifier = Modifier.weight(1f),
+                        colors = ButtonDefaults.outlinedButtonColors(
+                            containerColor = if (!uiState.livePushToTalk) MaterialTheme.colorScheme.primaryContainer else androidx.compose.ui.graphics.Color.Transparent
+                        )
+                    ) {
+                        Text(stringResource(R.string.live_mode_mic_continuous), style = MaterialTheme.typography.bodySmall)
+                    }
+
+                    OutlinedButton(
+                        onClick = { viewModel.saveLivePushToTalk(true) },
+                        modifier = Modifier.weight(1f),
+                        colors = ButtonDefaults.outlinedButtonColors(
+                            containerColor = if (uiState.livePushToTalk) MaterialTheme.colorScheme.primaryContainer else androidx.compose.ui.graphics.Color.Transparent
+                        )
+                    ) {
+                        Text(stringResource(R.string.live_mode_mic_ptt), style = MaterialTheme.typography.bodySmall)
+                    }
+                }
+
+                // Frecuencia de Captura
+                Text(
+                    text = stringResource(R.string.live_mode_interval_label),
+                    style = MaterialTheme.typography.labelLarge
+                )
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.spacedBy(8.dp)
+                ) {
+                    OutlinedButton(
+                        onClick = { viewModel.saveLiveCaptureIntervalSeconds(1.0f) },
+                        modifier = Modifier.weight(1f),
+                        colors = ButtonDefaults.outlinedButtonColors(
+                            containerColor = if (uiState.liveCaptureIntervalSeconds == 1.0f) MaterialTheme.colorScheme.primaryContainer else androidx.compose.ui.graphics.Color.Transparent
+                        )
+                    ) {
+                        Text("1.0s")
+                    }
+                    OutlinedButton(
+                        onClick = { viewModel.saveLiveCaptureIntervalSeconds(1.5f) },
+                        modifier = Modifier.weight(1f),
+                        colors = ButtonDefaults.outlinedButtonColors(
+                            containerColor = if (uiState.liveCaptureIntervalSeconds == 1.5f) MaterialTheme.colorScheme.primaryContainer else androidx.compose.ui.graphics.Color.Transparent
+                        )
+                    ) {
+                        Text("1.5s")
+                    }
+                    OutlinedButton(
+                        onClick = { viewModel.saveLiveCaptureIntervalSeconds(2.0f) },
+                        modifier = Modifier.weight(1f),
+                        colors = ButtonDefaults.outlinedButtonColors(
+                            containerColor = if (uiState.liveCaptureIntervalSeconds == 2.0f) MaterialTheme.colorScheme.primaryContainer else androidx.compose.ui.graphics.Color.Transparent
+                        )
+                    ) {
+                        Text("2.0s")
                     }
                 }
             }

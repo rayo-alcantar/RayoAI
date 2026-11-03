@@ -417,5 +417,57 @@ Tarjeta: 4152314082325278</string>
     <string name="zoom_out_image">Alejar imagen</string>
     <string name="zoom_reset_image">Restablecer zoom</string>
     <string name="zoom_level_label">Zoom %1$d%%</string>
+
+    <!-- Modo Live -->
+    <string name="tool_live_mode">Modo Live</string>
+    <string name="tool_live_mode_description">Conversación continua y en tiempo real con Gemini por voz y visión.</string>
+    <string name="live_mode_title">Modo Live</string>
+    <string name="live_mode_state_stopped">Detenido</string>
+    <string name="live_mode_state_starting">Iniciando conexión…</string>
+    <string name="live_mode_state_connecting">Conectando con Gemini…</string>
+    <string name="live_mode_state_running">En conversación activa</string>
+    <string name="live_mode_state_reconnecting">Reconectando…</string>
+    <string name="live_mode_state_stopping">Deteniendo…</string>
+    <string name="live_mode_state_paused">En pausa</string>
+    <string name="live_mode_start">Iniciar conversación Live</string>
+    <string name="live_mode_stop">Finalizar conversación</string>
+    <string name="live_mode_pause">Pausar</string>
+    <string name="live_mode_resume">Reanudar</string>
+    <string name="live_mode_source_camera">Cámara</string>
+    <string name="live_mode_source_screen">Pantalla</string>
+    <string name="live_mode_source_none">Solo voz</string>
+    <string name="live_mode_pause_video">Pausar video</string>
+    <string name="live_mode_resume_video">Reanudar video</string>
+    <string name="live_mode_flip_camera">Cambiar cámara</string>
+    <string name="live_mode_torch_on">Activar linterna</string>
+    <string name="live_mode_torch_off">Desactivar linterna</string>
+    <string name="live_mode_mic_muted">Micrófono silenciado</string>
+    <string name="live_mode_mic_unmuted">Micrófono activo</string>
+    <string name="live_mode_ptt_button">Pulsar para hablar</string>
+    <string name="live_mode_ptt_talking">Hablando…</string>
+    <string name="live_mode_ptt_listening">Escuchando…</string>
+    <string name="live_mode_screen_active">Compartiendo pantalla en tiempo real con RayoAI</string>
+    <string name="live_mode_screen_hint">Puedes minimizar RayoAI y usar cualquier app; RayoAI verá lo que haces y te guiará por voz.</string>
+    <string name="live_mode_voice_only_hint">Modo solo voz activado. No se envían imágenes para ahorrar datos.</string>
+    <string name="live_mode_audio_permission_required">Se requiere permiso de micrófono para conversar en tiempo real.</string>
+    <string name="live_mode_camera_permission_required">Se requiere permiso de cámara para ver tu entorno.</string>
+    <string name="live_mode_grant_permissions">Conceder permisos</string>
+    <string name="live_mode_api_key_required">Configura primero tu clave de API de Gemini en Ajustes para usar el modo Live.</string>
+    <string name="live_mode_open_settings">Ir a Ajustes</string>
+    <string name="live_mode_config_title">Configuración de modo Live</string>
+    <string name="live_mode_model_label">Modelo de inteligencia Live</string>
+    <string name="live_mode_voice_label">Voz de Gemini</string>
+    <string name="live_mode_thinking_level_label">Nivel de razonamiento (Thinking)</string>
+    <string name="live_mode_mic_mode_label">Modo de micrófono</string>
+    <string name="live_mode_mic_continuous">Detección automática (manos libres)</string>
+    <string name="live_mode_mic_ptt">Pulsar para hablar</string>
+    <string name="live_mode_interval_label">Frecuencia de captura visual</string>
+    <string name="live_mode_interval_1s">1 segundo (recomendado)</string>
+    <string name="live_mode_interval_1_5s">1.5 segundos</string>
+    <string name="live_mode_interval_2s">2 segundos (ahorro de datos)</string>
+    <string name="live_mode_notification_channel_name">Sesión RayoAI Live</string>
+    <string name="live_mode_notification_channel_desc">Mantiene la sesión de conversación continua en segundo plano</string>
+    <string name="settings_live_section_title">Modo Live (Gemini Live)</string>
+    <string name="settings_live_section_description">Configura el modelo, la voz, el razonamiento y la transmisión visual en vivo.</string>
 </resources>
 

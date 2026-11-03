@@ -31,6 +31,12 @@ data class SettingsUiState(
     val accessibilityQuickCaptureEnabled: Boolean = false,
     val maxImagesInChat: String = "3",
     val currentUpdateChannel: UpdateChannel = UpdateChannel.STABLE,
+    val liveModel: String = GeminiModelConfig.DEFAULT_LIVE_MODEL,
+    val liveVoice: String = "Kore",
+    val liveThinkingLevel: String = "minimal",
+    val liveVadSensitivity: String = "high",
+    val livePushToTalk: Boolean = false,
+    val liveCaptureIntervalSeconds: Float = 1.0f,
     val navigateTo: String? = null
 )
 
@@ -94,6 +100,36 @@ class SettingsViewModel @Inject constructor(
         viewModelScope.launch {
             updatePreferences.updateChannel.collect { channel ->
                 _uiState.update { it.copy(currentUpdateChannel = channel) }
+            }
+        }
+        viewModelScope.launch {
+            userPreferencesRepository.liveModel.collect { model ->
+                _uiState.update { it.copy(liveModel = model) }
+            }
+        }
+        viewModelScope.launch {
+            userPreferencesRepository.liveVoice.collect { voice ->
+                _uiState.update { it.copy(liveVoice = voice) }
+            }
+        }
+        viewModelScope.launch {
+            userPreferencesRepository.liveThinkingLevel.collect { level ->
+                _uiState.update { it.copy(liveThinkingLevel = level) }
+            }
+        }
+        viewModelScope.launch {
+            userPreferencesRepository.liveVadSensitivity.collect { sensitivity ->
+                _uiState.update { it.copy(liveVadSensitivity = sensitivity) }
+            }
+        }
+        viewModelScope.launch {
+            userPreferencesRepository.livePushToTalk.collect { ptt ->
+                _uiState.update { it.copy(livePushToTalk = ptt) }
+            }
+        }
+        viewModelScope.launch {
+            userPreferencesRepository.liveCaptureIntervalSeconds.collect { interval ->
+                _uiState.update { it.copy(liveCaptureIntervalSeconds = interval) }
             }
         }
     }
@@ -182,6 +218,42 @@ class SettingsViewModel @Inject constructor(
 
     fun saveUpdateChannel(channel: UpdateChannel) {
         updatePreferences.setUpdateChannel(channel)
+    }
+
+    fun saveLiveModel(model: String) {
+        viewModelScope.launch {
+            userPreferencesRepository.saveLiveModel(model)
+        }
+    }
+
+    fun saveLiveVoice(voice: String) {
+        viewModelScope.launch {
+            userPreferencesRepository.saveLiveVoice(voice)
+        }
+    }
+
+    fun saveLiveThinkingLevel(level: String) {
+        viewModelScope.launch {
+            userPreferencesRepository.saveLiveThinkingLevel(level)
+        }
+    }
+
+    fun saveLiveVadSensitivity(sensitivity: String) {
+        viewModelScope.launch {
+            userPreferencesRepository.saveLiveVadSensitivity(sensitivity)
+        }
+    }
+
+    fun saveLivePushToTalk(enabled: Boolean) {
+        viewModelScope.launch {
+            userPreferencesRepository.saveLivePushToTalk(enabled)
+        }
+    }
+
+    fun saveLiveCaptureIntervalSeconds(interval: Float) {
+        viewModelScope.launch {
+            userPreferencesRepository.saveLiveCaptureIntervalSeconds(interval)
+        }
     }
 
     fun onMaxImagesInChatChanged(text: String) {

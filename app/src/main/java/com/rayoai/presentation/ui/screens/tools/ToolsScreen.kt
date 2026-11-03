@@ -1,4 +1,4 @@
-﻿@file:OptIn(androidx.compose.material3.ExperimentalMaterial3Api::class)
+@file:OptIn(androidx.compose.material3.ExperimentalMaterial3Api::class)
 
 package com.rayoai.presentation.ui.screens.tools
 
@@ -27,6 +27,7 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.GraphicEq
 import androidx.compose.material.icons.filled.LightMode
 import androidx.compose.material.icons.filled.PictureAsPdf
 import androidx.compose.material.icons.filled.QrCodeScanner
@@ -330,9 +331,12 @@ private fun Context.appVibrator(): Vibrator {
 fun ToolsScreen(
     onScanPdf: () -> Unit,
     onScanVideo: () -> Unit,
-    onScanQr: () -> Unit
+    onScanQr: () -> Unit,
+    onLiveMode: () -> Unit
 ) {
     val toolsTitle = stringResource(R.string.tools_title)
+    val liveModeText = stringResource(R.string.tool_live_mode)
+    val liveModeDescription = stringResource(R.string.tool_live_mode_description)
     val scanPdfText = stringResource(R.string.tool_scan_pdf)
     val scanPdfDescription = stringResource(R.string.tool_scan_pdf_description)
     val scanVideoText = stringResource(R.string.scan_video)
@@ -350,6 +354,29 @@ fun ToolsScreen(
             contentPadding = PaddingValues(16.dp),
             verticalArrangement = Arrangement.spacedBy(12.dp)
         ) {
+            item {
+                Card(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .semantics {
+                            role = Role.Button
+                            contentDescription = "$liveModeText. $liveModeDescription"
+                        }
+                        .clickable(onClick = onLiveMode),
+                    colors = CardDefaults.cardColors(MaterialTheme.colorScheme.primaryContainer)
+                ) {
+                    Column(Modifier.padding(16.dp)) {
+                        Icon(
+                            imageVector = Icons.Filled.GraphicEq,
+                            contentDescription = null
+                        )
+                        Spacer(modifier = Modifier.width(4.dp))
+                        Text(text = liveModeText, style = MaterialTheme.typography.titleMedium)
+                        Text(text = liveModeDescription)
+                    }
+                }
+            }
+
             item {
                 LightDetectorCard()
             }

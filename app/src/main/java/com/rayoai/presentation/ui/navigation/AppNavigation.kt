@@ -60,6 +60,7 @@ sealed class Screen(val route: String, val baseRoute: String, val labelRes: Int?
     object MultiImagePassage : Screen("multi_image_passage", "multi_image_passage")
     object History : Screen("history", "history", R.string.tab_history, Icons.Default.History)
     object Tools : Screen("tools", "tools", R.string.tab_tools, Icons.Default.Build)
+    object LiveMode : Screen("live_mode", "tools")
     object ScanPdf : Screen("scan_pdf", "tools")
     object ViewPdf : Screen("view_pdf?id={id}", "tools") {
         fun createRoute(id: Long) = "view_pdf?id=$id"
@@ -260,7 +261,14 @@ fun AppNavigation(
                 com.rayoai.presentation.ui.screens.tools.ToolsScreen(
                     onScanPdf = { navController.navigate(Screen.ScanPdf.route) },
                     onScanVideo = { navController.navigate(Screen.ScanVideo.route) },
-                    onScanQr = { navController.navigate(Screen.ScanQr.route) }
+                    onScanQr = { navController.navigate(Screen.ScanQr.route) },
+                    onLiveMode = { navController.navigate(Screen.LiveMode.route) }
+                )
+            }
+            composable(Screen.LiveMode.route) {
+                com.rayoai.presentation.ui.screens.tools.live.LiveModeScreen(
+                    onNavigateBack = { navController.popBackStack() },
+                    onNavigateToSettings = { navController.navigate(Screen.Settings.route) }
                 )
             }
             composable(Screen.ScanQr.route) {

@@ -41,4 +41,15 @@ class GeminiModelConfigTest {
         assertFalse(GeminiModelConfig.isFatalAuthOrKeyError(429, "Quota exceeded"))
         assertFalse(GeminiModelConfig.isFatalAuthOrKeyError(503, "Service unavailable"))
     }
+
+    @Test
+    fun liveModelsAndVoices_areConfiguredCorrectly() {
+        assertEquals("gemini-3.1-flash-live-preview", GeminiModelConfig.DEFAULT_LIVE_MODEL)
+        assertTrue(GeminiModelConfig.liveSelectableModels.contains(GeminiModelConfig.DEFAULT_LIVE_MODEL))
+        assertTrue(GeminiModelConfig.liveSelectableModels.contains("gemini-2.0-flash-live-001"))
+        assertTrue(GeminiModelConfig.liveVoices.contains("Kore"))
+        assertTrue(GeminiModelConfig.liveVoices.contains("Puck"))
+        assertTrue(GeminiModelConfig.liveModelSupportsThinking("gemini-3.1-flash-live-preview"))
+        assertFalse(GeminiModelConfig.liveModelSupportsThinking("gemini-2.0-flash-live-001"))
+    }
 }

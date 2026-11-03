@@ -22,6 +22,12 @@ interface UserPreferencesRepository {
     val lastDonationPromptTime: Flow<Long>
     val showHiddenChats: Flow<Boolean>
     val accessibilityQuickCaptureEnabled: Flow<Boolean>
+    val liveModel: Flow<String>
+    val liveVoice: Flow<String>
+    val liveThinkingLevel: Flow<String>
+    val liveVadSensitivity: Flow<String>
+    val livePushToTalk: Flow<Boolean>
+    val liveCaptureIntervalSeconds: Flow<Float>
 
     suspend fun saveApiKey(apiKey: String)
     suspend fun saveDefaultModel(model: String)
@@ -39,4 +45,10 @@ interface UserPreferencesRepository {
     suspend fun saveLastDonationPromptTime(time: Long)
     suspend fun saveShowHiddenChats(show: Boolean)
     suspend fun saveAccessibilityQuickCaptureEnabled(enabled: Boolean)
+    suspend fun saveLiveModel(model: String)
+    suspend fun saveLiveVoice(voice: String)
+    suspend fun saveLiveThinkingLevel(level: String)
+    suspend fun saveLiveVadSensitivity(sensitivity: String)
+    suspend fun saveLivePushToTalk(enabled: Boolean)
+    suspend fun saveLiveCaptureIntervalSeconds(interval: Float)
 }

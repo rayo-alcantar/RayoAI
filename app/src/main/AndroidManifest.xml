@@ -9,6 +9,9 @@
     <uses-feature android:name="android.hardware.camera" android:required="true" />
     <uses-permission android:name="android.permission.WRITE_EXTERNAL_STORAGE" android:maxSdkVersion="29" />
     <uses-permission android:name="android.permission.POST_NOTIFICATIONS" />
+    <uses-permission android:name="android.permission.FOREGROUND_SERVICE" />
+    <uses-permission android:name="android.permission.FOREGROUND_SERVICE_MEDIA_PROJECTION" />
+    <uses-permission android:name="android.permission.FOREGROUND_SERVICE_MICROPHONE" />
 
     <application
         android:name=".RayoAIApp"
@@ -80,6 +83,11 @@
                 <data android:mimeType="text/plain" />
             </intent-filter>
         </activity>
+
+        <service
+            android:name=".presentation.ui.screens.tools.live.LiveSessionForegroundService"
+            android:exported="false"
+            android:foregroundServiceType="mediaProjection|microphone" />
 
         <service
             android:name=".accessibility.RayoAccessibilityService"
