@@ -101,7 +101,7 @@ class GeminiLiveClient(
 
             override fun onClosing(webSocket: WebSocket, code: Int, reason: String) {
                 Log.w(TAG, "WebSocket cerrándose: $code / $reason")
-                if (code == 1008 || code == 1002 || code == 1003) {
+                if (code == 1008 || code == 1002 || code == 1003 || code == 1007) {
                     isRunning.set(false)
                     onStateChanged(LiveSessionState.STOPPED)
                     onError(reason.ifBlank { "Conexión rechazada por el servidor ($code)" })
@@ -110,7 +110,7 @@ class GeminiLiveClient(
 
             override fun onClosed(webSocket: WebSocket, code: Int, reason: String) {
                 Log.d(TAG, "WebSocket cerrado: $code / $reason")
-                if (code == 1008 || code == 1002 || code == 1003) {
+                if (code == 1008 || code == 1002 || code == 1003 || code == 1007) {
                     isRunning.set(false)
                     onStateChanged(LiveSessionState.STOPPED)
                     onError(reason.ifBlank { "Conexión rechazada por el servidor ($code)" })
@@ -208,37 +208,48 @@ class GeminiLiveClient(
                 return
             }
 
-            if (json.has("setupComplete")) {
+            if (json.has("setupComplete") || json.has("setup_complete")) {
                 Log.i(TAG, "Sesión Live configurada con éxito.")
                 isConnectedOnce = true
                 onStateChanged(LiveSessionState.RUNNING)
                 sendInitialGreeting(ws)
             }
 
-            if (json.has("serverContent")) {
-                val serverContent = json.getJSONObject("serverContent")
+            val serverContent = json.optJSONObject("serverContent") ?: json.optJSONObject("server_content")
+            if (serverContent != null) {
                 if (serverContent.optBoolean("interrupted", false)) {
                     Log.d(TAG, "Interrupción detectada por Gemini.")
                     onInterrupted()
                 }
 
-                if (serverContent.has("modelTurn")) {
-                    val modelTurn = serverContent.getJSONObject("modelTurn")
+                val modelTurn = serverContent.optJSONObject("modelTurn") ?: serverContent.optJSONObject("model_turn")
+                if (modelTurn != null) {
                     val parts = modelTurn.optJSONArray("parts")
                     if (parts != null) {
                         for (i in 0 until parts.length()) {
                             val part = parts.getJSONObject(i)
-                            if (part.has("inlineData")) {
-                                val inlineData = part.getJSONObject("inlineData")
+                            val inlineData = part.optJSONObject("inlineData") ?: part.optJSONObject("inline_data")
+                            if (inlineData != null) {
                                 val dataBase64 = inlineData.optString("data")
                                 if (dataBase64.isNotEmpty()) {
                                     val pcm = Base64.decode(dataBase64, Base64.DEFAULT)
+                                    Log.d(TAG, "Audio PCM recibido (${pcm.size} bytes).")
+                                    onAudioReceived(pcm)
+                                }
+                            }
+                            val audioObj = part.optJSONObject("audio")
+                            if (audioObj != null) {
+                                val dataBase64 = audioObj.optString("data")
+                                if (dataBase64.isNotEmpty()) {
+                                    val pcm = Base64.decode(dataBase64, Base64.DEFAULT)
+                                    Log.d(TAG, "Audio PCM recibido via audio (${pcm.size} bytes).")
                                     onAudioReceived(pcm)
                                 }
                             }
                             if (part.has("text")) {
                                 val txt = part.optString("text")
                                 if (txt.isNotEmpty()) {
+                                    Log.d(TAG, "Texto recibido de Live: $txt")
                                     onTextReceived(txt)
                                 }
                             }
@@ -247,17 +258,15 @@ class GeminiLiveClient(
                 }
             }
 
-            if (json.has("sessionResumptionUpdate")) {
-                val update = json.getJSONObject("sessionResumptionUpdate")
-                if (update.optBoolean("resumable", false)) {
-                    val handle = update.optString("newHandle")
-                    if (handle.isNotEmpty()) {
-                        sessionHandle = handle
-                    }
+            val update = json.optJSONObject("sessionResumptionUpdate") ?: json.optJSONObject("session_resumption_update")
+            if (update != null && update.optBoolean("resumable", false)) {
+                val handle = update.optString("newHandle").ifEmpty { update.optString("new_handle") }
+                if (handle.isNotEmpty()) {
+                    sessionHandle = handle
                 }
             }
 
-            if (json.has("goAway")) {
+            if (json.has("goAway") || json.has("go_away")) {
                 Log.w(TAG, "Gemini solicitó reconexión (goAway).")
                 scheduleReconnect()
             }
@@ -293,12 +302,10 @@ class GeminiLiveClient(
         try {
             val root = JSONObject()
             val realtimeInput = JSONObject()
-            val mediaChunks = JSONArray()
-            val chunk = JSONObject()
-            chunk.put("mimeType", "audio/pcm;rate=16000")
-            chunk.put("data", Base64.encodeToString(data, Base64.NO_WRAP))
-            mediaChunks.put(chunk)
-            realtimeInput.put("mediaChunks", mediaChunks)
+            val audioObj = JSONObject()
+            audioObj.put("mimeType", "audio/pcm;rate=16000")
+            audioObj.put("data", Base64.encodeToString(data, Base64.NO_WRAP))
+            realtimeInput.put("audio", audioObj)
             root.put("realtimeInput", realtimeInput)
             ws.send(root.toString())
         } catch (e: Exception) {
@@ -312,12 +319,10 @@ class GeminiLiveClient(
         try {
             val root = JSONObject()
             val realtimeInput = JSONObject()
-            val mediaChunks = JSONArray()
-            val chunk = JSONObject()
-            chunk.put("mimeType", "image/jpeg")
-            chunk.put("data", Base64.encodeToString(jpegBytes, Base64.NO_WRAP))
-            mediaChunks.put(chunk)
-            realtimeInput.put("mediaChunks", mediaChunks)
+            val videoObj = JSONObject()
+            videoObj.put("mimeType", "image/jpeg")
+            videoObj.put("data", Base64.encodeToString(jpegBytes, Base64.NO_WRAP))
+            realtimeInput.put("video", videoObj)
             root.put("realtimeInput", realtimeInput)
             ws.send(root.toString())
         } catch (e: Exception) {
