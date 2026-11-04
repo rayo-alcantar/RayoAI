@@ -1,5 +1,6 @@
 package com.rayoai.presentation.ui.screens.tools.live
 
+import android.app.Activity
 import android.app.Notification
 import android.app.NotificationChannel
 import android.app.NotificationManager
@@ -23,6 +24,7 @@ class LiveSessionForegroundService : Service() {
     @Inject
     lateinit var liveManager: GeminiLiveManager
 
+    private var screenCaptureManager: ScreenCaptureManager? = null
     private var isScreenCaptureActive = false
 
     companion object {
@@ -30,8 +32,11 @@ class LiveSessionForegroundService : Service() {
         const val NOTIFICATION_ID = 2026
         const val ACTION_STOP = "com.rayoai.live.ACTION_STOP"
         const val ACTION_TOGGLE_PAUSE = "com.rayoai.live.ACTION_TOGGLE_PAUSE"
-        const val ACTION_ENABLE_SCREEN_CAPTURE = "com.rayoai.live.ACTION_ENABLE_SCREEN_CAPTURE"
-        const val ACTION_DISABLE_SCREEN_CAPTURE = "com.rayoai.live.ACTION_DISABLE_SCREEN_CAPTURE"
+        const val ACTION_START_SCREEN_CAPTURE = "com.rayoai.live.ACTION_START_SCREEN_CAPTURE"
+        const val ACTION_STOP_SCREEN_CAPTURE = "com.rayoai.live.ACTION_STOP_SCREEN_CAPTURE"
+
+        const val EXTRA_RESULT_CODE = "com.rayoai.live.EXTRA_RESULT_CODE"
+        const val EXTRA_RESULT_DATA = "com.rayoai.live.EXTRA_RESULT_DATA"
 
         fun start(context: Context) {
             val intent = Intent(context, LiveSessionForegroundService::class.java)
@@ -42,9 +47,11 @@ class LiveSessionForegroundService : Service() {
             }
         }
 
-        fun startScreenCapture(context: Context) {
+        fun startScreenCapture(context: Context, resultCode: Int, data: Intent) {
             val intent = Intent(context, LiveSessionForegroundService::class.java).apply {
-                action = ACTION_ENABLE_SCREEN_CAPTURE
+                action = ACTION_START_SCREEN_CAPTURE
+                putExtra(EXTRA_RESULT_CODE, resultCode)
+                putExtra(EXTRA_RESULT_DATA, data)
             }
             if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
                 context.startForegroundService(intent)
@@ -55,7 +62,7 @@ class LiveSessionForegroundService : Service() {
 
         fun stopScreenCapture(context: Context) {
             val intent = Intent(context, LiveSessionForegroundService::class.java).apply {
-                action = ACTION_DISABLE_SCREEN_CAPTURE
+                action = ACTION_STOP_SCREEN_CAPTURE
             }
             if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
                 context.startForegroundService(intent)
@@ -80,6 +87,8 @@ class LiveSessionForegroundService : Service() {
     override fun onStartCommand(intent: Intent?, flags: Int, startId: Int): Int {
         when (intent?.action) {
             ACTION_STOP -> {
+                screenCaptureManager?.stop()
+                screenCaptureManager = null
                 liveManager.stopSession()
                 stopSelf()
                 return START_NOT_STICKY
@@ -87,16 +96,20 @@ class LiveSessionForegroundService : Service() {
             ACTION_TOGGLE_PAUSE -> {
                 liveManager.toggleVideoPause()
             }
-            ACTION_ENABLE_SCREEN_CAPTURE -> {
+            ACTION_START_SCREEN_CAPTURE -> {
                 isScreenCaptureActive = true
             }
-            ACTION_DISABLE_SCREEN_CAPTURE -> {
+            ACTION_STOP_SCREEN_CAPTURE -> {
                 isScreenCaptureActive = false
+                screenCaptureManager?.stop()
+                screenCaptureManager = null
             }
         }
 
         val notification = buildNotification()
 
+        // En Android 14+, startForeground con FOREGROUND_SERVICE_TYPE_MEDIA_PROJECTION
+        // debe invocarse ANTES de que se cree el MediaProjection
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q) {
             var fgsType = 0
             if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.R) {
@@ -114,7 +127,37 @@ class LiveSessionForegroundService : Service() {
             startForeground(NOTIFICATION_ID, notification)
         }
 
+        // Si la acción era iniciar la captura, la iniciamos ahora que el servicio está
+        // activamente registrado en primer plano con tipo mediaProjection
+        if (intent?.action == ACTION_START_SCREEN_CAPTURE) {
+            val resultCode = intent.getIntExtra(EXTRA_RESULT_CODE, Activity.RESULT_CANCELED)
+            val resultData = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
+                intent.getParcelableExtra(EXTRA_RESULT_DATA, Intent::class.java)
+            } else {
+                @Suppress("DEPRECATION")
+                intent.getParcelableExtra(EXTRA_RESULT_DATA)
+            }
+
+            if (resultCode == Activity.RESULT_OK && resultData != null) {
+                if (screenCaptureManager == null) {
+                    screenCaptureManager = ScreenCaptureManager(
+                        context = applicationContext,
+                        onFrameCaptured = { bitmap ->
+                            liveManager.sendBitmapFrame(bitmap)
+                        }
+                    )
+                }
+                screenCaptureManager?.start(resultCode, resultData)
+            }
+        }
+
         return START_STICKY
+    }
+
+    override fun onDestroy() {
+        super.onDestroy()
+        screenCaptureManager?.stop()
+        screenCaptureManager = null
     }
 
     private fun createNotificationChannel() {

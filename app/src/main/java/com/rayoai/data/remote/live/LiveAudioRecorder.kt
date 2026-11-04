@@ -14,12 +14,13 @@ import java.util.concurrent.atomic.AtomicBoolean
 /**
  * Graba audio del micrófono a 16 kHz, 16-bit PCM Mono,
  * activando cancelación acústica de eco (AEC) y supresión de ruido (NS) por hardware,
- * además de una compuerta anti-autointerrupción acústica para no cortar a Gemini
- * cuando responde por el altavoz exterior.
+ * además de una compuerta inteligente de energía RMS que evita el eco del altavoz
+ * pero permite la interrupción intencional del usuario (barge-in por voz).
  */
 class LiveAudioRecorder(
     private val pushToTalk: Boolean = false,
     private val isSpeakerPlaying: () -> Boolean = { false },
+    private val onUserInterrupted: () -> Unit = {},
     private val onAudioChunk: (ByteArray) -> Unit,
     private val onError: (Exception) -> Unit = {}
 ) {
@@ -30,6 +31,8 @@ class LiveAudioRecorder(
         private const val TAG = "LiveAudioRecorder"
         // 1.8 segundos de gracia para el saludo de bienvenida de RayoAI (igual que en rayoai_win)
         private const val INITIAL_GREETING_SUPPRESSION_MS = 1800L
+        // Umbral RMS de energía para distinguir la voz del usuario frente al eco del altavoz
+        private const val BARGE_IN_RMS_THRESHOLD = 3000.0
     }
 
     private val isRecording = AtomicBoolean(false)
@@ -40,6 +43,7 @@ class LiveAudioRecorder(
     private var noiseSuppressor: NoiseSuppressor? = null
     private var recordingThread: Thread? = null
     private var acceptInputAt: Long = 0L
+    private var highEnergyCount = 0
 
     @SuppressLint("MissingPermission")
     fun start() {
@@ -62,7 +66,6 @@ class LiveAudioRecorder(
             )
 
             if (audioRecord?.state != AudioRecord.STATE_INITIALIZED) {
-                // Fallback a MIC si VOICE_COMMUNICATION falla
                 audioRecord?.release()
                 audioRecord = AudioRecord(
                     MediaRecorder.AudioSource.MIC,
@@ -103,9 +106,9 @@ class LiveAudioRecorder(
                 }
             }
 
-            // En modo continuo manos libres, no enviar audio durante los primeros 1.8s
-            // para que el saludo inicial ("Hola, soy RayoAI...") no sea cortado por eco ambiental
+            // Período de gracia inicial para el saludo
             acceptInputAt = if (pushToTalk) 0L else SystemClock.elapsedRealtime() + INITIAL_GREETING_SUPPRESSION_MS
+            highEnergyCount = 0
 
             record.startRecording()
             recordingThread = Thread(::recordLoop, "RayoAI-LiveRecorder").apply {
@@ -170,11 +173,30 @@ class LiveAudioRecorder(
                     continue
                 }
 
-                // En modo continuo manos libres: si el altavoz está emitiendo audio de respuesta,
-                // no enviamos el audio del micrófono para evitar que el altavoz exterior
-                // se filtre acústicamente al micrófono y Gemini se auto-interrumpa falsamente con interrupted: true
                 if (!pushToTalk && isSpeakerPlaying()) {
-                    continue
+                    // El altavoz está emitiendo la respuesta de Gemini.
+                    // Calculamos la energía RMS del fragmento para distinguir si es eco del altavoz
+                    // o si el usuario está hablando intencionalmente por encima para interrumpir.
+                    val rms = calculateRms(buffer, read)
+                    if (rms >= BARGE_IN_RMS_THRESHOLD) {
+                        highEnergyCount++
+                        if (highEnergyCount >= 2) {
+                            Log.d(TAG, "Interrupción intencional del usuario detectada (RMS: ${rms.toInt()}). Deteniendo altavoz.")
+                            try {
+                                onUserInterrupted()
+                            } catch (e: Exception) {
+                                Log.w(TAG, "Error en callback de interrupción", e)
+                            }
+                            highEnergyCount = 0
+                        } else {
+                            continue
+                        }
+                    } else {
+                        highEnergyCount = 0
+                        continue
+                    }
+                } else {
+                    highEnergyCount = 0
                 }
 
                 if (!isMuted.get() && (!pushToTalk || isTalking.get())) {
@@ -190,5 +212,16 @@ class LiveAudioRecorder(
                 break
             }
         }
+    }
+
+    private fun calculateRms(buffer: ByteArray, read: Int): Double {
+        var sum = 0.0
+        val numSamples = read / 2
+        if (numSamples == 0) return 0.0
+        for (i in 0 until numSamples) {
+            val sample = ((buffer[i * 2 + 1].toInt() shl 8) or (buffer[i * 2].toInt() and 0xFF)).toShort()
+            sum += sample * sample
+        }
+        return Math.sqrt(sum / numSamples)
     }
 }

@@ -45,9 +45,6 @@ class ScreenCaptureManager(
         if (isCapturing.getAndSet(true)) return
 
         try {
-            // Asegurar que el Foreground Service esté promovido para captura de pantalla (Android 14+)
-            LiveSessionForegroundService.startScreenCapture(context)
-
             val projectionManager =
                 context.getSystemService(Context.MEDIA_PROJECTION_SERVICE) as MediaProjectionManager
             mediaProjection = projectionManager.getMediaProjection(resultCode, data)
@@ -206,10 +203,6 @@ class ScreenCaptureManager(
         } catch (_: Exception) {}
         handlerThread = null
         backgroundHandler = null
-
-        try {
-            LiveSessionForegroundService.stopScreenCapture(context)
-        } catch (_: Exception) {}
 
         Log.i(TAG, "Captura de pantalla detenida y recursos liberados.")
     }

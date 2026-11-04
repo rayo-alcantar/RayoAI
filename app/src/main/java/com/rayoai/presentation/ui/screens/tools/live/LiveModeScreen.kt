@@ -178,22 +178,11 @@ fun LiveModeScreen(
         )
     )
 
-    // Gestor de captura de pantalla (MediaProjection)
-    val screenCaptureManager = remember(liveCaptureIntervalSeconds) {
-        ScreenCaptureManager(
-            context = context,
-            onFrameCaptured = { bitmap ->
-                viewModel.sendBitmapFrame(bitmap)
-            },
-            intervalMs = (liveCaptureIntervalSeconds * 1000L).toLong().coerceAtLeast(500L)
-        )
-    }
-
     val screenCaptureLauncher = rememberLauncherForActivityResult(
         contract = ActivityResultContracts.StartActivityForResult()
     ) { result ->
         if (result.resultCode == Activity.RESULT_OK && result.data != null) {
-            screenCaptureManager.start(result.resultCode, result.data!!)
+            LiveSessionForegroundService.startScreenCapture(context, result.resultCode, result.data!!)
         } else {
             viewModel.setVisualSource(VisualSource.CAMERA)
         }
@@ -213,7 +202,6 @@ fun LiveModeScreen(
             LiveSessionState.STOPPED -> {
                 feedbackHelper.onDisconnected()
                 LiveSessionForegroundService.stop(context)
-                screenCaptureManager.stop()
             }
             LiveSessionState.RECONNECTING -> feedbackHelper.onStarting()
             else -> Unit
@@ -229,7 +217,7 @@ fun LiveModeScreen(
     DisposableEffect(Unit) {
         onDispose {
             feedbackHelper.release()
-            screenCaptureManager.stop()
+            LiveSessionForegroundService.stopScreenCapture(context)
         }
     }
 
@@ -371,20 +359,35 @@ fun LiveModeScreen(
                         }
                     }
 
-                    // Franja de Estado y Subtítulos Accesibles
+                    // Franja de Estado y Subtítulos Accesibles (con toque para interrumpir)
+                    val interruptHint = stringResource(R.string.live_mode_tap_to_interrupt)
+                    val isRunning = sessionState == LiveSessionState.RUNNING
                     Column(
                         modifier = Modifier
                             .align(Alignment.BottomCenter)
                             .fillMaxWidth()
                             .padding(12.dp)
+                            .clip(RoundedCornerShape(16.dp))
                             .background(
                                 Color.Black.copy(alpha = 0.75f),
                                 RoundedCornerShape(16.dp)
                             )
+                            .clickable(enabled = isRunning) {
+                                viewModel.interruptCurrentResponse()
+                            }
                             .padding(horizontal = 16.dp, vertical = 12.dp)
                             .semantics {
                                 liveRegion = LiveRegionMode.Polite
-                                contentDescription = "$currentStatusText. $latestTranscript"
+                                if (isRunning) {
+                                    role = Role.Button
+                                    contentDescription = if (latestTranscript.isNotBlank()) {
+                                        "$currentStatusText. $latestTranscript. $interruptHint"
+                                    } else {
+                                        "$currentStatusText. $interruptHint"
+                                    }
+                                } else {
+                                    contentDescription = "$currentStatusText. $latestTranscript"
+                                }
                             }
                     ) {
                         Row(verticalAlignment = Alignment.CenterVertically) {
@@ -445,7 +448,7 @@ fun LiveModeScreen(
                                 isSelected = isCamera,
                                 modifier = Modifier.weight(1f),
                                 onClick = {
-                                    screenCaptureManager.stop()
+                                    LiveSessionForegroundService.stopScreenCapture(context)
                                     viewModel.setVisualSource(VisualSource.CAMERA)
                                 }
                             )
@@ -468,7 +471,7 @@ fun LiveModeScreen(
                                 isSelected = isNone,
                                 modifier = Modifier.weight(1f),
                                 onClick = {
-                                    screenCaptureManager.stop()
+                                    LiveSessionForegroundService.stopScreenCapture(context)
                                     viewModel.setVisualSource(VisualSource.NONE)
                                 }
                             )

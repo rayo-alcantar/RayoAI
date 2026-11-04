@@ -100,6 +100,10 @@ class LiveModeViewModel @Inject constructor(
         liveManager.setPushToTalkState(talking)
     }
 
+    fun interruptCurrentResponse() {
+        liveManager.interruptCurrentResponse()
+    }
+
     fun sendBitmapFrame(bitmap: Bitmap) {
         liveManager.sendBitmapFrame(bitmap)
     }

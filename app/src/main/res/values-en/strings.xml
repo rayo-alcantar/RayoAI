@@ -471,6 +471,7 @@ Card: 4152314082325278</string>
     <string name="live_mode_audio_output_muted">Muted</string>
     <string name="live_mode_audio_output_toggle">Toggle audio output</string>
     <string name="live_mode_tap_to_change">Tap to change</string>
+    <string name="live_mode_tap_to_interrupt">Tap to interrupt response</string>
     <string name="settings_live_section_title">Live Mode (Gemini Live)</string>
     <string name="settings_live_section_description">Configure model, voice, thinking, and live visual streaming.</string>
 </resources>

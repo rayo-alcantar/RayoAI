@@ -106,6 +106,10 @@ class GeminiLiveManager @Inject constructor(
         recorder = LiveAudioRecorder(
             pushToTalk = config.pushToTalk,
             isSpeakerPlaying = { player?.isSpeakingAudio() == true },
+            onUserInterrupted = {
+                player?.clear()
+                client?.sendActivityStart()
+            },
             onAudioChunk = { chunk ->
                 if (!_isMicMuted.value) {
                     client?.sendAudio(chunk)
@@ -149,6 +153,11 @@ class GeminiLiveManager @Inject constructor(
         } else {
             client?.sendActivityEnd()
         }
+    }
+
+    fun interruptCurrentResponse() {
+        player?.clear()
+        client?.sendActivityStart()
     }
 
     fun sendBitmapFrame(bitmap: Bitmap, quality: Int = 72) {
