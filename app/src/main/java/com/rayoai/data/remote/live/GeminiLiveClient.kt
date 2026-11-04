@@ -2,11 +2,16 @@ package com.rayoai.data.remote.live
 
 import android.util.Base64
 import android.util.Log
-import com.google.gson.Gson
 import com.rayoai.domain.model.GeminiModelConfig
 import com.rayoai.domain.model.LivePromptBuilder
 import com.rayoai.domain.model.live.LiveModeConfig
 import com.rayoai.domain.model.live.LiveSessionState
+import kotlinx.coroutines.CoroutineScope
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.SupervisorJob
+import kotlinx.coroutines.cancel
+import kotlinx.coroutines.launch
+import kotlinx.coroutines.withContext
 import okhttp3.OkHttpClient
 import okhttp3.Request
 import okhttp3.Response
@@ -41,6 +46,8 @@ class GeminiLiveClient(
     private var sessionHandle: String? = null
     private var reconnectAttempts = 0
     private var isConnectedOnce = false
+    private var scope = CoroutineScope(SupervisorJob() + Dispatchers.IO)
+    private var activeModel: String = config.model
 
     fun start() {
         if (isRunning.getAndSet(true)) return
@@ -50,6 +57,18 @@ class GeminiLiveClient(
     private fun connect() {
         if (!isRunning.get()) return
         onStateChanged(if (isConnectedOnce) LiveSessionState.RECONNECTING else LiveSessionState.STARTING)
+
+        scope.launch {
+            if (!isConnectedOnce) {
+                activeModel = resolveLiveModel(config.apiKey, config.model)
+                Log.i(TAG, "Modelo Live resuelto para la sesión: $activeModel")
+            }
+            openWebSocket()
+        }
+    }
+
+    private fun openWebSocket() {
+        if (!isRunning.get()) return
 
         val url = "$LIVE_WS_URL?key=${config.apiKey.trim()}"
         val request = Request.Builder()
@@ -74,11 +93,22 @@ class GeminiLiveClient(
             }
 
             override fun onClosing(webSocket: WebSocket, code: Int, reason: String) {
-                Log.d(TAG, "WebSocket cerrándose: $code / $reason")
+                Log.w(TAG, "WebSocket cerrándose: $code / $reason")
+                if (code == 1008 || code == 1002 || code == 1003) {
+                    isRunning.set(false)
+                    onStateChanged(LiveSessionState.STOPPED)
+                    onError(reason.ifBlank { "Conexión rechazada por el servidor ($code)" })
+                }
             }
 
             override fun onClosed(webSocket: WebSocket, code: Int, reason: String) {
                 Log.d(TAG, "WebSocket cerrado: $code / $reason")
+                if (code == 1008 || code == 1002 || code == 1003) {
+                    isRunning.set(false)
+                    onStateChanged(LiveSessionState.STOPPED)
+                    onError(reason.ifBlank { "Conexión rechazada por el servidor ($code)" })
+                    return
+                }
                 if (isRunning.get()) {
                     scheduleReconnect()
                 } else {
@@ -98,13 +128,64 @@ class GeminiLiveClient(
         })
     }
 
+    private suspend fun resolveLiveModel(apiKey: String, preferredModel: String): String {
+        val normalizedPreferred = if (preferredModel.startsWith("models/")) preferredModel else "models/$preferredModel"
+        return withContext(Dispatchers.IO) {
+            try {
+                val request = Request.Builder()
+                    .url("https://generativelanguage.googleapis.com/v1beta/models?key=${apiKey.trim()}")
+                    .get()
+                    .build()
+                val response = okHttpClient.newCall(request).execute()
+                val body = response.body?.string()
+                if (response.isSuccessful && !body.isNullOrBlank()) {
+                    val json = JSONObject(body)
+                    val modelsArray = json.optJSONArray("models")
+                    if (modelsArray != null) {
+                        val supportedBidiModels = mutableListOf<String>()
+                        for (i in 0 until modelsArray.length()) {
+                            val modelObj = modelsArray.getJSONObject(i)
+                            val name = modelObj.optString("name")
+                            val methods = modelObj.optJSONArray("supportedGenerationMethods")
+                            if (methods != null) {
+                                for (j in 0 until methods.length()) {
+                                    if (methods.optString(j) == "bidiGenerateContent") {
+                                        supportedBidiModels.add(name)
+                                        break
+                                    }
+                                }
+                            }
+                        }
+                        Log.i(TAG, "Modelos que admiten bidiGenerateContent: $supportedBidiModels")
+                        if (supportedBidiModels.isNotEmpty()) {
+                            if (supportedBidiModels.contains(normalizedPreferred)) {
+                                return@withContext normalizedPreferred
+                            }
+                            val cleanPref = preferredModel.removePrefix("models/")
+                            val partialMatch = supportedBidiModels.firstOrNull { it.contains(cleanPref) }
+                            if (partialMatch != null) {
+                                return@withContext partialMatch
+                            }
+                            return@withContext supportedBidiModels.first()
+                        }
+                    }
+                } else {
+                    Log.w(TAG, "Respuesta de ListModels no exitosa: ${response.code}")
+                }
+            } catch (e: Exception) {
+                Log.w(TAG, "No se pudo consultar ListModels, usando modelo por defecto", e)
+            }
+            normalizedPreferred
+        }
+    }
+
     private fun sendSetup(ws: WebSocket) {
         try {
             val setupObj = JSONObject()
             val setup = JSONObject()
 
             // Modelo
-            val modelName = if (config.model.startsWith("models/")) config.model else "models/${config.model}"
+            val modelName = if (activeModel.startsWith("models/")) activeModel else "models/$activeModel"
             setup.put("model", modelName)
 
             // Generation config: modalidades de respuesta y voz
@@ -120,7 +201,7 @@ class GeminiLiveClient(
             genConfig.put("speechConfig", speechConfig)
 
             // Thinking config si el modelo lo admite
-            if (GeminiModelConfig.liveModelSupportsThinking(config.model)) {
+            if (GeminiModelConfig.liveModelSupportsThinking(activeModel)) {
                 val thinkingConfig = JSONObject()
                 thinkingConfig.put("thinkingLevel", config.thinkingLevel.uppercase())
                 genConfig.put("thinkingConfig", thinkingConfig)
@@ -334,6 +415,8 @@ class GeminiLiveClient(
 
     fun stop() {
         isRunning.set(false)
+        scope.cancel()
+        scope = CoroutineScope(SupervisorJob() + Dispatchers.IO)
         try {
             webSocket?.close(1000, "User ended session")
         } catch (e: Exception) {

@@ -118,7 +118,7 @@ class UserPreferencesRepositoryImpl @Inject constructor(
 
     override val liveModel: Flow<String> = dataStore.data.map {
         val stored = it[PreferencesKeys.LIVE_MODEL]
-        if (stored.isNullOrBlank() || stored.contains("3.1")) {
+        if (stored.isNullOrBlank() || stored.contains("3.1") || stored.contains("exp")) {
             GeminiModelConfig.DEFAULT_LIVE_MODEL
         } else {
             stored
