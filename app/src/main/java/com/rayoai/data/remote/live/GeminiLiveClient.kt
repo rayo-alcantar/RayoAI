@@ -17,6 +17,7 @@ import okhttp3.Request
 import okhttp3.Response
 import okhttp3.WebSocket
 import okhttp3.WebSocketListener
+import okio.ByteString
 import org.json.JSONArray
 import org.json.JSONObject
 import java.util.concurrent.TimeUnit
@@ -71,6 +72,8 @@ class GeminiLiveClient(
         val url = "$LIVE_WS_URL?key=${config.apiKey.trim()}"
         val request = Request.Builder()
             .url(url)
+            .addHeader("x-goog-api-key", config.apiKey.trim())
+            .addHeader("Content-Type", "application/json")
             .build()
 
         val liveClient = okHttpClient.newBuilder()
@@ -86,7 +89,13 @@ class GeminiLiveClient(
             }
 
             override fun onMessage(webSocket: WebSocket, text: String) {
-                Log.d(TAG, "Mensaje recibido del servidor Live: $text")
+                Log.d(TAG, "Mensaje TEXT recibido del servidor Live: $text")
+                handleServerMessage(webSocket, text)
+            }
+
+            override fun onMessage(webSocket: WebSocket, bytes: ByteString) {
+                val text = bytes.utf8()
+                Log.d(TAG, "Mensaje BINARY recibido del servidor Live (${bytes.size} bytes): $text")
                 handleServerMessage(webSocket, text)
             }
 
