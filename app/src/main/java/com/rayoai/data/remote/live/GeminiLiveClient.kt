@@ -62,21 +62,22 @@ class GeminiLiveClient(
             .build()
 
         webSocket = liveClient.newWebSocket(request, object : WebSocketListener() {
-            override fun onOpen(ws: WebSocket, response: Response) {
+            override fun onOpen(webSocket: WebSocket, response: Response) {
                 Log.d(TAG, "WebSocket conectado.")
                 reconnectAttempts = 0
-                sendSetup(ws)
+                sendSetup(webSocket)
             }
 
-            override fun onMessage(ws: WebSocket, text: String) {
-                handleServerMessage(ws, text)
+            override fun onMessage(webSocket: WebSocket, text: String) {
+                Log.d(TAG, "Mensaje recibido del servidor Live: $text")
+                handleServerMessage(webSocket, text)
             }
 
-            override fun onClosing(ws: WebSocket, code: Int, reason: String) {
+            override fun onClosing(webSocket: WebSocket, code: Int, reason: String) {
                 Log.d(TAG, "WebSocket cerrándose: $code / $reason")
             }
 
-            override fun onClosed(ws: WebSocket, code: Int, reason: String) {
+            override fun onClosed(webSocket: WebSocket, code: Int, reason: String) {
                 Log.d(TAG, "WebSocket cerrado: $code / $reason")
                 if (isRunning.get()) {
                     scheduleReconnect()
@@ -85,7 +86,7 @@ class GeminiLiveClient(
                 }
             }
 
-            override fun onFailure(ws: WebSocket, t: Throwable, response: Response?) {
+            override fun onFailure(webSocket: WebSocket, t: Throwable, response: Response?) {
                 Log.e(TAG, "Error en WebSocket Live: ${t.message}", t)
                 if (isRunning.get()) {
                     scheduleReconnect()
@@ -133,22 +134,6 @@ class GeminiLiveClient(
             systemInstruction.put("parts", parts)
             setup.put("systemInstruction", systemInstruction)
 
-            // Tools: Google Search
-            val tools = JSONArray().put(JSONObject().put("googleSearch", JSONObject()))
-            setup.put("tools", tools)
-
-            // Realtime Input config
-            val realtimeInputConfig = JSONObject()
-            val autoActivity = JSONObject()
-            autoActivity.put("disabled", config.pushToTalk)
-            val sensitivity = config.vadSensitivity.uppercase()
-            autoActivity.put("startOfSpeechSensitivity", "START_SENSITIVITY_$sensitivity")
-            autoActivity.put("endOfSpeechSensitivity", "END_SENSITIVITY_$sensitivity")
-            autoActivity.put("prefixPaddingMs", 100)
-            autoActivity.put("silenceDurationMs", 500)
-            realtimeInputConfig.put("automaticActivityDetection", autoActivity)
-            setup.put("realtimeInputConfig", realtimeInputConfig)
-
             // Session resumption si existe
             sessionHandle?.let { handle ->
                 setup.put("sessionResumption", JSONObject().put("handle", handle))
@@ -157,7 +142,7 @@ class GeminiLiveClient(
             setupObj.put("setup", setup)
             val payload = setupObj.toString()
             ws.send(payload)
-            Log.d(TAG, "Mensaje Setup enviado correctamente.")
+            Log.d(TAG, "Mensaje Setup enviado correctamente: $payload")
         } catch (e: Exception) {
             Log.e(TAG, "Error construyendo mensaje setup", e)
             onError("Error configurando sesión Live: ${e.message}")
@@ -167,6 +152,15 @@ class GeminiLiveClient(
     private fun handleServerMessage(ws: WebSocket, text: String) {
         try {
             val json = JSONObject(text)
+
+            if (json.has("error")) {
+                val errObj = json.optJSONObject("error")
+                val errMsg = errObj?.optString("message") ?: "Error desconocido de Gemini Live"
+                val errCode = errObj?.optInt("code") ?: 0
+                Log.e(TAG, "Error retornado por Gemini Live ($errCode): $errMsg")
+                onError("Error de Gemini Live ($errCode): $errMsg")
+                return
+            }
 
             if (json.has("setupComplete")) {
                 Log.i(TAG, "Sesión Live configurada con éxito.")
@@ -210,7 +204,10 @@ class GeminiLiveClient(
             if (json.has("sessionResumptionUpdate")) {
                 val update = json.getJSONObject("sessionResumptionUpdate")
                 if (update.optBoolean("resumable", false)) {
-                    sessionHandle = update.optString("newHandle", sessionHandle)
+                    val handle = update.optString("newHandle")
+                    if (handle.isNotEmpty()) {
+                        sessionHandle = handle
+                    }
                 }
             }
 
@@ -250,10 +247,12 @@ class GeminiLiveClient(
         try {
             val root = JSONObject()
             val realtimeInput = JSONObject()
-            val audio = JSONObject()
-            audio.put("mimeType", "audio/pcm;rate=16000")
-            audio.put("data", Base64.encodeToString(data, Base64.NO_WRAP))
-            realtimeInput.put("audio", audio)
+            val mediaChunks = JSONArray()
+            val chunk = JSONObject()
+            chunk.put("mimeType", "audio/pcm;rate=16000")
+            chunk.put("data", Base64.encodeToString(data, Base64.NO_WRAP))
+            mediaChunks.put(chunk)
+            realtimeInput.put("mediaChunks", mediaChunks)
             root.put("realtimeInput", realtimeInput)
             ws.send(root.toString())
         } catch (e: Exception) {
@@ -267,10 +266,12 @@ class GeminiLiveClient(
         try {
             val root = JSONObject()
             val realtimeInput = JSONObject()
-            val video = JSONObject()
-            video.put("mimeType", "image/jpeg")
-            video.put("data", Base64.encodeToString(jpegBytes, Base64.NO_WRAP))
-            realtimeInput.put("video", video)
+            val mediaChunks = JSONArray()
+            val chunk = JSONObject()
+            chunk.put("mimeType", "image/jpeg")
+            chunk.put("data", Base64.encodeToString(jpegBytes, Base64.NO_WRAP))
+            mediaChunks.put(chunk)
+            realtimeInput.put("mediaChunks", mediaChunks)
             root.put("realtimeInput", realtimeInput)
             ws.send(root.toString())
         } catch (e: Exception) {

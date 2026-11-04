@@ -44,7 +44,7 @@ class GeminiModelConfigTest {
 
     @Test
     fun liveModelsAndVoices_areConfiguredCorrectly() {
-        assertEquals("gemini-3.1-flash-live-preview", GeminiModelConfig.DEFAULT_LIVE_MODEL)
+        assertEquals("gemini-2.0-flash-exp", GeminiModelConfig.DEFAULT_LIVE_MODEL)
         assertTrue(GeminiModelConfig.liveSelectableModels.contains(GeminiModelConfig.DEFAULT_LIVE_MODEL))
         assertTrue(GeminiModelConfig.liveSelectableModels.contains("gemini-2.0-flash-live-001"))
         assertTrue(GeminiModelConfig.liveVoices.contains("Kore"))

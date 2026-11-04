@@ -183,18 +183,36 @@ fun LiveModeScreen(
         }
     }
 
-    // Gestionar Lifecycle del Foreground Service
+    // Gestor de retroalimentación auditiva (earcons) y háptica
+    val feedbackHelper = remember { LiveFeedbackHelper(context) }
+
+    // Gestionar Lifecycle del Foreground Service y Feedback
     LaunchedEffect(sessionState) {
-        if (sessionState == LiveSessionState.RUNNING) {
-            LiveSessionForegroundService.start(context)
-        } else if (sessionState == LiveSessionState.STOPPED) {
-            LiveSessionForegroundService.stop(context)
-            screenCaptureManager.stop()
+        when (sessionState) {
+            LiveSessionState.STARTING -> feedbackHelper.onStarting()
+            LiveSessionState.RUNNING -> {
+                feedbackHelper.onConnected()
+                LiveSessionForegroundService.start(context)
+            }
+            LiveSessionState.STOPPED -> {
+                feedbackHelper.onDisconnected()
+                LiveSessionForegroundService.stop(context)
+                screenCaptureManager.stop()
+            }
+            LiveSessionState.RECONNECTING -> feedbackHelper.onStarting()
+            else -> Unit
+        }
+    }
+
+    LaunchedEffect(errorMessage) {
+        if (!errorMessage.isNullOrBlank()) {
+            feedbackHelper.onError()
         }
     }
 
     DisposableEffect(Unit) {
         onDispose {
+            feedbackHelper.release()
             screenCaptureManager.stop()
         }
     }
@@ -459,8 +477,10 @@ fun LiveModeScreen(
                                         .pointerInput(Unit) {
                                             detectTapGestures(
                                                 onPress = {
+                                                    feedbackHelper.onPttPress()
                                                     viewModel.setPushToTalkState(true)
                                                     tryAwaitRelease()
+                                                    feedbackHelper.onPttRelease()
                                                     viewModel.setPushToTalkState(false)
                                                 }
                                             )

@@ -13,7 +13,7 @@ object GeminiModelConfig {
     const val FALLBACK_MODEL = "gemini-2.5-flash"
 
     // Modelo predeterminado para Gemini Live API bidireccional (audio + visión)
-    const val DEFAULT_LIVE_MODEL = "gemini-3.1-flash-live-preview"
+    const val DEFAULT_LIVE_MODEL = "gemini-2.0-flash-exp"
 
     /**
      * Modelos visibles para el selector de ajustes generales (ordenados de más rápidos a más pesados).
@@ -31,9 +31,8 @@ object GeminiModelConfig {
      */
     val liveSelectableModels = listOf(
         DEFAULT_LIVE_MODEL,
-        "gemini-2.0-flash-live-001",
-        "gemini-2.0-flash-exp",
-        "gemini-2.5-flash-native-audio"
+        "gemini-2.0-flash-realtime-exp",
+        "gemini-2.0-flash-live-001"
     )
 
     /**

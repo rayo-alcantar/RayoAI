@@ -117,7 +117,12 @@ class UserPreferencesRepositoryImpl @Inject constructor(
     }
 
     override val liveModel: Flow<String> = dataStore.data.map {
-        it[PreferencesKeys.LIVE_MODEL] ?: GeminiModelConfig.DEFAULT_LIVE_MODEL
+        val stored = it[PreferencesKeys.LIVE_MODEL]
+        if (stored.isNullOrBlank() || stored.contains("3.1")) {
+            GeminiModelConfig.DEFAULT_LIVE_MODEL
+        } else {
+            stored
+        }
     }
 
     override val liveVoice: Flow<String> = dataStore.data.map {
