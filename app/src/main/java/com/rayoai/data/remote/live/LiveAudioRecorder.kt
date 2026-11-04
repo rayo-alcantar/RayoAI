@@ -14,10 +14,12 @@ import java.util.concurrent.atomic.AtomicBoolean
 /**
  * Graba audio del micrófono a 16 kHz, 16-bit PCM Mono,
  * activando cancelación acústica de eco (AEC) y supresión de ruido (NS) por hardware,
- * además de una compuerta temporal inicial para no interrumpir el saludo inicial de RayoAI.
+ * además de una compuerta anti-autointerrupción acústica para no cortar a Gemini
+ * cuando responde por el altavoz exterior.
  */
 class LiveAudioRecorder(
     private val pushToTalk: Boolean = false,
+    private val isSpeakerPlaying: () -> Boolean = { false },
     private val onAudioChunk: (ByteArray) -> Unit,
     private val onError: (Exception) -> Unit = {}
 ) {
@@ -163,8 +165,15 @@ class LiveAudioRecorder(
             val read = record.read(buffer, 0, buffer.size)
 
             if (read > 0) {
-                // Si estamos dentro del período de protección del saludo inicial, descartar fragmento
+                // Período de protección del saludo inicial
                 if (!pushToTalk && SystemClock.elapsedRealtime() < acceptInputAt) {
+                    continue
+                }
+
+                // En modo continuo manos libres: si el altavoz está emitiendo audio de respuesta,
+                // no enviamos el audio del micrófono para evitar que el altavoz exterior
+                // se filtre acústicamente al micrófono y Gemini se auto-interrumpa falsamente con interrupted: true
+                if (!pushToTalk && isSpeakerPlaying()) {
                     continue
                 }
 

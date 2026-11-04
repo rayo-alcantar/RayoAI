@@ -1,3 +1,5 @@
+@file:Suppress("PLATFORM_CLASS_MAPPED_TO_KOTLIN")
+
 package com.rayoai.data.remote.live
 
 import android.content.Context
@@ -8,14 +10,15 @@ import android.media.AudioManager
 import android.media.AudioTrack
 import android.os.Build
 import android.os.Process
+import android.os.SystemClock
 import android.util.Log
 import java.util.ArrayDeque
 import java.util.concurrent.atomic.AtomicBoolean
 
 /**
  * Reproduce el audio PCM devuelto por Gemini Live a 24 kHz Mono,
- * utilizando un búfer de pre-reproducción (jitter prebuffer) y ruteo flexible
- * entre Altavoz (multimedia/conversación sin bloqueo de TalkBack ni sensor de proximidad),
+ * utilizando un búfer anti-jitter fluido que no fragmenta el audio
+ * y ruteo flexible entre Altavoz (multimedia exterior sin bloqueo de TalkBack),
  * Auricular privado de llamada, o Silenciado.
  */
 class LiveAudioPlayer(
@@ -26,9 +29,11 @@ class LiveAudioPlayer(
         const val SAMPLE_RATE = 24_000
         private const val TAG = "LiveAudioPlayer"
 
-        // Búfer inicial (360 ms) y búfer de recuperación tras falta de datos (720 ms)
-        private const val INITIAL_PREBUFFER_BYTES = SAMPLE_RATE * 2 * 360 / 1000 // 17,280 bytes
-        private const val REBUFFER_BYTES = SAMPLE_RATE * 2 * 720 / 1000          // 34,560 bytes
+        // Búfer inicial suave (160 ms = 7,680 bytes) para absorber el jitter de red
+        // antes de iniciar la reproducción de un nuevo turno de voz.
+        private const val INITIAL_PREBUFFER_BYTES = SAMPLE_RATE * 2 * 160 / 1000 // 7,680 bytes
+        // Tiempo máximo de espera entre chunks (ms) antes de considerar terminado el turno
+        private const val CHUNK_WAIT_TIMEOUT_MS = 250L
     }
 
     private val isPlaying = AtomicBoolean(false)
@@ -43,8 +48,10 @@ class LiveAudioPlayer(
     private val lock = Any()
     private val chunks = ArrayDeque<ByteArray>()
     private var bufferedBytes = 0
-    private var playbackReady = false
-    private var targetPrebufferBytes = INITIAL_PREBUFFER_BYTES
+    private var playbackActive = false
+
+    @Volatile
+    private var lastAudioWriteTime: Long = 0L
 
     fun start() {
         if (isPlaying.getAndSet(true)) return
@@ -55,8 +62,8 @@ class LiveAudioPlayer(
         synchronized(lock) {
             chunks.clear()
             bufferedBytes = 0
-            playbackReady = false
-            targetPrebufferBytes = INITIAL_PREBUFFER_BYTES
+            playbackActive = false
+            isSpeaking.set(false)
         }
 
         playbackThread = Thread(::playbackLoop, "RayoAI-LivePlayer").apply {
@@ -71,9 +78,11 @@ class LiveAudioPlayer(
             AudioFormat.CHANNEL_OUT_MONO,
             AudioFormat.ENCODING_PCM_16BIT
         )
-        val bufferSize = minBufferSize.coerceAtLeast(SAMPLE_RATE * 2)
+        val bufferSize = minBufferSize.coerceAtLeast(SAMPLE_RATE * 2) // 48,000 bytes (1s)
 
         try {
+            audioTrack?.pause()
+            audioTrack?.flush()
             audioTrack?.release()
         } catch (_: Exception) {}
 
@@ -81,8 +90,8 @@ class LiveAudioPlayer(
             val usage = if (mode == "earpiece") {
                 AudioAttributes.USAGE_VOICE_COMMUNICATION
             } else {
-                // USAGE_MEDIA reproduce fuerte por el altavoz exterior,
-                // sin activar el sensor de proximidad ni cortar o atenuar TalkBack al tocar la pantalla.
+                // USAGE_MEDIA reproduce fuerte y claro por el altavoz exterior
+                // sin activar el sensor de proximidad ni cortar TalkBack al tocar la pantalla.
                 AudioAttributes.USAGE_MEDIA
             }
 
@@ -149,10 +158,6 @@ class LiveAudioPlayer(
         }
     }
 
-    /**
-     * Permite conmutar la salida dinámicamente durante la conversación
-     * entre "speaker" (altavoz), "earpiece" (auricular) o "muted" (silenciado).
-     */
     fun setAudioOutput(mode: String) {
         if (mode == "muted") {
             isMuted.set(true)
@@ -173,17 +178,22 @@ class LiveAudioPlayer(
         synchronized(lock) {
             chunks.addLast(pcmData)
             bufferedBytes += pcmData.size
-            if (!playbackReady && bufferedBytes >= targetPrebufferBytes) {
-                playbackReady = true
+
+            if (!playbackActive) {
+                if (bufferedBytes >= INITIAL_PREBUFFER_BYTES) {
+                    playbackActive = true
+                    (lock as java.lang.Object).notifyAll()
+                }
+            } else {
+                (lock as java.lang.Object).notifyAll()
             }
-            (lock as java.lang.Object).notifyAll()
         }
     }
 
     fun flush() {
         synchronized(lock) {
             if (bufferedBytes > 0) {
-                playbackReady = true
+                playbackActive = true
             }
             (lock as java.lang.Object).notifyAll()
         }
@@ -193,8 +203,7 @@ class LiveAudioPlayer(
         synchronized(lock) {
             chunks.clear()
             bufferedBytes = 0
-            playbackReady = false
-            targetPrebufferBytes = INITIAL_PREBUFFER_BYTES
+            playbackActive = false
             isSpeaking.set(false)
             (lock as java.lang.Object).notifyAll()
         }
@@ -207,14 +216,24 @@ class LiveAudioPlayer(
         }
     }
 
-    fun isSpeakingAudio(): Boolean = isSpeaking.get()
+    /**
+     * Informa si el reproductor está emitiendo o a punto de emitir audio.
+     * Incluye una ventana de gracia tras el último write para cubrir la salida física del altavoz.
+     */
+    fun isSpeakingAudio(): Boolean {
+        if (isSpeaking.get()) return true
+        synchronized(lock) {
+            if (bufferedBytes > 0 || chunks.isNotEmpty()) return true
+        }
+        return (SystemClock.elapsedRealtime() - lastAudioWriteTime) < 350L
+    }
 
     fun stop() {
         isPlaying.set(false)
         synchronized(lock) {
             chunks.clear()
             bufferedBytes = 0
-            playbackReady = false
+            playbackActive = false
             isSpeaking.set(false)
             (lock as java.lang.Object).notifyAll()
         }
@@ -248,17 +267,31 @@ class LiveAudioPlayer(
 
         while (isPlaying.get()) {
             var chunk: ByteArray? = null
+
             synchronized(lock) {
-                while (isPlaying.get() && (!playbackReady || chunks.isEmpty())) {
-                    isSpeaking.set(false)
-                    if (chunks.isEmpty() && playbackReady) {
-                        playbackReady = false
-                        targetPrebufferBytes = REBUFFER_BYTES
-                    }
-                    try {
-                        (lock as java.lang.Object).wait(200)
-                    } catch (e: InterruptedException) {
-                        return
+                while (isPlaying.get() && (!playbackActive || chunks.isEmpty())) {
+                    if (chunks.isEmpty() && playbackActive) {
+                        // El búfer se vació momentáneamente: esperamos hasta CHUNK_WAIT_TIMEOUT_MS
+                        // por el siguiente chunk de red sin cortar bruscamente ni reiniciar a 720ms.
+                        try {
+                            (lock as java.lang.Object).wait(CHUNK_WAIT_TIMEOUT_MS)
+                        } catch (e: InterruptedException) {
+                            return
+                        }
+
+                        // Si tras la espera sigue vacío, el turno de respuesta terminó
+                        if (chunks.isEmpty()) {
+                            playbackActive = false
+                            isSpeaking.set(false)
+                        }
+                    } else {
+                        // Esperando el prebuffer inicial del siguiente turno
+                        isSpeaking.set(false)
+                        try {
+                            (lock as java.lang.Object).wait(100)
+                        } catch (e: InterruptedException) {
+                            return
+                        }
                     }
                 }
 
@@ -279,6 +312,7 @@ class LiveAudioPlayer(
                     val res = track.write(toWrite, written, toWrite.size - written)
                     if (res > 0) {
                         written += res
+                        lastAudioWriteTime = SystemClock.elapsedRealtime()
                     } else {
                         break
                     }

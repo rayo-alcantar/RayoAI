@@ -105,6 +105,7 @@ class GeminiLiveManager @Inject constructor(
 
         recorder = LiveAudioRecorder(
             pushToTalk = config.pushToTalk,
+            isSpeakerPlaying = { player?.isSpeakingAudio() == true },
             onAudioChunk = { chunk ->
                 if (!_isMicMuted.value) {
                     client?.sendAudio(chunk)
