@@ -1,5 +1,6 @@
 package com.rayoai.data.remote.live
 
+import android.os.SystemClock
 import android.util.Base64
 import android.util.Log
 import com.rayoai.domain.model.GeminiModelConfig
@@ -46,6 +47,8 @@ class GeminiLiveClient(
     private var webSocket: WebSocket? = null
     private val isRunning = AtomicBoolean(false)
     private val isTurnCancelled = AtomicBoolean(false)
+    @Volatile
+    private var turnCancelledUntilElapsedRealtime: Long = 0L
     private var sessionHandle: String? = null
     private var reconnectAttempts = 0
     private var isConnectedOnce = false
@@ -182,8 +185,12 @@ class GeminiLiveClient(
             systemInstruction.put("parts", parts)
             setup.put("systemInstruction", systemInstruction)
 
-            // Configuración de detección de actividad / VAD (idéntico a rayoai_win)
+            // Configuración de detección de actividad / VAD
             val realtimeInputConfig = JSONObject()
+            if (!config.pushToTalk) {
+                // Habilita interrupción automática (barge-in) del modelo tan pronto el usuario habla
+                realtimeInputConfig.put("activityHandling", "START_OF_ACTIVITY_INTERRUPTS")
+            }
             val autoDetection = JSONObject()
             if (config.pushToTalk) {
                 autoDetection.put("disabled", true)
@@ -192,7 +199,7 @@ class GeminiLiveClient(
                 autoDetection.put("startOfSpeechSensitivity", "START_SENSITIVITY_$sensitivity")
                 autoDetection.put("endOfSpeechSensitivity", "END_SENSITIVITY_$sensitivity")
                 autoDetection.put("prefixPaddingMs", 100)
-                autoDetection.put("silenceDurationMs", 500)
+                autoDetection.put("silenceDurationMs", 800)
             }
             realtimeInputConfig.put("automaticActivityDetection", autoDetection)
             setup.put("realtimeInputConfig", realtimeInputConfig)
@@ -237,14 +244,20 @@ class GeminiLiveClient(
                 if (serverContent.optBoolean("interrupted", false)) {
                     Log.d(TAG, "Interrupción detectada por Gemini.")
                     isTurnCancelled.set(false)
+                    turnCancelledUntilElapsedRealtime = 0L
                     onInterrupted()
                 }
 
                 val modelTurn = serverContent.optJSONObject("modelTurn") ?: serverContent.optJSONObject("model_turn")
                 if (modelTurn != null) {
-                    if (isTurnCancelled.get()) {
+                    val isCancelled = isTurnCancelled.get() && (SystemClock.elapsedRealtime() < turnCancelledUntilElapsedRealtime)
+                    if (isCancelled) {
                         Log.d(TAG, "Descartando chunk de modelo debido a interrupción activa.")
                     } else {
+                        if (isTurnCancelled.get()) {
+                            isTurnCancelled.set(false)
+                            turnCancelledUntilElapsedRealtime = 0L
+                        }
                         val parts = modelTurn.optJSONArray("parts")
                         if (parts != null) {
                             for (i in 0 until parts.length()) {
@@ -286,6 +299,7 @@ class GeminiLiveClient(
                 if (isTurnComplete) {
                     Log.d(TAG, "TurnComplete / GenerationComplete recibido del servidor Live.")
                     isTurnCancelled.set(false)
+                    turnCancelledUntilElapsedRealtime = 0L
                     onTurnComplete()
                 }
             }
@@ -365,6 +379,7 @@ class GeminiLiveClient(
     fun cancelCurrentTurn() {
         Log.d(TAG, "cancelCurrentTurn solicitado. Marcando turno como cancelado y enviando activityStart.")
         isTurnCancelled.set(true)
+        turnCancelledUntilElapsedRealtime = SystemClock.elapsedRealtime() + 350L
         sendActivityStart()
     }
 

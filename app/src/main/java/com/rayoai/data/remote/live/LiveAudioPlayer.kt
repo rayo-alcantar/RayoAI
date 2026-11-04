@@ -30,11 +30,11 @@ class LiveAudioPlayer(
         const val SAMPLE_RATE = 24_000
         private const val TAG = "LiveAudioPlayer"
 
-        // Búfer inicial suave (160 ms = 7,680 bytes) para absorber el jitter de red
-        // antes de iniciar la reproducción de un nuevo turno de voz.
-        private const val INITIAL_PREBUFFER_BYTES = SAMPLE_RATE * 2 * 160 / 1000 // 7,680 bytes
+        // Búfer inicial suave (280 ms = 13,440 bytes) para absorber el jitter de red
+        // antes de iniciar la reproducción de un nuevo turno de voz y evitar cortes.
+        private const val INITIAL_PREBUFFER_BYTES = SAMPLE_RATE * 2 * 280 / 1000 // 13,440 bytes
         // Tiempo máximo de espera entre chunks (ms) antes de considerar terminado el turno
-        private const val CHUNK_WAIT_TIMEOUT_MS = 250L
+        private const val CHUNK_WAIT_TIMEOUT_MS = 400L
     }
 
     private val isPlaying = AtomicBoolean(false)
@@ -88,18 +88,13 @@ class LiveAudioPlayer(
         } catch (_: Exception) {}
 
         try {
-            val usage = if (mode == "earpiece") {
-                AudioAttributes.USAGE_VOICE_COMMUNICATION
-            } else {
-                // USAGE_MEDIA reproduce fuerte y claro por el altavoz exterior
-                // sin activar el sensor de proximidad ni cortar TalkBack al tocar la pantalla.
-                AudioAttributes.USAGE_MEDIA
-            }
-
+            // USAGE_VOICE_COMMUNICATION vincula la reproducción al subsistema VoIP/AEC
+            // de Android para que el hardware AcousticEchoCanceler cancele este sonido
+            // del micrófono tanto en modo altavoz como en auricular.
             audioTrack = AudioTrack.Builder()
                 .setAudioAttributes(
                     AudioAttributes.Builder()
-                        .setUsage(usage)
+                        .setUsage(AudioAttributes.USAGE_VOICE_COMMUNICATION)
                         .setContentType(AudioAttributes.CONTENT_TYPE_SPEECH)
                         .build()
                 )
@@ -136,9 +131,14 @@ class LiveAudioPlayer(
                         }
                     }
                 }
+                "muted" -> {
+                    // Modo silenciado: el flujo de audio se descarta internamente
+                }
                 else -> {
-                    // "speaker" o "muted": aseguramos que el sistema vuelva a modo normal
-                    // para no interferir con la síntesis de voz (TalkBack) ni con la pantalla
+                    // "speaker": llamada/comunicación al altavoz exterior con cancelación de eco activa
+                    audioManager.mode = AudioManager.MODE_IN_COMMUNICATION
+                    @Suppress("DEPRECATION")
+                    audioManager.isSpeakerphoneOn = true
                     if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S) {
                         val speaker = audioManager.availableCommunicationDevices.firstOrNull {
                             it.type == AudioDeviceInfo.TYPE_BUILTIN_SPEAKER
@@ -149,9 +149,6 @@ class LiveAudioPlayer(
                             audioManager.clearCommunicationDevice()
                         }
                     }
-                    audioManager.mode = AudioManager.MODE_NORMAL
-                    @Suppress("DEPRECATION")
-                    audioManager.isSpeakerphoneOn = true
                 }
             }
         } catch (e: Exception) {

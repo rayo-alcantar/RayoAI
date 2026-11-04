@@ -149,7 +149,6 @@ fun LiveModeScreen(
     val livePushToTalk by viewModel.livePushToTalk.collectAsState()
     val liveCaptureIntervalSeconds by viewModel.liveCaptureIntervalSeconds.collectAsState()
     val liveAudioOutput by viewModel.liveAudioOutput.collectAsState()
-    val isSpeaking by viewModel.isSpeaking.collectAsState()
 
     var showConfigSheet by remember { mutableStateOf(false) }
     var showApiKeyDialog by remember { mutableStateOf(false) }
@@ -163,7 +162,6 @@ fun LiveModeScreen(
     val stateRunning = stringResource(R.string.live_mode_state_running)
     val stateReconnecting = stringResource(R.string.live_mode_state_reconnecting)
     val statePaused = stringResource(R.string.live_mode_state_paused)
-    val interruptButtonText = stringResource(R.string.live_mode_interrupt_button)
     val tapAnywhereToInterrupt = stringResource(R.string.live_mode_tap_anywhere_to_interrupt)
 
     val currentStatusText = when (sessionState) {
@@ -665,29 +663,6 @@ fun LiveModeScreen(
                                                 imageVector = if (isMicMuted) Icons.Filled.MicOff else Icons.Filled.Mic,
                                                 contentDescription = null,
                                                 tint = if (isMicMuted) MaterialTheme.colorScheme.error else MaterialTheme.colorScheme.onSurfaceVariant
-                                            )
-                                        }
-
-                                        // Botón dedicado para interrumpir la respuesta de RayoAI
-                                        FilledTonalIconButton(
-                                            onClick = {
-                                                feedbackHelper.onPttRelease()
-                                                viewModel.interruptCurrentResponse()
-                                            },
-                                            modifier = Modifier
-                                                .size(52.dp)
-                                                .semantics {
-                                                    role = Role.Button
-                                                    contentDescription = interruptButtonText
-                                                },
-                                            colors = IconButtonDefaults.filledTonalIconButtonColors(
-                                                containerColor = if (isSpeaking) MaterialTheme.colorScheme.errorContainer else MaterialTheme.colorScheme.surfaceVariant
-                                            )
-                                        ) {
-                                            Icon(
-                                                imageVector = Icons.Filled.Stop,
-                                                contentDescription = null,
-                                                tint = if (isSpeaking) MaterialTheme.colorScheme.error else MaterialTheme.colorScheme.onSurfaceVariant
                                             )
                                         }
                                     }

@@ -9,6 +9,7 @@ import android.media.audiofx.NoiseSuppressor
 import android.os.Process
 import android.os.SystemClock
 import android.util.Log
+import java.util.ArrayDeque
 import java.util.concurrent.atomic.AtomicBoolean
 
 /**
@@ -29,10 +30,14 @@ class LiveAudioRecorder(
         const val BLOCK_MS = 40
         const val CHUNK_BYTES = SAMPLE_RATE * 2 * BLOCK_MS / 1000 // 1280 bytes
         private const val TAG = "LiveAudioRecorder"
-        // 1.8 segundos de gracia para el saludo de bienvenida de RayoAI (igual que en rayoai_win)
-        private const val INITIAL_GREETING_SUPPRESSION_MS = 1800L
-        // Umbral RMS de energía sensible y natural para distinguir la voz del usuario frente al eco del altavoz
-        private const val BARGE_IN_RMS_THRESHOLD = 650.0
+        // Breve margen de estabilización para el inicio de AudioRecord (350 ms)
+        private const val INITIAL_WARMUP_MS = 350L
+        // Umbral RMS base sensible para interrupción por voz natural
+        private const val MIN_BARGE_IN_RMS = 170.0
+        // Umbral RMS para interrupción inmediata en un solo frame (40 ms)
+        private const val IMMEDIATE_BARGE_IN_RMS = 280.0
+        // Frames de pre-roll para no perder el inicio de la primera palabra al interrumpir (2 frames = 80 ms)
+        private const val PRE_ROLL_FRAMES = 2
     }
 
     private val isRecording = AtomicBoolean(false)
@@ -43,7 +48,8 @@ class LiveAudioRecorder(
     private var noiseSuppressor: NoiseSuppressor? = null
     private var recordingThread: Thread? = null
     private var acceptInputAt: Long = 0L
-    private var highEnergyCount = 0
+    private var consecutiveSpeechFrames = 0
+    private var echoNoiseFloor = 80.0
 
     @SuppressLint("MissingPermission")
     fun start() {
@@ -106,9 +112,9 @@ class LiveAudioRecorder(
                 }
             }
 
-            // Período de gracia inicial para el saludo
-            acceptInputAt = if (pushToTalk) 0L else SystemClock.elapsedRealtime() + INITIAL_GREETING_SUPPRESSION_MS
-            highEnergyCount = 0
+            // Período de gracia mínimo para la inicialización
+            acceptInputAt = if (pushToTalk) 0L else SystemClock.elapsedRealtime() + INITIAL_WARMUP_MS
+            consecutiveSpeechFrames = 0
 
             record.startRecording()
             recordingThread = Thread(::recordLoop, "RayoAI-LiveRecorder").apply {
@@ -169,41 +175,79 @@ class LiveAudioRecorder(
     private fun recordLoop() {
         Process.setThreadPriority(Process.THREAD_PRIORITY_AUDIO)
         val buffer = ByteArray(CHUNK_BYTES)
+        val preRollQueue = ArrayDeque<ByteArray>(PRE_ROLL_FRAMES)
 
         while (isRecording.get()) {
             val record = audioRecord ?: break
             val read = record.read(buffer, 0, buffer.size)
 
             if (read > 0) {
-                // Período de protección del saludo inicial
+                // Período de protección de inicialización
                 if (!pushToTalk && SystemClock.elapsedRealtime() < acceptInputAt) {
                     continue
                 }
 
+                val payload = if (read == buffer.size) buffer.clone() else buffer.copyOf(read)
+
                 if (!pushToTalk && isSpeakerPlaying()) {
                     // El altavoz está emitiendo la respuesta de Gemini.
-                    // Calculamos la energía RMS del fragmento para distinguir si es eco del altavoz
-                    // o si el usuario está hablando intencionalmente por encima para interrumpir.
+                    // Para evitar que el eco residual del altavoz confunda al servidor y cause cortes en pedacitos,
+                    // filtramos los paquetes mientras no haya voz humana intencional.
                     val rms = calculateRms(buffer, read)
-                    if (rms >= BARGE_IN_RMS_THRESHOLD) {
-                        Log.d(TAG, "Interrupción intencional del usuario detectada (RMS: ${rms.toInt()}). Deteniendo altavoz.")
-                        try {
-                            onUserInterrupted()
-                        } catch (e: Exception) {
-                            Log.w(TAG, "Error en callback de interrupción", e)
+                    // Adaptación suave del piso de eco residual del altavoz
+                    if (rms < 200.0) {
+                        echoNoiseFloor = echoNoiseFloor * 0.9 + rms * 0.1
+                    }
+                    val effectiveThreshold = (echoNoiseFloor * 1.6).coerceIn(MIN_BARGE_IN_RMS, 260.0)
+                    val immediateThreshold = (echoNoiseFloor * 2.2).coerceIn(IMMEDIATE_BARGE_IN_RMS, 380.0)
+
+                    if (rms >= effectiveThreshold) {
+                        consecutiveSpeechFrames++
+                        if (consecutiveSpeechFrames >= PRE_ROLL_FRAMES || rms >= immediateThreshold) {
+                            Log.d(TAG, "Barge-in detectado (RMS: ${rms.toInt()} vs umbral: ${effectiveThreshold.toInt()}). Silenciando altavoz.")
+                            try {
+                                onUserInterrupted()
+                            } catch (e: Exception) {
+                                Log.w(TAG, "Error en callback de interrupción", e)
+                            }
+                            consecutiveSpeechFrames = 0
+
+                            // Entregar los frames previos del pre-roll para no perder el inicio de la primera palabra
+                            if (!isMuted.get()) {
+                                while (preRollQueue.isNotEmpty()) {
+                                    try {
+                                        onAudioChunk(preRollQueue.removeFirst())
+                                    } catch (e: Exception) {
+                                        Log.w(TAG, "Error entregando chunk pre-roll", e)
+                                    }
+                                }
+                                try {
+                                    onAudioChunk(payload)
+                                } catch (e: Exception) {
+                                    Log.w(TAG, "Error entregando chunk de audio", e)
+                                }
+                            }
+                        } else {
+                            // Guardar en pre-roll por si el siguiente frame confirma el inicio de voz
+                            if (preRollQueue.size >= PRE_ROLL_FRAMES) preRollQueue.removeFirst()
+                            preRollQueue.addLast(payload)
                         }
                     } else {
-                        // El altavoz suena y el micrófono solo capta eco residual: no enviar este chunk a Gemini.
-                        continue
+                        consecutiveSpeechFrames = 0
+                        if (preRollQueue.size >= PRE_ROLL_FRAMES) preRollQueue.removeFirst()
+                        preRollQueue.addLast(payload)
+                        // No enviamos el eco residual del altavoz a Gemini: esto elimina los cortes por pedacitos
                     }
-                }
-
-                if (!isMuted.get() && (!pushToTalk || isTalking.get())) {
-                    val payload = if (read == buffer.size) buffer.clone() else buffer.copyOf(read)
-                    try {
-                        onAudioChunk(payload)
-                    } catch (e: Exception) {
-                        Log.w(TAG, "Error entregando chunk de audio", e)
+                } else {
+                    consecutiveSpeechFrames = 0
+                    preRollQueue.clear()
+                    // Altavoz en silencio (o PTT): entregar directamente a Gemini
+                    if (!isMuted.get() && (!pushToTalk || isTalking.get())) {
+                        try {
+                            onAudioChunk(payload)
+                        } catch (e: Exception) {
+                            Log.w(TAG, "Error entregando chunk de audio", e)
+                        }
                     }
                 }
             } else if (read < 0) {
