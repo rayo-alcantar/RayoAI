@@ -174,6 +174,10 @@ class GeminiLiveManager @Inject constructor(
 
                 scaledBitmap.compress(Bitmap.CompressFormat.JPEG, quality, stream)
                 val bytes = stream.toByteArray()
+                if (scaledBitmap != bitmap) {
+                    scaledBitmap.recycle()
+                }
+                bitmap.recycle()
                 client?.sendVideoFrame(bytes)
             } catch (e: Exception) {
                 Log.w(TAG, "Error procesando frame visual", e)

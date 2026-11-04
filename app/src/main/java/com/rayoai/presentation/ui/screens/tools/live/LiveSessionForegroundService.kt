@@ -23,14 +23,40 @@ class LiveSessionForegroundService : Service() {
     @Inject
     lateinit var liveManager: GeminiLiveManager
 
+    private var isScreenCaptureActive = false
+
     companion object {
         const val CHANNEL_ID = "rayoai_live_session_channel"
         const val NOTIFICATION_ID = 2026
         const val ACTION_STOP = "com.rayoai.live.ACTION_STOP"
         const val ACTION_TOGGLE_PAUSE = "com.rayoai.live.ACTION_TOGGLE_PAUSE"
+        const val ACTION_ENABLE_SCREEN_CAPTURE = "com.rayoai.live.ACTION_ENABLE_SCREEN_CAPTURE"
+        const val ACTION_DISABLE_SCREEN_CAPTURE = "com.rayoai.live.ACTION_DISABLE_SCREEN_CAPTURE"
 
         fun start(context: Context) {
             val intent = Intent(context, LiveSessionForegroundService::class.java)
+            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
+                context.startForegroundService(intent)
+            } else {
+                context.startService(intent)
+            }
+        }
+
+        fun startScreenCapture(context: Context) {
+            val intent = Intent(context, LiveSessionForegroundService::class.java).apply {
+                action = ACTION_ENABLE_SCREEN_CAPTURE
+            }
+            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
+                context.startForegroundService(intent)
+            } else {
+                context.startService(intent)
+            }
+        }
+
+        fun stopScreenCapture(context: Context) {
+            val intent = Intent(context, LiveSessionForegroundService::class.java).apply {
+                action = ACTION_DISABLE_SCREEN_CAPTURE
+            }
             if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
                 context.startForegroundService(intent)
             } else {
@@ -61,6 +87,12 @@ class LiveSessionForegroundService : Service() {
             ACTION_TOGGLE_PAUSE -> {
                 liveManager.toggleVideoPause()
             }
+            ACTION_ENABLE_SCREEN_CAPTURE -> {
+                isScreenCaptureActive = true
+            }
+            ACTION_DISABLE_SCREEN_CAPTURE -> {
+                isScreenCaptureActive = false
+            }
         }
 
         val notification = buildNotification()
@@ -70,7 +102,7 @@ class LiveSessionForegroundService : Service() {
             if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.R) {
                 fgsType = fgsType or ServiceInfo.FOREGROUND_SERVICE_TYPE_MICROPHONE
             }
-            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.UPSIDE_DOWN_CAKE) {
+            if (isScreenCaptureActive && Build.VERSION.SDK_INT >= Build.VERSION_CODES.UPSIDE_DOWN_CAKE) {
                 fgsType = fgsType or ServiceInfo.FOREGROUND_SERVICE_TYPE_MEDIA_PROJECTION
             }
             if (fgsType != 0) {
