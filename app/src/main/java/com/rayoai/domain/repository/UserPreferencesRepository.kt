@@ -28,6 +28,7 @@ interface UserPreferencesRepository {
     val liveVadSensitivity: Flow<String>
     val livePushToTalk: Flow<Boolean>
     val liveCaptureIntervalSeconds: Flow<Float>
+    val liveAudioOutput: Flow<String>
 
     suspend fun saveApiKey(apiKey: String)
     suspend fun saveDefaultModel(model: String)
@@ -51,4 +52,5 @@ interface UserPreferencesRepository {
     suspend fun saveLiveVadSensitivity(sensitivity: String)
     suspend fun saveLivePushToTalk(enabled: Boolean)
     suspend fun saveLiveCaptureIntervalSeconds(interval: Float)
+    suspend fun saveLiveAudioOutput(output: String)
 }

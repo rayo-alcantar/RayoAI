@@ -53,6 +53,9 @@ class LiveModeViewModel @Inject constructor(
     val liveCaptureIntervalSeconds: StateFlow<Float> = userPreferencesRepository.liveCaptureIntervalSeconds
         .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), 1.0f)
 
+    val liveAudioOutput: StateFlow<String> = userPreferencesRepository.liveAudioOutput
+        .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), "speaker")
+
     fun startSession(onMissingApiKey: () -> Unit) {
         viewModelScope.launch {
             val key = apiKey.value ?: userPreferencesRepository.apiKey.first()
@@ -69,6 +72,7 @@ class LiveModeViewModel @Inject constructor(
                 vadSensitivity = liveVadSensitivity.value,
                 pushToTalk = livePushToTalk.value,
                 captureIntervalSeconds = liveCaptureIntervalSeconds.value,
+                audioOutput = liveAudioOutput.value,
                 languageCode = Locale.getDefault().language
             )
 
@@ -130,6 +134,11 @@ class LiveModeViewModel @Inject constructor(
 
     fun saveLiveCaptureIntervalSeconds(interval: Float) {
         viewModelScope.launch { userPreferencesRepository.saveLiveCaptureIntervalSeconds(interval) }
+    }
+
+    fun setAudioOutput(output: String) {
+        liveManager.setAudioOutput(output)
+        viewModelScope.launch { userPreferencesRepository.saveLiveAudioOutput(output) }
     }
 
     override fun onCleared() {

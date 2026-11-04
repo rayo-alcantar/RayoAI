@@ -19,6 +19,7 @@ import androidx.camera.core.ImageAnalysis
 import androidx.camera.view.LifecycleCameraController
 import androidx.camera.view.PreviewView
 import androidx.compose.animation.AnimatedVisibility
+import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
@@ -41,6 +42,8 @@ import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material.icons.automirrored.filled.ScreenShare
+import androidx.compose.material.icons.automirrored.filled.VolumeOff
+import androidx.compose.material.icons.automirrored.filled.VolumeUp
 import androidx.compose.material.icons.filled.CallEnd
 import androidx.compose.material.icons.filled.Cameraswitch
 import androidx.compose.material.icons.filled.Close
@@ -54,6 +57,7 @@ import androidx.compose.material.icons.filled.Pause
 import androidx.compose.material.icons.filled.PlayArrow
 import androidx.compose.material.icons.filled.Psychology
 import androidx.compose.material.icons.filled.RecordVoiceOver
+import androidx.compose.material.icons.filled.Refresh
 import androidx.compose.material.icons.filled.Settings
 import androidx.compose.material.icons.filled.Timer
 import androidx.compose.material.icons.filled.Videocam
@@ -143,6 +147,7 @@ fun LiveModeScreen(
     val liveVadSensitivity by viewModel.liveVadSensitivity.collectAsState()
     val livePushToTalk by viewModel.livePushToTalk.collectAsState()
     val liveCaptureIntervalSeconds by viewModel.liveCaptureIntervalSeconds.collectAsState()
+    val liveAudioOutput by viewModel.liveAudioOutput.collectAsState()
 
     var showConfigSheet by remember { mutableStateOf(false) }
     var showApiKeyDialog by remember { mutableStateOf(false) }
@@ -552,6 +557,43 @@ fun LiveModeScreen(
                                         }
                                     }
 
+                                    // Conmutador Rápido de Salida de Audio (Altavoz / Auricular / Silenciado)
+                                    val nextOutput = when (liveAudioOutput) {
+                                        "speaker" -> "earpiece"
+                                        "earpiece" -> "muted"
+                                        else -> "speaker"
+                                    }
+                                    val outputIcon = when (liveAudioOutput) {
+                                        "earpiece" -> Icons.Filled.Headphones
+                                        "muted" -> Icons.AutoMirrored.Filled.VolumeOff
+                                        else -> Icons.AutoMirrored.Filled.VolumeUp
+                                    }
+                                    val outputDesc = when (liveAudioOutput) {
+                                        "earpiece" -> stringResource(R.string.live_mode_audio_output_earpiece)
+                                        "muted" -> stringResource(R.string.live_mode_audio_output_muted)
+                                        else -> stringResource(R.string.live_mode_audio_output_speaker)
+                                    }
+                                    val outputLabel = stringResource(R.string.live_mode_audio_output_label) + ": " + outputDesc
+
+                                    FilledTonalIconButton(
+                                        onClick = { viewModel.setAudioOutput(nextOutput) },
+                                        modifier = Modifier
+                                            .size(52.dp)
+                                            .semantics {
+                                                role = Role.Button
+                                                contentDescription = outputLabel
+                                            },
+                                        colors = IconButtonDefaults.filledTonalIconButtonColors(
+                                            containerColor = if (liveAudioOutput == "muted") MaterialTheme.colorScheme.errorContainer else MaterialTheme.colorScheme.surfaceVariant
+                                        )
+                                    ) {
+                                        Icon(
+                                            imageVector = outputIcon,
+                                            contentDescription = null,
+                                            tint = if (liveAudioOutput == "muted") MaterialTheme.colorScheme.error else MaterialTheme.colorScheme.onSurfaceVariant
+                                        )
+                                    }
+
                                     // Controles de Micrófono o Push-To-Talk
                                     if (livePushToTalk) {
                                         val pttLabel = if (isTalking) stringResource(R.string.live_mode_ptt_talking)
@@ -615,7 +657,7 @@ fun LiveModeScreen(
                                     Button(
                                         onClick = { viewModel.stopSession() },
                                         modifier = Modifier
-                                            .weight(if (livePushToTalk) 0.8f else 1.2f)
+                                            .weight(if (livePushToTalk) 0.8f else 1.1f)
                                             .height(54.dp)
                                             .semantics {
                                                 role = Role.Button
@@ -685,13 +727,15 @@ fun LiveModeScreen(
             currentVad = liveVadSensitivity,
             currentPtt = livePushToTalk,
             currentInterval = liveCaptureIntervalSeconds,
+            currentAudioOutput = liveAudioOutput,
             onDismiss = { showConfigSheet = false },
             onSaveModel = { viewModel.saveLiveModel(it) },
             onSaveVoice = { viewModel.saveLiveVoice(it) },
             onSaveThinking = { viewModel.saveLiveThinkingLevel(it) },
             onSaveVad = { viewModel.saveLiveVadSensitivity(it) },
             onSavePtt = { viewModel.saveLivePushToTalk(it) },
-            onSaveInterval = { viewModel.saveLiveCaptureIntervalSeconds(it) }
+            onSaveInterval = { viewModel.saveLiveCaptureIntervalSeconds(it) },
+            onSaveAudioOutput = { viewModel.setAudioOutput(it) }
         )
     }
 }
@@ -719,7 +763,7 @@ private fun ModeSelectChip(
             },
         shape = RoundedCornerShape(12.dp),
         color = containerColor,
-        border = androidx.compose.foundation.BorderStroke(1.dp, borderColor)
+        border = BorderStroke(1.dp, borderColor)
     ) {
         Row(
             modifier = Modifier.fillMaxSize().padding(horizontal = 4.dp),
@@ -729,6 +773,72 @@ private fun ModeSelectChip(
             Icon(icon, contentDescription = null, tint = contentColor, modifier = Modifier.size(18.dp))
             Spacer(Modifier.width(6.dp))
             Text(label, style = MaterialTheme.typography.labelMedium, color = contentColor, fontWeight = if (isSelected) FontWeight.Bold else FontWeight.Medium)
+        }
+    }
+}
+
+@Composable
+private fun CyclingSettingButton(
+    title: String,
+    currentValue: String,
+    icon: ImageVector,
+    onClick: () -> Unit,
+    modifier: Modifier = Modifier
+) {
+    val tapToChangeText = stringResource(R.string.live_mode_tap_to_change)
+    Surface(
+        onClick = onClick,
+        modifier = modifier
+            .fillMaxWidth()
+            .semantics {
+                role = Role.Button
+                contentDescription = "$title: $currentValue. $tapToChangeText"
+            },
+        shape = RoundedCornerShape(14.dp),
+        color = MaterialTheme.colorScheme.surface,
+        border = BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.5f))
+    ) {
+        Row(
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(horizontal = 16.dp, vertical = 14.dp),
+            verticalAlignment = Alignment.CenterVertically
+        ) {
+            Box(
+                modifier = Modifier
+                    .size(42.dp)
+                    .background(MaterialTheme.colorScheme.primaryContainer.copy(alpha = 0.6f), CircleShape),
+                contentAlignment = Alignment.Center
+            ) {
+                Icon(
+                    imageVector = icon,
+                    contentDescription = null,
+                    tint = MaterialTheme.colorScheme.primary,
+                    modifier = Modifier.size(22.dp)
+                )
+            }
+            Spacer(Modifier.width(14.dp))
+            Column(modifier = Modifier.weight(1f)) {
+                Text(
+                    text = title,
+                    style = MaterialTheme.typography.labelMedium,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                )
+                Spacer(Modifier.height(2.dp))
+                Text(
+                    text = currentValue,
+                    style = MaterialTheme.typography.bodyLarge,
+                    color = MaterialTheme.colorScheme.onSurface,
+                    fontWeight = FontWeight.Bold
+                )
+            }
+            Spacer(Modifier.width(8.dp))
+            Icon(
+                imageVector = Icons.Filled.Refresh,
+                contentDescription = null,
+                tint = MaterialTheme.colorScheme.primary,
+                modifier = Modifier.size(20.dp)
+            )
         }
     }
 }
@@ -912,13 +1022,15 @@ private fun LiveSettingsSheet(
     currentVad: String,
     currentPtt: Boolean,
     currentInterval: Float,
+    currentAudioOutput: String,
     onDismiss: () -> Unit,
     onSaveModel: (String) -> Unit,
     onSaveVoice: (String) -> Unit,
     onSaveThinking: (String) -> Unit,
     onSaveVad: (String) -> Unit,
     onSavePtt: (Boolean) -> Unit,
-    onSaveInterval: (Float) -> Unit
+    onSaveInterval: (Float) -> Unit,
+    onSaveAudioOutput: (String) -> Unit
 ) {
     val sheetState = rememberModalBottomSheetState(skipPartiallyExpanded = true)
 
@@ -1077,7 +1189,7 @@ private fun LiveSettingsSheet(
                 }
             }
 
-            // Sección 2: Micrófono y Detección
+            // Sección 2: Micrófono y Detección (Botones conmutadores de un solo toque)
             Card(
                 colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.45f)),
                 shape = RoundedCornerShape(16.dp),
@@ -1097,59 +1209,60 @@ private fun LiveSettingsSheet(
                         )
                     }
 
-                    Row(
-                        modifier = Modifier.fillMaxWidth(),
-                        horizontalArrangement = Arrangement.spacedBy(8.dp)
-                    ) {
-                        ModeSelectChip(
-                            label = stringResource(R.string.live_mode_mic_continuous),
-                            icon = Icons.Filled.Mic,
-                            isSelected = !currentPtt,
-                            modifier = Modifier.weight(1f),
-                            onClick = { onSavePtt(false) }
-                        )
-
-                        ModeSelectChip(
-                            label = stringResource(R.string.live_mode_mic_ptt),
-                            icon = Icons.Filled.RecordVoiceOver,
-                            isSelected = currentPtt,
-                            modifier = Modifier.weight(1f),
-                            onClick = { onSavePtt(true) }
-                        )
+                    // Botón conmutador: Modo de micrófono (Manos libres <-> Pulsar para hablar)
+                    val currentMicModeText = if (!currentPtt) {
+                        stringResource(R.string.live_mode_mic_continuous)
+                    } else {
+                        stringResource(R.string.live_mode_mic_ptt)
                     }
+                    CyclingSettingButton(
+                        title = stringResource(R.string.live_mode_mic_mode_label),
+                        currentValue = currentMicModeText,
+                        icon = if (!currentPtt) Icons.Filled.Mic else Icons.Filled.RecordVoiceOver,
+                        onClick = { onSavePtt(!currentPtt) }
+                    )
 
+                    // Botón conmutador: Sensibilidad de detección de voz (Alta <-> Baja)
                     if (!currentPtt) {
-                        Spacer(Modifier.height(4.dp))
-                        Text(
-                            text = stringResource(R.string.live_mode_vad_label),
-                            style = MaterialTheme.typography.labelMedium,
-                            color = MaterialTheme.colorScheme.onSurfaceVariant
-                        )
-                        Row(
-                            modifier = Modifier.fillMaxWidth(),
-                            horizontalArrangement = Arrangement.spacedBy(8.dp)
-                        ) {
-                            ModeSelectChip(
-                                label = stringResource(R.string.live_mode_vad_high),
-                                icon = Icons.Filled.Mic,
-                                isSelected = currentVad == "high",
-                                modifier = Modifier.weight(1f),
-                                onClick = { onSaveVad("high") }
-                            )
-
-                            ModeSelectChip(
-                                label = stringResource(R.string.live_mode_vad_low),
-                                icon = Icons.Filled.MicOff,
-                                isSelected = currentVad == "low",
-                                modifier = Modifier.weight(1f),
-                                onClick = { onSaveVad("low") }
-                            )
+                        val currentVadText = if (currentVad == "high") {
+                            stringResource(R.string.live_mode_vad_high)
+                        } else {
+                            stringResource(R.string.live_mode_vad_low)
                         }
+                        CyclingSettingButton(
+                            title = stringResource(R.string.live_mode_vad_label),
+                            currentValue = currentVadText,
+                            icon = if (currentVad == "high") Icons.Filled.Mic else Icons.Filled.MicOff,
+                            onClick = { onSaveVad(if (currentVad == "high") "low" else "high") }
+                        )
                     }
+
+                    // Botón conmutador: Salida de Audio (Altavoz <-> Auricular <-> Silenciado)
+                    val currentOutputText = when (currentAudioOutput) {
+                        "earpiece" -> stringResource(R.string.live_mode_audio_output_earpiece)
+                        "muted" -> stringResource(R.string.live_mode_audio_output_muted)
+                        else -> stringResource(R.string.live_mode_audio_output_speaker)
+                    }
+                    val nextOutputMode = when (currentAudioOutput) {
+                        "speaker" -> "earpiece"
+                        "earpiece" -> "muted"
+                        else -> "speaker"
+                    }
+                    val outputIcon = when (currentAudioOutput) {
+                        "earpiece" -> Icons.Filled.Headphones
+                        "muted" -> Icons.AutoMirrored.Filled.VolumeOff
+                        else -> Icons.AutoMirrored.Filled.VolumeUp
+                    }
+                    CyclingSettingButton(
+                        title = stringResource(R.string.live_mode_audio_output_label),
+                        currentValue = currentOutputText,
+                        icon = outputIcon,
+                        onClick = { onSaveAudioOutput(nextOutputMode) }
+                    )
                 }
             }
 
-            // Sección 3: Frecuencia de Captura Visual
+            // Sección 3: Frecuencia de Captura Visual (Botón conmutador cíclico)
             Card(
                 colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.45f)),
                 shape = RoundedCornerShape(16.dp),
@@ -1169,34 +1282,22 @@ private fun LiveSettingsSheet(
                         )
                     }
 
-                    Row(
-                        modifier = Modifier.fillMaxWidth(),
-                        horizontalArrangement = Arrangement.spacedBy(8.dp)
-                    ) {
-                        ModeSelectChip(
-                            label = "1.0s",
-                            icon = Icons.Filled.Timer,
-                            isSelected = currentInterval == 1.0f,
-                            modifier = Modifier.weight(1f),
-                            onClick = { onSaveInterval(1.0f) }
-                        )
-
-                        ModeSelectChip(
-                            label = "1.5s",
-                            icon = Icons.Filled.Timer,
-                            isSelected = currentInterval == 1.5f,
-                            modifier = Modifier.weight(1f),
-                            onClick = { onSaveInterval(1.5f) }
-                        )
-
-                        ModeSelectChip(
-                            label = "2.0s",
-                            icon = Icons.Filled.Timer,
-                            isSelected = currentInterval == 2.0f,
-                            modifier = Modifier.weight(1f),
-                            onClick = { onSaveInterval(2.0f) }
-                        )
+                    val currentIntervalText = when (currentInterval) {
+                        1.0f -> stringResource(R.string.live_mode_interval_1s)
+                        1.5f -> stringResource(R.string.live_mode_interval_1_5s)
+                        else -> stringResource(R.string.live_mode_interval_2s)
                     }
+                    val nextInterval = when (currentInterval) {
+                        1.0f -> 1.5f
+                        1.5f -> 2.0f
+                        else -> 1.0f
+                    }
+                    CyclingSettingButton(
+                        title = stringResource(R.string.live_mode_interval_label),
+                        currentValue = currentIntervalText,
+                        icon = Icons.Filled.Timer,
+                        onClick = { onSaveInterval(nextInterval) }
+                    )
                 }
             }
 

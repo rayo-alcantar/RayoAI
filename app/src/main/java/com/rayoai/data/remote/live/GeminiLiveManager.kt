@@ -56,6 +56,9 @@ class GeminiLiveManager @Inject constructor(
     private val _errorMessage = MutableStateFlow<String?>(null)
     val errorMessage: StateFlow<String?> = _errorMessage.asStateFlow()
 
+    private val _audioOutput = MutableStateFlow("speaker")
+    val audioOutput: StateFlow<String> = _audioOutput.asStateFlow()
+
     private var client: GeminiLiveClient? = null
     private var recorder: LiveAudioRecorder? = null
     private var player: LiveAudioPlayer? = null
@@ -69,8 +72,9 @@ class GeminiLiveManager @Inject constructor(
         _latestTranscript.value = ""
         _isVideoPaused.value = false
         _isMicMuted.value = false
+        _audioOutput.value = config.audioOutput
 
-        player = LiveAudioPlayer().apply { start() }
+        player = LiveAudioPlayer(context, config.audioOutput).apply { start() }
 
         client = GeminiLiveClient(
             config = config,
@@ -126,6 +130,11 @@ class GeminiLiveManager @Inject constructor(
         val newMuted = !_isMicMuted.value
         _isMicMuted.value = newMuted
         recorder?.setMuted(newMuted)
+    }
+
+    fun setAudioOutput(output: String) {
+        _audioOutput.value = output
+        player?.setAudioOutput(output)
     }
 
     fun setPushToTalkState(talking: Boolean) {

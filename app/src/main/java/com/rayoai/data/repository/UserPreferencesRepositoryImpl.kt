@@ -43,6 +43,7 @@ class UserPreferencesRepositoryImpl @Inject constructor(
         val LIVE_VAD_SENSITIVITY = stringPreferencesKey("live_vad_sensitivity")
         val LIVE_PUSH_TO_TALK = booleanPreferencesKey("live_push_to_talk")
         val LIVE_CAPTURE_INTERVAL_SECONDS = floatPreferencesKey("live_capture_interval_seconds")
+        val LIVE_AUDIO_OUTPUT = stringPreferencesKey("live_audio_output")
     }
 
     override val apiKey: Flow<String?> = dataStore.data.map {
@@ -143,6 +144,10 @@ class UserPreferencesRepositoryImpl @Inject constructor(
 
     override val liveCaptureIntervalSeconds: Flow<Float> = dataStore.data.map {
         it[PreferencesKeys.LIVE_CAPTURE_INTERVAL_SECONDS] ?: 1.0f
+    }
+
+    override val liveAudioOutput: Flow<String> = dataStore.data.map {
+        it[PreferencesKeys.LIVE_AUDIO_OUTPUT] ?: "speaker"
     }
 
     override suspend fun saveApiKey(apiKey: String) {
@@ -274,6 +279,12 @@ class UserPreferencesRepositoryImpl @Inject constructor(
     override suspend fun saveLiveCaptureIntervalSeconds(interval: Float) {
         dataStore.edit {
             it[PreferencesKeys.LIVE_CAPTURE_INTERVAL_SECONDS] = interval
+        }
+    }
+
+    override suspend fun saveLiveAudioOutput(output: String) {
+        dataStore.edit {
+            it[PreferencesKeys.LIVE_AUDIO_OUTPUT] = output
         }
     }
 }

@@ -25,5 +25,6 @@ data class LiveModeConfig(
     val vadSensitivity: String = "high",
     val pushToTalk: Boolean = false,
     val captureIntervalSeconds: Float = 1.0f,
+    val audioOutput: String = "speaker",
     val languageCode: String = "es"
 )

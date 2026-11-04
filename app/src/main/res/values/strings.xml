@@ -474,6 +474,12 @@ Tarjeta: 4152314082325278</string>
     <string name="live_mode_listening">Escuchando…</string>
     <string name="live_mode_settings_button">Ajustes del Modo Live</string>
     <string name="live_mode_settings_subtitle">Personaliza la voz, modelo, micrófono y frecuencia</string>
+    <string name="live_mode_audio_output_label">Salida de audio</string>
+    <string name="live_mode_audio_output_speaker">Altavoz</string>
+    <string name="live_mode_audio_output_earpiece">Auricular de llamada</string>
+    <string name="live_mode_audio_output_muted">Silenciado</string>
+    <string name="live_mode_audio_output_toggle">Cambiar salida de audio</string>
+    <string name="live_mode_tap_to_change">Toca para cambiar</string>
     <string name="settings_live_section_title">Modo Live (Gemini Live)</string>
     <string name="settings_live_section_description">Configura el modelo, la voz, el razonamiento y la transmisión visual en vivo.</string>
 </resources>
