@@ -45,6 +45,7 @@ class GeminiLiveClient(
 
     private var webSocket: WebSocket? = null
     private val isRunning = AtomicBoolean(false)
+    private val isTurnCancelled = AtomicBoolean(false)
     private var sessionHandle: String? = null
     private var reconnectAttempts = 0
     private var isConnectedOnce = false
@@ -235,38 +236,43 @@ class GeminiLiveClient(
             if (serverContent != null) {
                 if (serverContent.optBoolean("interrupted", false)) {
                     Log.d(TAG, "Interrupción detectada por Gemini.")
+                    isTurnCancelled.set(false)
                     onInterrupted()
                 }
 
                 val modelTurn = serverContent.optJSONObject("modelTurn") ?: serverContent.optJSONObject("model_turn")
                 if (modelTurn != null) {
-                    val parts = modelTurn.optJSONArray("parts")
-                    if (parts != null) {
-                        for (i in 0 until parts.length()) {
-                            val part = parts.getJSONObject(i)
-                            val inlineData = part.optJSONObject("inlineData") ?: part.optJSONObject("inline_data")
-                            if (inlineData != null) {
-                                val dataBase64 = inlineData.optString("data")
-                                if (dataBase64.isNotEmpty()) {
-                                    val pcm = Base64.decode(dataBase64, Base64.DEFAULT)
-                                    Log.d(TAG, "Audio PCM recibido (${pcm.size} bytes).")
-                                    onAudioReceived(pcm)
+                    if (isTurnCancelled.get()) {
+                        Log.d(TAG, "Descartando chunk de modelo debido a interrupción activa.")
+                    } else {
+                        val parts = modelTurn.optJSONArray("parts")
+                        if (parts != null) {
+                            for (i in 0 until parts.length()) {
+                                val part = parts.getJSONObject(i)
+                                val inlineData = part.optJSONObject("inlineData") ?: part.optJSONObject("inline_data")
+                                if (inlineData != null) {
+                                    val dataBase64 = inlineData.optString("data")
+                                    if (dataBase64.isNotEmpty()) {
+                                        val pcm = Base64.decode(dataBase64, Base64.DEFAULT)
+                                        Log.d(TAG, "Audio PCM recibido (${pcm.size} bytes).")
+                                        onAudioReceived(pcm)
+                                    }
                                 }
-                            }
-                            val audioObj = part.optJSONObject("audio")
-                            if (audioObj != null) {
-                                val dataBase64 = audioObj.optString("data")
-                                if (dataBase64.isNotEmpty()) {
-                                    val pcm = Base64.decode(dataBase64, Base64.DEFAULT)
-                                    Log.d(TAG, "Audio PCM recibido via audio (${pcm.size} bytes).")
-                                    onAudioReceived(pcm)
+                                val audioObj = part.optJSONObject("audio")
+                                if (audioObj != null) {
+                                    val dataBase64 = audioObj.optString("data")
+                                    if (dataBase64.isNotEmpty()) {
+                                        val pcm = Base64.decode(dataBase64, Base64.DEFAULT)
+                                        Log.d(TAG, "Audio PCM recibido via audio (${pcm.size} bytes).")
+                                        onAudioReceived(pcm)
+                                    }
                                 }
-                            }
-                            if (part.has("text")) {
-                                val txt = part.optString("text")
-                                if (txt.isNotEmpty()) {
-                                    Log.d(TAG, "Texto recibido de Live: $txt")
-                                    onTextReceived(txt)
+                                if (part.has("text")) {
+                                    val txt = part.optString("text")
+                                    if (txt.isNotEmpty()) {
+                                        Log.d(TAG, "Texto recibido de Live: $txt")
+                                        onTextReceived(txt)
+                                    }
                                 }
                             }
                         }
@@ -279,6 +285,7 @@ class GeminiLiveClient(
                                      serverContent.optBoolean("generation_complete", false)
                 if (isTurnComplete) {
                     Log.d(TAG, "TurnComplete / GenerationComplete recibido del servidor Live.")
+                    isTurnCancelled.set(false)
                     onTurnComplete()
                 }
             }
@@ -353,6 +360,12 @@ class GeminiLiveClient(
         } catch (e: Exception) {
             Log.w(TAG, "Error enviando frame de video", e)
         }
+    }
+
+    fun cancelCurrentTurn() {
+        Log.d(TAG, "cancelCurrentTurn solicitado. Marcando turno como cancelado y enviando activityStart.")
+        isTurnCancelled.set(true)
+        sendActivityStart()
     }
 
     fun sendActivityStart() {

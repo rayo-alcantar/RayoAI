@@ -29,6 +29,7 @@ import androidx.compose.ui.semantics.semantics
 import androidx.core.content.ContextCompat
 import com.rayoai.R
 import com.rayoai.domain.model.AudioRecording
+import com.rayoai.presentation.ui.LocalTextToSpeech
 import com.rayoai.presentation.voice.VoiceRecorder
 import kotlinx.coroutines.launch
 
@@ -43,6 +44,7 @@ fun VoiceInputButton(
     val context = LocalContext.current
     val scope = rememberCoroutineScope()
     val recorder = remember { VoiceRecorder(context.applicationContext) }
+    val textToSpeech = LocalTextToSpeech.current
     var isRecording by remember { mutableStateOf(false) }
     val startRecordingLabel = stringResource(R.string.voice_record_start)
     val stopRecordingLabel = stringResource(R.string.voice_record_stop)
@@ -99,6 +101,7 @@ fun VoiceInputButton(
 
                 if (hasPermission) {
                     try {
+                        textToSpeech?.stop()
                         recorder.start()
                         isRecording = true
                         vibrate(context)

@@ -59,6 +59,7 @@ import androidx.compose.material.icons.filled.Psychology
 import androidx.compose.material.icons.filled.RecordVoiceOver
 import androidx.compose.material.icons.filled.Refresh
 import androidx.compose.material.icons.filled.Settings
+import androidx.compose.material.icons.filled.Stop
 import androidx.compose.material.icons.filled.Timer
 import androidx.compose.material.icons.filled.Videocam
 import androidx.compose.material3.AlertDialog
@@ -148,6 +149,7 @@ fun LiveModeScreen(
     val livePushToTalk by viewModel.livePushToTalk.collectAsState()
     val liveCaptureIntervalSeconds by viewModel.liveCaptureIntervalSeconds.collectAsState()
     val liveAudioOutput by viewModel.liveAudioOutput.collectAsState()
+    val isSpeaking by viewModel.isSpeaking.collectAsState()
 
     var showConfigSheet by remember { mutableStateOf(false) }
     var showApiKeyDialog by remember { mutableStateOf(false) }
@@ -161,6 +163,8 @@ fun LiveModeScreen(
     val stateRunning = stringResource(R.string.live_mode_state_running)
     val stateReconnecting = stringResource(R.string.live_mode_state_reconnecting)
     val statePaused = stringResource(R.string.live_mode_state_paused)
+    val interruptButtonText = stringResource(R.string.live_mode_interrupt_button)
+    val tapAnywhereToInterrupt = stringResource(R.string.live_mode_tap_anywhere_to_interrupt)
 
     val currentStatusText = when (sessionState) {
         LiveSessionState.STOPPED -> stateStopped
@@ -290,11 +294,22 @@ fun LiveModeScreen(
                     .padding(innerPadding)
             ) {
                 // Escenario Central Visual (Cámara, Pantalla o Solo Voz)
+                val isRunning = sessionState == LiveSessionState.RUNNING
                 Box(
                     modifier = Modifier
                         .weight(1f)
                         .fillMaxWidth()
                         .background(Color(0xFF121212))
+                        .clickable(enabled = isRunning) {
+                            feedbackHelper.onPttRelease()
+                            viewModel.interruptCurrentResponse()
+                        }
+                        .semantics {
+                            if (isRunning) {
+                                role = Role.Button
+                                contentDescription = tapAnywhereToInterrupt
+                            }
+                        }
                 ) {
                     when (visualSource) {
                         VisualSource.CAMERA -> {
@@ -361,7 +376,6 @@ fun LiveModeScreen(
 
                     // Franja de Estado y Subtítulos Accesibles (con toque para interrumpir)
                     val interruptHint = stringResource(R.string.live_mode_tap_to_interrupt)
-                    val isRunning = sessionState == LiveSessionState.RUNNING
                     Column(
                         modifier = Modifier
                             .align(Alignment.BottomCenter)
@@ -651,6 +665,29 @@ fun LiveModeScreen(
                                                 imageVector = if (isMicMuted) Icons.Filled.MicOff else Icons.Filled.Mic,
                                                 contentDescription = null,
                                                 tint = if (isMicMuted) MaterialTheme.colorScheme.error else MaterialTheme.colorScheme.onSurfaceVariant
+                                            )
+                                        }
+
+                                        // Botón dedicado para interrumpir la respuesta de RayoAI
+                                        FilledTonalIconButton(
+                                            onClick = {
+                                                feedbackHelper.onPttRelease()
+                                                viewModel.interruptCurrentResponse()
+                                            },
+                                            modifier = Modifier
+                                                .size(52.dp)
+                                                .semantics {
+                                                    role = Role.Button
+                                                    contentDescription = interruptButtonText
+                                                },
+                                            colors = IconButtonDefaults.filledTonalIconButtonColors(
+                                                containerColor = if (isSpeaking) MaterialTheme.colorScheme.errorContainer else MaterialTheme.colorScheme.surfaceVariant
+                                            )
+                                        ) {
+                                            Icon(
+                                                imageVector = Icons.Filled.Stop,
+                                                contentDescription = null,
+                                                tint = if (isSpeaking) MaterialTheme.colorScheme.error else MaterialTheme.colorScheme.onSurfaceVariant
                                             )
                                         }
                                     }

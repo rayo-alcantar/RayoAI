@@ -23,7 +23,8 @@ import java.util.concurrent.atomic.AtomicBoolean
  */
 class LiveAudioPlayer(
     private val context: Context,
-    initialOutputMode: String = "speaker"
+    initialOutputMode: String = "speaker",
+    private val onSpeakingStateChanged: (Boolean) -> Unit = {}
 ) {
     companion object {
         const val SAMPLE_RATE = 24_000
@@ -204,7 +205,14 @@ class LiveAudioPlayer(
             chunks.clear()
             bufferedBytes = 0
             playbackActive = false
-            isSpeaking.set(false)
+            lastAudioWriteTime = 0L
+            if (isSpeaking.getAndSet(false)) {
+                try {
+                    onSpeakingStateChanged(false)
+                } catch (e: Exception) {
+                    Log.w(TAG, "Error notificando cambio de habla", e)
+                }
+            }
             (lock as java.lang.Object).notifyAll()
         }
         try {
@@ -225,6 +233,7 @@ class LiveAudioPlayer(
         synchronized(lock) {
             if (bufferedBytes > 0 || chunks.isNotEmpty()) return true
         }
+        if (lastAudioWriteTime == 0L) return false
         return (SystemClock.elapsedRealtime() - lastAudioWriteTime) < 350L
     }
 
@@ -234,7 +243,11 @@ class LiveAudioPlayer(
             chunks.clear()
             bufferedBytes = 0
             playbackActive = false
-            isSpeaking.set(false)
+            if (isSpeaking.getAndSet(false)) {
+                try {
+                    onSpeakingStateChanged(false)
+                } catch (_: Exception) {}
+            }
             (lock as java.lang.Object).notifyAll()
         }
         playbackThread?.interrupt()
@@ -282,11 +295,19 @@ class LiveAudioPlayer(
                         // Si tras la espera sigue vacío, el turno de respuesta terminó
                         if (chunks.isEmpty()) {
                             playbackActive = false
-                            isSpeaking.set(false)
+                            if (isSpeaking.getAndSet(false)) {
+                                try {
+                                    onSpeakingStateChanged(false)
+                                } catch (_: Exception) {}
+                            }
                         }
                     } else {
                         // Esperando el prebuffer inicial del siguiente turno
-                        isSpeaking.set(false)
+                        if (isSpeaking.getAndSet(false)) {
+                            try {
+                                onSpeakingStateChanged(false)
+                            } catch (_: Exception) {}
+                        }
                         try {
                             (lock as java.lang.Object).wait(100)
                         } catch (e: InterruptedException) {
@@ -300,7 +321,11 @@ class LiveAudioPlayer(
                     val nextChunk = chunks.removeFirst()
                     chunk = nextChunk
                     bufferedBytes -= nextChunk.size
-                    isSpeaking.set(true)
+                    if (!isSpeaking.getAndSet(true)) {
+                        try {
+                            onSpeakingStateChanged(true)
+                        } catch (_: Exception) {}
+                    }
                 }
             }
 
@@ -319,6 +344,10 @@ class LiveAudioPlayer(
                 }
             }
         }
-        isSpeaking.set(false)
+        if (isSpeaking.getAndSet(false)) {
+            try {
+                onSpeakingStateChanged(false)
+            } catch (_: Exception) {}
+        }
     }
 }

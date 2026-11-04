@@ -16,6 +16,7 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.ContentCopy
+import androidx.compose.material.icons.filled.Stop
 import androidx.compose.material.icons.filled.VolumeUp
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
@@ -59,7 +60,12 @@ fun ChatBubble(message: com.rayoai.domain.model.ChatMessage, modifier: Modifier 
                 .semantics(mergeDescendants = true) {
                     customActions = listOf(
                         CustomAccessibilityAction(listenDescription) {
-                            textToSpeech?.speak(message.content, TextToSpeech.QUEUE_FLUSH, null, ""); true
+                            if (textToSpeech?.isSpeaking == true) {
+                                textToSpeech.stop()
+                            } else {
+                                textToSpeech?.speak(message.content, TextToSpeech.QUEUE_FLUSH, null, "")
+                            }
+                            true
                         },
                         CustomAccessibilityAction(copyDescription) {
                             copyTextToClipboard(context, message.content, clipboardLabel, copiedMessage); true
@@ -86,9 +92,18 @@ fun ChatBubble(message: com.rayoai.domain.model.ChatMessage, modifier: Modifier 
                 modifier = Modifier.padding(top = 4.dp),
                 horizontalArrangement = Arrangement.spacedBy(4.dp) // Espacio entre los botones.
             ) {
-                // Botón para escuchar el texto.
-                IconButton(onClick = { textToSpeech?.speak(message.content, TextToSpeech.QUEUE_FLUSH, null, "") }) {
-                    Icon(Icons.Default.VolumeUp, contentDescription = listenDescription)
+                // Botón para escuchar o detener el texto.
+                IconButton(onClick = {
+                    if (textToSpeech?.isSpeaking == true) {
+                        textToSpeech.stop()
+                    } else {
+                        textToSpeech?.speak(message.content, TextToSpeech.QUEUE_FLUSH, null, "")
+                    }
+                }) {
+                    Icon(
+                        imageVector = if (textToSpeech?.isSpeaking == true) Icons.Filled.Stop else Icons.Filled.VolumeUp,
+                        contentDescription = listenDescription
+                    )
                 }
                 // Botón para copiar el texto al portapapeles.
                 IconButton(onClick = { copyTextToClipboard(context, message.content, clipboardLabel, copiedMessage) }) {

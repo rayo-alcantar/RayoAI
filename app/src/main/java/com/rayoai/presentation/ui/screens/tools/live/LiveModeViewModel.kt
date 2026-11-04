@@ -29,6 +29,7 @@ class LiveModeViewModel @Inject constructor(
     val isVideoPaused: StateFlow<Boolean> = liveManager.isVideoPaused
     val isMicMuted: StateFlow<Boolean> = liveManager.isMicMuted
     val isTalking: StateFlow<Boolean> = liveManager.isTalking
+    val isSpeaking: StateFlow<Boolean> = liveManager.isSpeaking
     val latestTranscript: StateFlow<String> = liveManager.latestTranscript
     val errorMessage: StateFlow<String?> = liveManager.errorMessage
 

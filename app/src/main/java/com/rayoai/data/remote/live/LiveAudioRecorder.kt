@@ -31,8 +31,8 @@ class LiveAudioRecorder(
         private const val TAG = "LiveAudioRecorder"
         // 1.8 segundos de gracia para el saludo de bienvenida de RayoAI (igual que en rayoai_win)
         private const val INITIAL_GREETING_SUPPRESSION_MS = 1800L
-        // Umbral RMS de energía para distinguir la voz del usuario frente al eco del altavoz
-        private const val BARGE_IN_RMS_THRESHOLD = 3000.0
+        // Umbral RMS de energía sensible y natural para distinguir la voz del usuario frente al eco del altavoz
+        private const val BARGE_IN_RMS_THRESHOLD = 650.0
     }
 
     private val isRecording = AtomicBoolean(false)
@@ -125,6 +125,13 @@ class LiveAudioRecorder(
     fun setTalking(talking: Boolean) {
         if (pushToTalk) {
             isTalking.set(talking)
+            if (talking) {
+                try {
+                    onUserInterrupted()
+                } catch (e: Exception) {
+                    Log.w(TAG, "Error en callback de interrupción PTT", e)
+                }
+            }
         }
     }
 
@@ -179,24 +186,16 @@ class LiveAudioRecorder(
                     // o si el usuario está hablando intencionalmente por encima para interrumpir.
                     val rms = calculateRms(buffer, read)
                     if (rms >= BARGE_IN_RMS_THRESHOLD) {
-                        highEnergyCount++
-                        if (highEnergyCount >= 2) {
-                            Log.d(TAG, "Interrupción intencional del usuario detectada (RMS: ${rms.toInt()}). Deteniendo altavoz.")
-                            try {
-                                onUserInterrupted()
-                            } catch (e: Exception) {
-                                Log.w(TAG, "Error en callback de interrupción", e)
-                            }
-                            highEnergyCount = 0
-                        } else {
-                            continue
+                        Log.d(TAG, "Interrupción intencional del usuario detectada (RMS: ${rms.toInt()}). Deteniendo altavoz.")
+                        try {
+                            onUserInterrupted()
+                        } catch (e: Exception) {
+                            Log.w(TAG, "Error en callback de interrupción", e)
                         }
                     } else {
-                        highEnergyCount = 0
+                        // El altavoz suena y el micrófono solo capta eco residual: no enviar este chunk a Gemini.
                         continue
                     }
-                } else {
-                    highEnergyCount = 0
                 }
 
                 if (!isMuted.get() && (!pushToTalk || isTalking.get())) {

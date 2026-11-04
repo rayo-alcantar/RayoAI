@@ -50,6 +50,9 @@ class GeminiLiveManager @Inject constructor(
     private val _isTalking = MutableStateFlow(false)
     val isTalking: StateFlow<Boolean> = _isTalking.asStateFlow()
 
+    private val _isSpeaking = MutableStateFlow(false)
+    val isSpeaking: StateFlow<Boolean> = _isSpeaking.asStateFlow()
+
     private val _latestTranscript = MutableStateFlow("")
     val latestTranscript: StateFlow<String> = _latestTranscript.asStateFlow()
 
@@ -72,9 +75,16 @@ class GeminiLiveManager @Inject constructor(
         _latestTranscript.value = ""
         _isVideoPaused.value = false
         _isMicMuted.value = false
+        _isSpeaking.value = false
         _audioOutput.value = config.audioOutput
 
-        player = LiveAudioPlayer(context, config.audioOutput).apply { start() }
+        player = LiveAudioPlayer(
+            context = context,
+            initialOutputMode = config.audioOutput,
+            onSpeakingStateChanged = { speaking ->
+                _isSpeaking.value = speaking
+            }
+        ).apply { start() }
 
         client = GeminiLiveClient(
             config = config,
@@ -96,6 +106,7 @@ class GeminiLiveManager @Inject constructor(
             },
             onInterrupted = {
                 player?.clear()
+                _isSpeaking.value = false
             },
             onError = { err ->
                 _errorMessage.value = err
@@ -107,8 +118,7 @@ class GeminiLiveManager @Inject constructor(
             pushToTalk = config.pushToTalk,
             isSpeakerPlaying = { player?.isSpeakingAudio() == true },
             onUserInterrupted = {
-                player?.clear()
-                client?.sendActivityStart()
+                interruptCurrentResponse()
             },
             onAudioChunk = { chunk ->
                 if (!_isMicMuted.value) {
@@ -148,16 +158,17 @@ class GeminiLiveManager @Inject constructor(
         recorder?.setTalking(talking)
 
         if (talking) {
-            player?.clear()
-            client?.sendActivityStart()
+            interruptCurrentResponse()
         } else {
             client?.sendActivityEnd()
         }
     }
 
     fun interruptCurrentResponse() {
+        Log.d(TAG, "interruptCurrentResponse: cancelando reproducción de voz y descartando frames en tránsito.")
         player?.clear()
-        client?.sendActivityStart()
+        _isSpeaking.value = false
+        client?.cancelCurrentTurn()
     }
 
     fun sendBitmapFrame(bitmap: Bitmap, quality: Int = 72) {
@@ -209,9 +220,11 @@ class GeminiLiveManager @Inject constructor(
         recorder = null
         player?.stop()
         player = null
+        _isSpeaking.value = false
         client?.stop()
         client = null
         _isTalking.value = false
+        _latestTranscript.value = ""
         _sessionState.value = LiveSessionState.STOPPED
     }
 }
