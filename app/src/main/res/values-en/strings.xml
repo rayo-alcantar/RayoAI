@@ -458,6 +458,13 @@ Card: 4152314082325278</string>
     <string name="live_mode_interval_2s">2 seconds (data saver)</string>
     <string name="live_mode_notification_channel_name">RayoAI Live Session</string>
     <string name="live_mode_notification_channel_desc">Maintains continuous conversation session in background</string>
+    <string name="live_mode_vad_label">Voice detection sensitivity</string>
+    <string name="live_mode_vad_high">High (quiet environments)</string>
+    <string name="live_mode_vad_low">Low (filters ambient noise)</string>
+    <string name="live_mode_speaking">RayoAI responding…</string>
+    <string name="live_mode_listening">Listening…</string>
+    <string name="live_mode_settings_button">Live Mode Settings</string>
+    <string name="live_mode_settings_subtitle">Customize voice, model, microphone and frequency</string>
     <string name="settings_live_section_title">Live Mode (Gemini Live)</string>
     <string name="settings_live_section_description">Configure model, voice, thinking, and live visual streaming.</string>
 </resources>

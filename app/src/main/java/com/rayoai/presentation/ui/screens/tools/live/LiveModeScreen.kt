@@ -8,7 +8,6 @@ package com.rayoai.presentation.ui.screens.tools.live
 import android.Manifest
 import android.app.Activity
 import android.content.Context
-import android.content.Intent
 import android.media.projection.MediaProjectionManager
 import android.os.SystemClock
 import android.view.ViewGroup
@@ -21,6 +20,8 @@ import androidx.camera.view.LifecycleCameraController
 import androidx.camera.view.PreviewView
 import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.foundation.background
+import androidx.compose.foundation.border
+import androidx.compose.foundation.clickable
 import androidx.compose.foundation.gestures.detectTapGestures
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
@@ -42,6 +43,8 @@ import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material.icons.automirrored.filled.ScreenShare
 import androidx.compose.material.icons.filled.CallEnd
 import androidx.compose.material.icons.filled.Cameraswitch
+import androidx.compose.material.icons.filled.Close
+import androidx.compose.material.icons.filled.Done
 import androidx.compose.material.icons.filled.FlashOff
 import androidx.compose.material.icons.filled.FlashOn
 import androidx.compose.material.icons.filled.Headphones
@@ -49,23 +52,28 @@ import androidx.compose.material.icons.filled.Mic
 import androidx.compose.material.icons.filled.MicOff
 import androidx.compose.material.icons.filled.Pause
 import androidx.compose.material.icons.filled.PlayArrow
+import androidx.compose.material.icons.filled.Psychology
+import androidx.compose.material.icons.filled.RecordVoiceOver
 import androidx.compose.material.icons.filled.Settings
-import androidx.compose.material.icons.filled.StopScreenShare
+import androidx.compose.material.icons.filled.Timer
 import androidx.compose.material.icons.filled.Videocam
-import androidx.compose.material.icons.filled.VideocamOff
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Button
 import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
+import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.DropdownMenuItem
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.ExposedDropdownMenuBox
 import androidx.compose.material3.ExposedDropdownMenuDefaults
 import androidx.compose.material3.FilledTonalButton
+import androidx.compose.material3.FilledTonalIconButton
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
+import androidx.compose.material3.IconButtonDefaults
 import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.ModalBottomSheet
 import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Scaffold
@@ -73,6 +81,7 @@ import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.material3.TopAppBar
+import androidx.compose.material3.rememberModalBottomSheetState
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.LaunchedEffect
@@ -84,7 +93,9 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalLifecycleOwner
@@ -94,13 +105,13 @@ import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.semantics.liveRegion
 import androidx.compose.ui.semantics.role
+import androidx.compose.ui.semantics.selected
 import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.semantics.stateDescription
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.viewinterop.AndroidView
-import androidx.core.content.ContextCompat
 import androidx.hilt.navigation.compose.hiltViewModel
 import com.google.accompanist.permissions.MultiplePermissionsState
 import com.google.accompanist.permissions.rememberMultiplePermissionsState
@@ -133,7 +144,7 @@ fun LiveModeScreen(
     val livePushToTalk by viewModel.livePushToTalk.collectAsState()
     val liveCaptureIntervalSeconds by viewModel.liveCaptureIntervalSeconds.collectAsState()
 
-    var showConfigDialog by remember { mutableStateOf(false) }
+    var showConfigSheet by remember { mutableStateOf(false) }
     var showApiKeyDialog by remember { mutableStateOf(false) }
     var isFrontCamera by remember { mutableStateOf(false) }
     var isTorchOn by remember { mutableStateOf(false) }
@@ -183,7 +194,7 @@ fun LiveModeScreen(
         }
     }
 
-    // Gestor de retroalimentación auditiva (earcons) y háptica
+    // Gestor de retroalimentación auditiva y háptica
     val feedbackHelper = remember { LiveFeedbackHelper(context) }
 
     // Gestionar Lifecycle del Foreground Service y Feedback
@@ -227,7 +238,19 @@ fun LiveModeScreen(
     Scaffold(
         topBar = {
             TopAppBar(
-                title = { Text(screenTitle) },
+                title = {
+                    Row(verticalAlignment = Alignment.CenterVertically) {
+                        Text(screenTitle, fontWeight = FontWeight.Bold)
+                        if (sessionState == LiveSessionState.RUNNING) {
+                            Spacer(Modifier.width(8.dp))
+                            Box(
+                                modifier = Modifier
+                                    .size(10.dp)
+                                    .background(Color(0xFF00E676), CircleShape)
+                            )
+                        }
+                    }
+                },
                 navigationIcon = {
                     IconButton(
                         onClick = {
@@ -244,7 +267,12 @@ fun LiveModeScreen(
                     }
                 },
                 actions = {
-                    IconButton(onClick = { showConfigDialog = true }) {
+                    IconButton(
+                        onClick = { showConfigSheet = true },
+                        modifier = Modifier.semantics {
+                            contentDescription = screenTitle
+                        }
+                    ) {
                         Icon(
                             imageVector = Icons.Filled.Settings,
                             contentDescription = stringResource(R.string.live_mode_config_title)
@@ -268,12 +296,12 @@ fun LiveModeScreen(
                     .fillMaxSize()
                     .padding(innerPadding)
             ) {
-                // Área Visual Central (Cámara, Pantalla o Solo Voz)
+                // Escenario Central Visual (Cámara, Pantalla o Solo Voz)
                 Box(
                     modifier = Modifier
                         .weight(1f)
                         .fillMaxWidth()
-                        .background(Color.Black)
+                        .background(Color(0xFF121212))
                 ) {
                     when (visualSource) {
                         VisualSource.CAMERA -> {
@@ -284,39 +312,47 @@ fun LiveModeScreen(
                                 onFrame = { bitmap -> viewModel.sendBitmapFrame(bitmap) }
                             )
 
-                            // Controles flotantes sobre la cámara (Flip / Linterna)
+                            // Botones flotantes de control de cámara (Linterna y Flip)
                             Row(
                                 modifier = Modifier
                                     .align(Alignment.TopEnd)
-                                    .padding(12.dp),
-                                horizontalArrangement = Arrangement.spacedBy(8.dp)
+                                    .padding(16.dp),
+                                horizontalArrangement = Arrangement.spacedBy(10.dp)
                             ) {
+                                val torchDesc = if (isTorchOn) stringResource(R.string.live_mode_torch_off)
+                                else stringResource(R.string.live_mode_torch_on)
+
                                 IconButton(
                                     onClick = { isTorchOn = !isTorchOn },
-                                    modifier = Modifier.background(
-                                        Color.Black.copy(alpha = 0.5f),
-                                        CircleShape
-                                    )
+                                    modifier = Modifier
+                                        .size(48.dp)
+                                        .background(Color.Black.copy(alpha = 0.65f), CircleShape)
+                                        .semantics {
+                                            role = Role.Button
+                                            contentDescription = torchDesc
+                                        }
                                 ) {
-                                    val torchLabel = if (isTorchOn) stringResource(R.string.live_mode_torch_off)
-                                    else stringResource(R.string.live_mode_torch_on)
                                     Icon(
                                         imageVector = if (isTorchOn) Icons.Filled.FlashOn else Icons.Filled.FlashOff,
-                                        contentDescription = torchLabel,
-                                        tint = Color.White
+                                        contentDescription = null,
+                                        tint = if (isTorchOn) Color(0xFFFFD600) else Color.White
                                     )
                                 }
 
+                                val flipDesc = stringResource(R.string.live_mode_flip_camera)
                                 IconButton(
                                     onClick = { isFrontCamera = !isFrontCamera },
-                                    modifier = Modifier.background(
-                                        Color.Black.copy(alpha = 0.5f),
-                                        CircleShape
-                                    )
+                                    modifier = Modifier
+                                        .size(48.dp)
+                                        .background(Color.Black.copy(alpha = 0.65f), CircleShape)
+                                        .semantics {
+                                            role = Role.Button
+                                            contentDescription = flipDesc
+                                        }
                                 ) {
                                     Icon(
                                         imageVector = Icons.Filled.Cameraswitch,
-                                        contentDescription = stringResource(R.string.live_mode_flip_camera),
+                                        contentDescription = null,
                                         tint = Color.White
                                     )
                                 }
@@ -330,229 +366,271 @@ fun LiveModeScreen(
                         }
                     }
 
-                    // Overlay de Estado y Subtítulos para accesibilidad
+                    // Franja de Estado y Subtítulos Accesibles
                     Column(
                         modifier = Modifier
                             .align(Alignment.BottomCenter)
                             .fillMaxWidth()
-                            .background(Color.Black.copy(alpha = 0.7f))
                             .padding(12.dp)
+                            .background(
+                                Color.Black.copy(alpha = 0.75f),
+                                RoundedCornerShape(16.dp)
+                            )
+                            .padding(horizontal = 16.dp, vertical = 12.dp)
                             .semantics {
                                 liveRegion = LiveRegionMode.Polite
                                 contentDescription = "$currentStatusText. $latestTranscript"
                             }
                     ) {
-                        Text(
-                            text = currentStatusText,
-                            style = MaterialTheme.typography.titleSmall,
-                            color = if (sessionState == LiveSessionState.RUNNING) Color(0xFF00E676) else Color.White,
-                            fontWeight = FontWeight.Bold
-                        )
+                        Row(verticalAlignment = Alignment.CenterVertically) {
+                            val dotColor = when (sessionState) {
+                                LiveSessionState.RUNNING -> Color(0xFF00E676)
+                                LiveSessionState.STARTING, LiveSessionState.RECONNECTING -> Color(0xFFFFB300)
+                                else -> Color(0xFF9E9E9E)
+                            }
+                            Box(
+                                modifier = Modifier
+                                    .size(10.dp)
+                                    .background(dotColor, CircleShape)
+                            )
+                            Spacer(Modifier.width(8.dp))
+                            Text(
+                                text = currentStatusText,
+                                style = MaterialTheme.typography.titleSmall,
+                                color = Color.White,
+                                fontWeight = FontWeight.Bold
+                            )
+                        }
+
                         if (latestTranscript.isNotBlank()) {
-                            Spacer(modifier = Modifier.height(4.dp))
+                            Spacer(modifier = Modifier.height(6.dp))
                             Text(
                                 text = latestTranscript,
                                 style = MaterialTheme.typography.bodyMedium,
-                                color = Color.White
+                                color = Color(0xFFEEEEEE)
                             )
                         }
                     }
                 }
 
-                // Barra de Controles Inferior
+                // Panel de Controles Inferior Rediseñado
                 Surface(
                     color = MaterialTheme.colorScheme.surface,
                     tonalElevation = 8.dp,
                     modifier = Modifier.fillMaxWidth()
                 ) {
                     Column(
-                        modifier = Modifier.padding(16.dp),
-                        verticalArrangement = Arrangement.spacedBy(12.dp)
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .padding(horizontal = 16.dp, vertical = 14.dp),
+                        verticalArrangement = Arrangement.spacedBy(14.dp)
                     ) {
-                        // Selector de Fuentes Visuales (Cámara / Pantalla / Solo voz)
+                        // Selector de Modo Visual
                         Row(
                             modifier = Modifier.fillMaxWidth(),
-                            horizontalArrangement = Arrangement.SpaceEvenly
+                            horizontalArrangement = Arrangement.spacedBy(8.dp)
                         ) {
-                            val cameraDesc = stringResource(R.string.live_mode_source_camera)
-                            FilledTonalButton(
+                            val isCamera = visualSource == VisualSource.CAMERA
+                            val isScreen = visualSource == VisualSource.SCREEN
+                            val isNone = visualSource == VisualSource.NONE
+
+                            ModeSelectChip(
+                                label = stringResource(R.string.live_mode_source_camera),
+                                icon = Icons.Filled.Videocam,
+                                isSelected = isCamera,
+                                modifier = Modifier.weight(1f),
                                 onClick = {
                                     screenCaptureManager.stop()
                                     viewModel.setVisualSource(VisualSource.CAMERA)
-                                },
-                                colors = ButtonDefaults.filledTonalButtonColors(
-                                    containerColor = if (visualSource == VisualSource.CAMERA) MaterialTheme.colorScheme.primaryContainer else MaterialTheme.colorScheme.surfaceVariant
-                                ),
-                                modifier = Modifier.semantics {
-                                    role = Role.Button
-                                    contentDescription = cameraDesc
                                 }
-                            ) {
-                                Icon(Icons.Filled.Videocam, contentDescription = null)
-                                Spacer(Modifier.width(4.dp))
-                                Text(cameraDesc)
-                            }
+                            )
 
-                            val screenDesc = stringResource(R.string.live_mode_source_screen)
-                            FilledTonalButton(
+                            ModeSelectChip(
+                                label = stringResource(R.string.live_mode_source_screen),
+                                icon = Icons.AutoMirrored.Filled.ScreenShare,
+                                isSelected = isScreen,
+                                modifier = Modifier.weight(1f),
                                 onClick = {
                                     viewModel.setVisualSource(VisualSource.SCREEN)
                                     val projectionManager = context.getSystemService(Context.MEDIA_PROJECTION_SERVICE) as MediaProjectionManager
                                     screenCaptureLauncher.launch(projectionManager.createScreenCaptureIntent())
-                                },
-                                colors = ButtonDefaults.filledTonalButtonColors(
-                                    containerColor = if (visualSource == VisualSource.SCREEN) MaterialTheme.colorScheme.primaryContainer else MaterialTheme.colorScheme.surfaceVariant
-                                ),
-                                modifier = Modifier.semantics {
-                                    role = Role.Button
-                                    contentDescription = screenDesc
                                 }
-                            ) {
-                                Icon(Icons.AutoMirrored.Filled.ScreenShare, contentDescription = null)
-                                Spacer(Modifier.width(4.dp))
-                                Text(screenDesc)
-                            }
+                            )
 
-                            val voiceDesc = stringResource(R.string.live_mode_source_none)
-                            FilledTonalButton(
+                            ModeSelectChip(
+                                label = stringResource(R.string.live_mode_source_none),
+                                icon = Icons.Filled.Headphones,
+                                isSelected = isNone,
+                                modifier = Modifier.weight(1f),
                                 onClick = {
                                     screenCaptureManager.stop()
                                     viewModel.setVisualSource(VisualSource.NONE)
-                                },
-                                colors = ButtonDefaults.filledTonalButtonColors(
-                                    containerColor = if (visualSource == VisualSource.NONE) MaterialTheme.colorScheme.primaryContainer else MaterialTheme.colorScheme.surfaceVariant
-                                ),
-                                modifier = Modifier.semantics {
-                                    role = Role.Button
-                                    contentDescription = voiceDesc
                                 }
-                            ) {
-                                Icon(Icons.Filled.Headphones, contentDescription = null)
-                                Spacer(Modifier.width(4.dp))
-                                Text(voiceDesc)
-                            }
+                            )
                         }
 
-                        // Fila de acciones y PTT / Micrófono
-                        Row(
-                            modifier = Modifier.fillMaxWidth(),
-                            horizontalArrangement = Arrangement.spacedBy(8.dp),
-                            verticalAlignment = Alignment.CenterVertically
-                        ) {
-                            // Botón de Pausa de Video (si la sesión está activa y no es solo voz)
-                            if (sessionState == LiveSessionState.RUNNING && visualSource != VisualSource.NONE) {
-                                val pauseVideoDesc = if (isVideoPaused) stringResource(R.string.live_mode_resume_video)
-                                else stringResource(R.string.live_mode_pause_video)
-
-                                IconButton(
-                                    onClick = { viewModel.toggleVideoPause() },
-                                    modifier = Modifier
-                                        .size(48.dp)
-                                        .background(
-                                            if (isVideoPaused) MaterialTheme.colorScheme.errorContainer else MaterialTheme.colorScheme.surfaceVariant,
-                                            CircleShape
-                                        )
-                                        .semantics {
-                                            role = Role.Button
-                                            contentDescription = pauseVideoDesc
-                                        }
-                                ) {
-                                    Icon(
-                                        imageVector = if (isVideoPaused) Icons.Filled.PlayArrow else Icons.Filled.Pause,
-                                        contentDescription = null
-                                    )
-                                }
-                            }
-
-                            // Botón de Micrófono o Push-To-Talk
-                            if (livePushToTalk) {
-                                val pttLabel = if (isTalking) stringResource(R.string.live_mode_ptt_talking)
-                                else stringResource(R.string.live_mode_ptt_button)
-
+                        // Fila de Acción Principal / En Llamada
+                        when (sessionState) {
+                            LiveSessionState.STOPPED -> {
+                                val startLabel = stringResource(R.string.live_mode_start)
                                 Button(
-                                    onClick = {},
-                                    modifier = Modifier
-                                        .weight(1f)
-                                        .height(52.dp)
-                                        .pointerInput(Unit) {
-                                            detectTapGestures(
-                                                onPress = {
-                                                    feedbackHelper.onPttPress()
-                                                    viewModel.setPushToTalkState(true)
-                                                    tryAwaitRelease()
-                                                    feedbackHelper.onPttRelease()
-                                                    viewModel.setPushToTalkState(false)
-                                                }
-                                            )
-                                        }
-                                        .semantics {
-                                            role = Role.Button
-                                            contentDescription = pttLabel
-                                        },
-                                    colors = ButtonDefaults.buttonColors(
-                                        containerColor = if (isTalking) MaterialTheme.colorScheme.error else MaterialTheme.colorScheme.primary
-                                    )
-                                ) {
-                                    Icon(Icons.Filled.Mic, contentDescription = null)
-                                    Spacer(Modifier.width(8.dp))
-                                    Text(pttLabel)
-                                }
-                            } else {
-                                val micDesc = if (isMicMuted) stringResource(R.string.live_mode_mic_muted)
-                                else stringResource(R.string.live_mode_mic_unmuted)
-
-                                IconButton(
-                                    onClick = { viewModel.toggleMicMute() },
-                                    modifier = Modifier
-                                        .size(48.dp)
-                                        .background(
-                                            if (isMicMuted) MaterialTheme.colorScheme.errorContainer else MaterialTheme.colorScheme.surfaceVariant,
-                                            CircleShape
-                                        )
-                                        .semantics {
-                                            role = Role.Button
-                                            contentDescription = micDesc
-                                        }
-                                ) {
-                                    Icon(
-                                        imageVector = if (isMicMuted) Icons.Filled.MicOff else Icons.Filled.Mic,
-                                        contentDescription = null
-                                    )
-                                }
-                            }
-
-                            // Botón Principal: Iniciar / Finalizar Conversación
-                            val isRunningOrStarting = sessionState == LiveSessionState.RUNNING || sessionState == LiveSessionState.STARTING
-                            val mainActionLabel = if (isRunningOrStarting) stringResource(R.string.live_mode_stop)
-                            else stringResource(R.string.live_mode_start)
-
-                            Button(
-                                onClick = {
-                                    if (isRunningOrStarting) {
-                                        viewModel.stopSession()
-                                    } else {
+                                    onClick = {
                                         viewModel.startSession(
                                             onMissingApiKey = { showApiKeyDialog = true }
                                         )
-                                    }
-                                },
-                                modifier = Modifier
-                                    .weight(1.5f)
-                                    .height(52.dp)
-                                    .semantics {
-                                        role = Role.Button
-                                        contentDescription = mainActionLabel
                                     },
-                                colors = ButtonDefaults.buttonColors(
-                                    containerColor = if (isRunningOrStarting) MaterialTheme.colorScheme.error else MaterialTheme.colorScheme.primary
-                                )
-                            ) {
-                                Icon(
-                                    imageVector = if (isRunningOrStarting) Icons.Filled.CallEnd else Icons.Filled.PlayArrow,
-                                    contentDescription = null
-                                )
-                                Spacer(Modifier.width(8.dp))
-                                Text(mainActionLabel)
+                                    modifier = Modifier
+                                        .fillMaxWidth()
+                                        .height(56.dp)
+                                        .semantics {
+                                            role = Role.Button
+                                            contentDescription = startLabel
+                                        },
+                                    colors = ButtonDefaults.buttonColors(
+                                        containerColor = MaterialTheme.colorScheme.primary
+                                    ),
+                                    shape = RoundedCornerShape(28.dp)
+                                ) {
+                                    Icon(Icons.Filled.PlayArrow, contentDescription = null, modifier = Modifier.size(24.dp))
+                                    Spacer(Modifier.width(10.dp))
+                                    Text(startLabel, style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Bold)
+                                }
+                            }
+
+                            LiveSessionState.STARTING, LiveSessionState.RECONNECTING -> {
+                                Row(
+                                    modifier = Modifier.fillMaxWidth(),
+                                    horizontalArrangement = Arrangement.spacedBy(10.dp),
+                                    verticalAlignment = Alignment.CenterVertically
+                                ) {
+                                    CircularProgressIndicator(
+                                        modifier = Modifier.size(28.dp),
+                                        strokeWidth = 3.dp
+                                    )
+                                    Spacer(Modifier.width(6.dp))
+                                    Text(
+                                        text = currentStatusText,
+                                        style = MaterialTheme.typography.bodyLarge,
+                                        modifier = Modifier.weight(1f)
+                                    )
+                                    OutlinedButton(
+                                        onClick = { viewModel.stopSession() },
+                                        shape = RoundedCornerShape(20.dp)
+                                    ) {
+                                        Text(stringResource(android.R.string.cancel))
+                                    }
+                                }
+                            }
+
+                            LiveSessionState.RUNNING, LiveSessionState.PAUSED, LiveSessionState.STOPPING -> {
+                                Row(
+                                    modifier = Modifier.fillMaxWidth(),
+                                    horizontalArrangement = Arrangement.spacedBy(10.dp),
+                                    verticalAlignment = Alignment.CenterVertically
+                                ) {
+                                    // Pausar / Reanudar Video si la fuente no es solo audio
+                                    if (visualSource != VisualSource.NONE) {
+                                        val pauseDesc = if (isVideoPaused) stringResource(R.string.live_mode_resume_video)
+                                        else stringResource(R.string.live_mode_pause_video)
+
+                                        FilledTonalIconButton(
+                                            onClick = { viewModel.toggleVideoPause() },
+                                            modifier = Modifier
+                                                .size(52.dp)
+                                                .semantics {
+                                                    role = Role.Button
+                                                    contentDescription = pauseDesc
+                                                },
+                                            colors = IconButtonDefaults.filledTonalIconButtonColors(
+                                                containerColor = if (isVideoPaused) MaterialTheme.colorScheme.errorContainer else MaterialTheme.colorScheme.surfaceVariant
+                                            )
+                                        ) {
+                                            Icon(
+                                                imageVector = if (isVideoPaused) Icons.Filled.PlayArrow else Icons.Filled.Pause,
+                                                contentDescription = null
+                                            )
+                                        }
+                                    }
+
+                                    // Controles de Micrófono o Push-To-Talk
+                                    if (livePushToTalk) {
+                                        val pttLabel = if (isTalking) stringResource(R.string.live_mode_ptt_talking)
+                                        else stringResource(R.string.live_mode_ptt_button)
+
+                                        Button(
+                                            onClick = {},
+                                            modifier = Modifier
+                                                .weight(1f)
+                                                .height(54.dp)
+                                                .pointerInput(Unit) {
+                                                    detectTapGestures(
+                                                        onPress = {
+                                                            feedbackHelper.onPttPress()
+                                                            viewModel.setPushToTalkState(true)
+                                                            tryAwaitRelease()
+                                                            feedbackHelper.onPttRelease()
+                                                            viewModel.setPushToTalkState(false)
+                                                        }
+                                                    )
+                                                }
+                                                .semantics {
+                                                    role = Role.Button
+                                                    contentDescription = pttLabel
+                                                },
+                                            colors = ButtonDefaults.buttonColors(
+                                                containerColor = if (isTalking) MaterialTheme.colorScheme.error else MaterialTheme.colorScheme.primary
+                                            ),
+                                            shape = RoundedCornerShape(27.dp)
+                                        ) {
+                                            Icon(Icons.Filled.Mic, contentDescription = null)
+                                            Spacer(Modifier.width(8.dp))
+                                            Text(pttLabel, fontWeight = FontWeight.Bold)
+                                        }
+                                    } else {
+                                        val micDesc = if (isMicMuted) stringResource(R.string.live_mode_mic_muted)
+                                        else stringResource(R.string.live_mode_mic_unmuted)
+
+                                        FilledTonalIconButton(
+                                            onClick = { viewModel.toggleMicMute() },
+                                            modifier = Modifier
+                                                .size(52.dp)
+                                                .semantics {
+                                                    role = Role.Button
+                                                    contentDescription = micDesc
+                                                },
+                                            colors = IconButtonDefaults.filledTonalIconButtonColors(
+                                                containerColor = if (isMicMuted) MaterialTheme.colorScheme.errorContainer else MaterialTheme.colorScheme.surfaceVariant
+                                            )
+                                        ) {
+                                            Icon(
+                                                imageVector = if (isMicMuted) Icons.Filled.MicOff else Icons.Filled.Mic,
+                                                contentDescription = null,
+                                                tint = if (isMicMuted) MaterialTheme.colorScheme.error else MaterialTheme.colorScheme.onSurfaceVariant
+                                            )
+                                        }
+                                    }
+
+                                    // Botón Finalizar Conversación
+                                    val stopLabel = stringResource(R.string.live_mode_stop)
+                                    Button(
+                                        onClick = { viewModel.stopSession() },
+                                        modifier = Modifier
+                                            .weight(if (livePushToTalk) 0.8f else 1.2f)
+                                            .height(54.dp)
+                                            .semantics {
+                                                role = Role.Button
+                                                contentDescription = stopLabel
+                                            },
+                                        colors = ButtonDefaults.buttonColors(
+                                            containerColor = MaterialTheme.colorScheme.error
+                                        ),
+                                        shape = RoundedCornerShape(27.dp)
+                                    ) {
+                                        Icon(Icons.Filled.CallEnd, contentDescription = null)
+                                        Spacer(Modifier.width(8.dp))
+                                        Text(stopLabel, fontWeight = FontWeight.Bold)
+                                    }
+                                }
                             }
                         }
                     }
@@ -598,16 +676,16 @@ fun LiveModeScreen(
         )
     }
 
-    // Diálogo de Ajustes del Modo Live
-    if (showConfigDialog) {
-        LiveSettingsDialog(
+    // Hoja Inferior (ModalBottomSheet) de Ajustes del Modo Live
+    if (showConfigSheet) {
+        LiveSettingsSheet(
             currentModel = liveModel,
             currentVoice = liveVoice,
             currentThinking = liveThinkingLevel,
             currentVad = liveVadSensitivity,
             currentPtt = livePushToTalk,
             currentInterval = liveCaptureIntervalSeconds,
-            onDismiss = { showConfigDialog = false },
+            onDismiss = { showConfigSheet = false },
             onSaveModel = { viewModel.saveLiveModel(it) },
             onSaveVoice = { viewModel.saveLiveVoice(it) },
             onSaveThinking = { viewModel.saveLiveThinkingLevel(it) },
@@ -615,6 +693,43 @@ fun LiveModeScreen(
             onSavePtt = { viewModel.saveLivePushToTalk(it) },
             onSaveInterval = { viewModel.saveLiveCaptureIntervalSeconds(it) }
         )
+    }
+}
+
+@Composable
+private fun ModeSelectChip(
+    label: String,
+    icon: ImageVector,
+    isSelected: Boolean,
+    modifier: Modifier = Modifier,
+    onClick: () -> Unit
+) {
+    val containerColor = if (isSelected) MaterialTheme.colorScheme.primaryContainer else MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.6f)
+    val contentColor = if (isSelected) MaterialTheme.colorScheme.onPrimaryContainer else MaterialTheme.colorScheme.onSurfaceVariant
+    val borderColor = if (isSelected) MaterialTheme.colorScheme.primary else Color.Transparent
+
+    Surface(
+        onClick = onClick,
+        modifier = modifier
+            .height(44.dp)
+            .semantics {
+                role = Role.Tab
+                selected = isSelected
+                contentDescription = label
+            },
+        shape = RoundedCornerShape(12.dp),
+        color = containerColor,
+        border = androidx.compose.foundation.BorderStroke(1.dp, borderColor)
+    ) {
+        Row(
+            modifier = Modifier.fillMaxSize().padding(horizontal = 4.dp),
+            verticalAlignment = Alignment.CenterVertically,
+            horizontalArrangement = Arrangement.Center
+        ) {
+            Icon(icon, contentDescription = null, tint = contentColor, modifier = Modifier.size(18.dp))
+            Spacer(Modifier.width(6.dp))
+            Text(label, style = MaterialTheme.typography.labelMedium, color = contentColor, fontWeight = if (isSelected) FontWeight.Bold else FontWeight.Medium)
+        }
     }
 }
 
@@ -743,7 +858,8 @@ private fun ScreenLiveView() {
             text = stringResource(R.string.live_mode_screen_active),
             style = MaterialTheme.typography.titleMedium,
             color = Color.White,
-            textAlign = TextAlign.Center
+            textAlign = TextAlign.Center,
+            fontWeight = FontWeight.Bold
         )
         Spacer(Modifier.height(8.dp))
         Text(
@@ -775,7 +891,8 @@ private fun VoiceOnlyLiveView() {
             text = stringResource(R.string.live_mode_source_none),
             style = MaterialTheme.typography.titleMedium,
             color = Color.White,
-            textAlign = TextAlign.Center
+            textAlign = TextAlign.Center,
+            fontWeight = FontWeight.Bold
         )
         Spacer(Modifier.height(8.dp))
         Text(
@@ -788,7 +905,7 @@ private fun VoiceOnlyLiveView() {
 }
 
 @Composable
-private fun LiveSettingsDialog(
+private fun LiveSettingsSheet(
     currentModel: String,
     currentVoice: String,
     currentThinking: String,
@@ -803,217 +920,300 @@ private fun LiveSettingsDialog(
     onSavePtt: (Boolean) -> Unit,
     onSaveInterval: (Float) -> Unit
 ) {
+    val sheetState = rememberModalBottomSheetState(skipPartiallyExpanded = true)
+
     var expandedModel by remember { mutableStateOf(false) }
     var expandedVoice by remember { mutableStateOf(false) }
     var expandedThinking by remember { mutableStateOf(false) }
 
-    AlertDialog(
+    ModalBottomSheet(
         onDismissRequest = onDismiss,
-        title = { Text(stringResource(R.string.live_mode_config_title)) },
-        text = {
-            Column(
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .verticalScroll(rememberScrollState()),
-                verticalArrangement = Arrangement.spacedBy(12.dp)
+        sheetState = sheetState,
+        containerColor = MaterialTheme.colorScheme.surface,
+        dragHandle = null
+    ) {
+        Column(
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(horizontal = 20.dp, vertical = 16.dp)
+                .verticalScroll(rememberScrollState()),
+            verticalArrangement = Arrangement.spacedBy(16.dp)
+        ) {
+            // Cabecera de Ajustes
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.SpaceBetween,
+                verticalAlignment = Alignment.CenterVertically
             ) {
-                // Modelo Live
-                ExposedDropdownMenuBox(
-                    expanded = expandedModel,
-                    onExpandedChange = { expandedModel = it }
-                ) {
-                    OutlinedTextField(
-                        value = currentModel,
-                        onValueChange = {},
-                        readOnly = true,
-                        label = { Text(stringResource(R.string.live_mode_model_label)) },
-                        trailingIcon = { ExposedDropdownMenuDefaults.TrailingIcon(expanded = expandedModel) },
-                        modifier = Modifier
-                            .menuAnchor()
-                            .fillMaxWidth()
-                    )
-                    ExposedDropdownMenu(
-                        expanded = expandedModel,
-                        onDismissRequest = { expandedModel = false }
-                    ) {
-                        GeminiModelConfig.liveSelectableModels.forEach { model ->
-                            DropdownMenuItem(
-                                text = { Text(model) },
-                                onClick = {
-                                    onSaveModel(model)
-                                    expandedModel = false
-                                }
-                            )
-                        }
-                    }
-                }
-
-                // Voz de Gemini
-                ExposedDropdownMenuBox(
-                    expanded = expandedVoice,
-                    onExpandedChange = { expandedVoice = it }
-                ) {
-                    OutlinedTextField(
-                        value = currentVoice,
-                        onValueChange = {},
-                        readOnly = true,
-                        label = { Text(stringResource(R.string.live_mode_voice_label)) },
-                        trailingIcon = { ExposedDropdownMenuDefaults.TrailingIcon(expanded = expandedVoice) },
-                        modifier = Modifier
-                            .menuAnchor()
-                            .fillMaxWidth()
-                    )
-                    ExposedDropdownMenu(
-                        expanded = expandedVoice,
-                        onDismissRequest = { expandedVoice = false }
-                    ) {
-                        GeminiModelConfig.liveVoices.forEach { voice ->
-                            DropdownMenuItem(
-                                text = { Text(voice) },
-                                onClick = {
-                                    onSaveVoice(voice)
-                                    expandedVoice = false
-                                }
-                            )
-                        }
-                    }
-                }
-
-                // Nivel de Razonamiento
-                ExposedDropdownMenuBox(
-                    expanded = expandedThinking,
-                    onExpandedChange = { expandedThinking = it }
-                ) {
-                    OutlinedTextField(
-                        value = currentThinking.replaceFirstChar { it.uppercase() },
-                        onValueChange = {},
-                        readOnly = true,
-                        label = { Text(stringResource(R.string.live_mode_thinking_level_label)) },
-                        trailingIcon = { ExposedDropdownMenuDefaults.TrailingIcon(expanded = expandedThinking) },
-                        modifier = Modifier
-                            .menuAnchor()
-                            .fillMaxWidth()
-                    )
-                    ExposedDropdownMenu(
-                        expanded = expandedThinking,
-                        onDismissRequest = { expandedThinking = false }
-                    ) {
-                        GeminiModelConfig.liveThinkingLevels.forEach { level ->
-                            DropdownMenuItem(
-                                text = { Text(level.replaceFirstChar { it.uppercase() }) },
-                                onClick = {
-                                    onSaveThinking(level)
-                                    expandedThinking = false
-                                }
-                            )
-                        }
-                    }
-                }
-
-                // Modo de Micrófono
-                Text(
-                    text = stringResource(R.string.live_mode_mic_mode_label),
-                    style = MaterialTheme.typography.labelLarge
-                )
-                Row(
-                    modifier = Modifier.fillMaxWidth(),
-                    horizontalArrangement = Arrangement.spacedBy(8.dp)
-                ) {
-                    OutlinedButton(
-                        onClick = { onSavePtt(false) },
-                        modifier = Modifier.weight(1f),
-                        colors = ButtonDefaults.outlinedButtonColors(
-                            containerColor = if (!currentPtt) MaterialTheme.colorScheme.primaryContainer else Color.Transparent
-                        )
-                    ) {
-                        Text(stringResource(R.string.live_mode_mic_continuous), style = MaterialTheme.typography.bodySmall)
-                    }
-
-                    OutlinedButton(
-                        onClick = { onSavePtt(true) },
-                        modifier = Modifier.weight(1f),
-                        colors = ButtonDefaults.outlinedButtonColors(
-                            containerColor = if (currentPtt) MaterialTheme.colorScheme.primaryContainer else Color.Transparent
-                        )
-                    ) {
-                        Text(stringResource(R.string.live_mode_mic_ptt), style = MaterialTheme.typography.bodySmall)
-                    }
-                }
-
-                if (!currentPtt) {
+                Column {
                     Text(
-                        text = stringResource(R.string.live_mode_thinking_level_label),
-                        style = MaterialTheme.typography.labelSmall,
+                        text = stringResource(R.string.live_mode_config_title),
+                        style = MaterialTheme.typography.titleLarge,
+                        fontWeight = FontWeight.Bold
+                    )
+                    Text(
+                        text = stringResource(R.string.live_mode_settings_subtitle),
+                        style = MaterialTheme.typography.bodySmall,
                         color = MaterialTheme.colorScheme.onSurfaceVariant
                     )
+                }
+                IconButton(onClick = onDismiss) {
+                    Icon(Icons.Filled.Close, contentDescription = stringResource(android.R.string.cancel))
+                }
+            }
+
+            // Sección 1: Inteligencia y Voz
+            Card(
+                colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.45f)),
+                shape = RoundedCornerShape(16.dp),
+                modifier = Modifier.fillMaxWidth()
+            ) {
+                Column(
+                    modifier = Modifier.padding(16.dp),
+                    verticalArrangement = Arrangement.spacedBy(12.dp)
+                ) {
+                    Row(verticalAlignment = Alignment.CenterVertically) {
+                        Icon(Icons.Filled.Psychology, contentDescription = null, tint = MaterialTheme.colorScheme.primary, modifier = Modifier.size(20.dp))
+                        Spacer(Modifier.width(8.dp))
+                        Text(
+                            text = stringResource(R.string.settings_live_section_title),
+                            style = MaterialTheme.typography.titleSmall,
+                            fontWeight = FontWeight.Bold
+                        )
+                    }
+
+                    // Modelo
+                    ExposedDropdownMenuBox(
+                        expanded = expandedModel,
+                        onExpandedChange = { expandedModel = it }
+                    ) {
+                        OutlinedTextField(
+                            value = currentModel,
+                            onValueChange = {},
+                            readOnly = true,
+                            label = { Text(stringResource(R.string.live_mode_model_label)) },
+                            trailingIcon = { ExposedDropdownMenuDefaults.TrailingIcon(expanded = expandedModel) },
+                            modifier = Modifier
+                                .menuAnchor()
+                                .fillMaxWidth()
+                        )
+                        ExposedDropdownMenu(
+                            expanded = expandedModel,
+                            onDismissRequest = { expandedModel = false }
+                        ) {
+                            GeminiModelConfig.liveSelectableModels.forEach { model ->
+                                DropdownMenuItem(
+                                    text = { Text(model) },
+                                    onClick = {
+                                        onSaveModel(model)
+                                        expandedModel = false
+                                    }
+                                )
+                            }
+                        }
+                    }
+
+                    // Voz
+                    ExposedDropdownMenuBox(
+                        expanded = expandedVoice,
+                        onExpandedChange = { expandedVoice = it }
+                    ) {
+                        OutlinedTextField(
+                            value = currentVoice,
+                            onValueChange = {},
+                            readOnly = true,
+                            label = { Text(stringResource(R.string.live_mode_voice_label)) },
+                            trailingIcon = { ExposedDropdownMenuDefaults.TrailingIcon(expanded = expandedVoice) },
+                            modifier = Modifier
+                                .menuAnchor()
+                                .fillMaxWidth()
+                        )
+                        ExposedDropdownMenu(
+                            expanded = expandedVoice,
+                            onDismissRequest = { expandedVoice = false }
+                        ) {
+                            GeminiModelConfig.liveVoices.forEach { voice ->
+                                DropdownMenuItem(
+                                    text = { Text(voice) },
+                                    onClick = {
+                                        onSaveVoice(voice)
+                                        expandedVoice = false
+                                    }
+                                )
+                            }
+                        }
+                    }
+
+                    // Thinking
+                    ExposedDropdownMenuBox(
+                        expanded = expandedThinking,
+                        onExpandedChange = { expandedThinking = it }
+                    ) {
+                        OutlinedTextField(
+                            value = currentThinking.replaceFirstChar { it.uppercase() },
+                            onValueChange = {},
+                            readOnly = true,
+                            label = { Text(stringResource(R.string.live_mode_thinking_level_label)) },
+                            trailingIcon = { ExposedDropdownMenuDefaults.TrailingIcon(expanded = expandedThinking) },
+                            modifier = Modifier
+                                .menuAnchor()
+                                .fillMaxWidth()
+                        )
+                        ExposedDropdownMenu(
+                            expanded = expandedThinking,
+                            onDismissRequest = { expandedThinking = false }
+                        ) {
+                            GeminiModelConfig.liveThinkingLevels.forEach { level ->
+                                DropdownMenuItem(
+                                    text = { Text(level.replaceFirstChar { it.uppercase() }) },
+                                    onClick = {
+                                        onSaveThinking(level)
+                                        expandedThinking = false
+                                    }
+                                )
+                            }
+                        }
+                    }
+                }
+            }
+
+            // Sección 2: Micrófono y Detección
+            Card(
+                colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.45f)),
+                shape = RoundedCornerShape(16.dp),
+                modifier = Modifier.fillMaxWidth()
+            ) {
+                Column(
+                    modifier = Modifier.padding(16.dp),
+                    verticalArrangement = Arrangement.spacedBy(12.dp)
+                ) {
+                    Row(verticalAlignment = Alignment.CenterVertically) {
+                        Icon(Icons.Filled.RecordVoiceOver, contentDescription = null, tint = MaterialTheme.colorScheme.primary, modifier = Modifier.size(20.dp))
+                        Spacer(Modifier.width(8.dp))
+                        Text(
+                            text = stringResource(R.string.live_mode_mic_mode_label),
+                            style = MaterialTheme.typography.titleSmall,
+                            fontWeight = FontWeight.Bold
+                        )
+                    }
+
                     Row(
                         modifier = Modifier.fillMaxWidth(),
                         horizontalArrangement = Arrangement.spacedBy(8.dp)
                     ) {
-                        OutlinedButton(
-                            onClick = { onSaveVad("high") },
+                        ModeSelectChip(
+                            label = stringResource(R.string.live_mode_mic_continuous),
+                            icon = Icons.Filled.Mic,
+                            isSelected = !currentPtt,
                             modifier = Modifier.weight(1f),
-                            colors = ButtonDefaults.outlinedButtonColors(
-                                containerColor = if (currentVad == "high") MaterialTheme.colorScheme.primaryContainer else Color.Transparent
-                            )
-                        ) {
-                            Text("Sensibilidad alta", style = MaterialTheme.typography.bodySmall)
-                        }
-                        OutlinedButton(
-                            onClick = { onSaveVad("low") },
-                            modifier = Modifier.weight(1f),
-                            colors = ButtonDefaults.outlinedButtonColors(
-                                containerColor = if (currentVad == "low") MaterialTheme.colorScheme.primaryContainer else Color.Transparent
-                            )
-                        ) {
-                            Text("Sensibilidad baja", style = MaterialTheme.typography.bodySmall)
-                        }
-                    }
-                }
+                            onClick = { onSavePtt(false) }
+                        )
 
-                // Intervalo de Captura
-                Text(
-                    text = stringResource(R.string.live_mode_interval_label),
-                    style = MaterialTheme.typography.labelLarge
-                )
-                Row(
-                    modifier = Modifier.fillMaxWidth(),
-                    horizontalArrangement = Arrangement.spacedBy(8.dp)
-                ) {
-                    OutlinedButton(
-                        onClick = { onSaveInterval(1.0f) },
-                        modifier = Modifier.weight(1f),
-                        colors = ButtonDefaults.outlinedButtonColors(
-                            containerColor = if (currentInterval == 1.0f) MaterialTheme.colorScheme.primaryContainer else Color.Transparent
+                        ModeSelectChip(
+                            label = stringResource(R.string.live_mode_mic_ptt),
+                            icon = Icons.Filled.RecordVoiceOver,
+                            isSelected = currentPtt,
+                            modifier = Modifier.weight(1f),
+                            onClick = { onSavePtt(true) }
                         )
-                    ) {
-                        Text("1.0s")
                     }
-                    OutlinedButton(
-                        onClick = { onSaveInterval(1.5f) },
-                        modifier = Modifier.weight(1f),
-                        colors = ButtonDefaults.outlinedButtonColors(
-                            containerColor = if (currentInterval == 1.5f) MaterialTheme.colorScheme.primaryContainer else Color.Transparent
+
+                    if (!currentPtt) {
+                        Spacer(Modifier.height(4.dp))
+                        Text(
+                            text = stringResource(R.string.live_mode_vad_label),
+                            style = MaterialTheme.typography.labelMedium,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant
                         )
-                    ) {
-                        Text("1.5s")
-                    }
-                    OutlinedButton(
-                        onClick = { onSaveInterval(2.0f) },
-                        modifier = Modifier.weight(1f),
-                        colors = ButtonDefaults.outlinedButtonColors(
-                            containerColor = if (currentInterval == 2.0f) MaterialTheme.colorScheme.primaryContainer else Color.Transparent
-                        )
-                    ) {
-                        Text("2.0s")
+                        Row(
+                            modifier = Modifier.fillMaxWidth(),
+                            horizontalArrangement = Arrangement.spacedBy(8.dp)
+                        ) {
+                            ModeSelectChip(
+                                label = stringResource(R.string.live_mode_vad_high),
+                                icon = Icons.Filled.Mic,
+                                isSelected = currentVad == "high",
+                                modifier = Modifier.weight(1f),
+                                onClick = { onSaveVad("high") }
+                            )
+
+                            ModeSelectChip(
+                                label = stringResource(R.string.live_mode_vad_low),
+                                icon = Icons.Filled.MicOff,
+                                isSelected = currentVad == "low",
+                                modifier = Modifier.weight(1f),
+                                onClick = { onSaveVad("low") }
+                            )
+                        }
                     }
                 }
             }
-        },
-        confirmButton = {
-            TextButton(onClick = onDismiss) {
-                Text(stringResource(android.R.string.ok))
+
+            // Sección 3: Frecuencia de Captura Visual
+            Card(
+                colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.45f)),
+                shape = RoundedCornerShape(16.dp),
+                modifier = Modifier.fillMaxWidth()
+            ) {
+                Column(
+                    modifier = Modifier.padding(16.dp),
+                    verticalArrangement = Arrangement.spacedBy(12.dp)
+                ) {
+                    Row(verticalAlignment = Alignment.CenterVertically) {
+                        Icon(Icons.Filled.Timer, contentDescription = null, tint = MaterialTheme.colorScheme.primary, modifier = Modifier.size(20.dp))
+                        Spacer(Modifier.width(8.dp))
+                        Text(
+                            text = stringResource(R.string.live_mode_interval_label),
+                            style = MaterialTheme.typography.titleSmall,
+                            fontWeight = FontWeight.Bold
+                        )
+                    }
+
+                    Row(
+                        modifier = Modifier.fillMaxWidth(),
+                        horizontalArrangement = Arrangement.spacedBy(8.dp)
+                    ) {
+                        ModeSelectChip(
+                            label = "1.0s",
+                            icon = Icons.Filled.Timer,
+                            isSelected = currentInterval == 1.0f,
+                            modifier = Modifier.weight(1f),
+                            onClick = { onSaveInterval(1.0f) }
+                        )
+
+                        ModeSelectChip(
+                            label = "1.5s",
+                            icon = Icons.Filled.Timer,
+                            isSelected = currentInterval == 1.5f,
+                            modifier = Modifier.weight(1f),
+                            onClick = { onSaveInterval(1.5f) }
+                        )
+
+                        ModeSelectChip(
+                            label = "2.0s",
+                            icon = Icons.Filled.Timer,
+                            isSelected = currentInterval == 2.0f,
+                            modifier = Modifier.weight(1f),
+                            onClick = { onSaveInterval(2.0f) }
+                        )
+                    }
+                }
             }
+
+            // Botón de Confirmación Listo
+            Button(
+                onClick = onDismiss,
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .height(52.dp),
+                shape = RoundedCornerShape(26.dp)
+            ) {
+                Icon(Icons.Filled.Done, contentDescription = null)
+                Spacer(Modifier.width(8.dp))
+                Text(stringResource(android.R.string.ok), fontWeight = FontWeight.Bold)
+            }
+
+            Spacer(Modifier.height(16.dp))
         }
-    )
+    }
 }

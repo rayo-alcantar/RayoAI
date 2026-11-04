@@ -87,6 +87,9 @@ class GeminiLiveManager @Inject constructor(
             onTextReceived = { text ->
                 _latestTranscript.value = text
             },
+            onTurnComplete = {
+                player?.flush()
+            },
             onInterrupted = {
                 player?.clear()
             },

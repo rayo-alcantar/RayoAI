@@ -5,23 +5,34 @@ import android.media.AudioFormat
 import android.media.AudioTrack
 import android.os.Process
 import android.util.Log
-import java.util.concurrent.LinkedBlockingQueue
+import java.util.ArrayDeque
 import java.util.concurrent.atomic.AtomicBoolean
 
 /**
  * Reproduce el audio PCM devuelto por Gemini Live a 24 kHz Mono,
- * soportando interrupciones inmediatas (VAD) y vaciado instantáneo del búfer.
+ * utilizando un búfer de pre-reproducción (jitter prebuffer) para evitar cortes
+ * y micro-pausas durante la transmisión, idéntico al mecanismo de RayoAI para Windows.
  */
 class LiveAudioPlayer {
     companion object {
         const val SAMPLE_RATE = 24_000
         private const val TAG = "LiveAudioPlayer"
+
+        // Búfer inicial (360 ms) y búfer de recuperación tras falta de datos (720 ms)
+        private const val INITIAL_PREBUFFER_BYTES = SAMPLE_RATE * 2 * 360 / 1000 // 17,280 bytes
+        private const val REBUFFER_BYTES = SAMPLE_RATE * 2 * 720 / 1000          // 34,560 bytes
     }
 
     private val isPlaying = AtomicBoolean(false)
+    private val isSpeaking = AtomicBoolean(false)
     private var audioTrack: AudioTrack? = null
-    private val queue = LinkedBlockingQueue<ByteArray>()
     private var playbackThread: Thread? = null
+
+    private val lock = Any()
+    private val chunks = ArrayDeque<ByteArray>()
+    private var bufferedBytes = 0
+    private var playbackReady = false
+    private var targetPrebufferBytes = INITIAL_PREBUFFER_BYTES
 
     fun start() {
         if (isPlaying.getAndSet(true)) return
@@ -37,7 +48,9 @@ class LiveAudioPlayer {
             audioTrack = AudioTrack.Builder()
                 .setAudioAttributes(
                     AudioAttributes.Builder()
-                        .setUsage(AudioAttributes.USAGE_MEDIA)
+                        // USAGE_VOICE_COMMUNICATION es imprescindible para que el AcousticEchoCanceler
+                        // por hardware de Android cancele este audio del micrófono del dispositivo.
+                        .setUsage(AudioAttributes.USAGE_VOICE_COMMUNICATION)
                         .setContentType(AudioAttributes.CONTENT_TYPE_SPEECH)
                         .build()
                 )
@@ -54,6 +67,13 @@ class LiveAudioPlayer {
 
             audioTrack?.play()
 
+            synchronized(lock) {
+                chunks.clear()
+                bufferedBytes = 0
+                playbackReady = false
+                targetPrebufferBytes = INITIAL_PREBUFFER_BYTES
+            }
+
             playbackThread = Thread(::playbackLoop, "RayoAI-LivePlayer").apply {
                 isDaemon = true
                 start()
@@ -66,7 +86,27 @@ class LiveAudioPlayer {
 
     fun enqueueAudio(pcmData: ByteArray) {
         if (!isPlaying.get() || pcmData.isEmpty()) return
-        queue.offer(pcmData)
+        synchronized(lock) {
+            chunks.addLast(pcmData)
+            bufferedBytes += pcmData.size
+            if (!playbackReady && bufferedBytes >= targetPrebufferBytes) {
+                playbackReady = true
+            }
+            (lock as java.lang.Object).notifyAll()
+        }
+    }
+
+    /**
+     * Vuelca y reproduce cualquier fragmento restante cuando Gemini
+     * completa su turno o generación, asegurando que no se pierda la última frase.
+     */
+    fun flush() {
+        synchronized(lock) {
+            if (bufferedBytes > 0) {
+                playbackReady = true
+            }
+            (lock as java.lang.Object).notifyAll()
+        }
     }
 
     /**
@@ -74,7 +114,14 @@ class LiveAudioPlayer {
      * del usuario o cuando se pausa/cancela el turno.
      */
     fun clear() {
-        queue.clear()
+        synchronized(lock) {
+            chunks.clear()
+            bufferedBytes = 0
+            playbackReady = false
+            targetPrebufferBytes = INITIAL_PREBUFFER_BYTES
+            isSpeaking.set(false)
+            (lock as java.lang.Object).notifyAll()
+        }
         try {
             audioTrack?.pause()
             audioTrack?.flush()
@@ -84,9 +131,17 @@ class LiveAudioPlayer {
         }
     }
 
+    fun isSpeakingAudio(): Boolean = isSpeaking.get()
+
     fun stop() {
         isPlaying.set(false)
-        queue.clear()
+        synchronized(lock) {
+            chunks.clear()
+            bufferedBytes = 0
+            playbackReady = false
+            isSpeaking.set(false)
+            (lock as java.lang.Object).notifyAll()
+        }
         playbackThread?.interrupt()
         playbackThread = null
 
@@ -109,25 +164,44 @@ class LiveAudioPlayer {
         Process.setThreadPriority(Process.THREAD_PRIORITY_AUDIO)
 
         while (isPlaying.get()) {
-            try {
-                val chunk = queue.take()
-                val track = audioTrack ?: break
-                if (chunk.isNotEmpty()) {
-                    var written = 0
-                    while (written < chunk.size && isPlaying.get()) {
-                        val res = track.write(chunk, written, chunk.size - written)
-                        if (res > 0) {
-                            written += res
-                        } else {
-                            break
-                        }
+            var chunk: ByteArray? = null
+            synchronized(lock) {
+                while (isPlaying.get() && (!playbackReady || chunks.isEmpty())) {
+                    isSpeaking.set(false)
+                    if (chunks.isEmpty() && playbackReady) {
+                        playbackReady = false
+                        targetPrebufferBytes = REBUFFER_BYTES
+                    }
+                    try {
+                        (lock as java.lang.Object).wait(200)
+                    } catch (e: InterruptedException) {
+                        return
                     }
                 }
-            } catch (e: InterruptedException) {
-                break
-            } catch (e: Exception) {
-                Log.w(TAG, "Error en bucle de reproducción", e)
+
+                if (!isPlaying.get()) return
+                if (chunks.isNotEmpty()) {
+                    val nextChunk = chunks.removeFirst()
+                    chunk = nextChunk
+                    bufferedBytes -= nextChunk.size
+                    isSpeaking.set(true)
+                }
+            }
+
+            val toWrite = chunk
+            if (toWrite != null && toWrite.isNotEmpty()) {
+                val track = audioTrack ?: break
+                var written = 0
+                while (written < toWrite.size && isPlaying.get()) {
+                    val res = track.write(toWrite, written, toWrite.size - written)
+                    if (res > 0) {
+                        written += res
+                    } else {
+                        break
+                    }
+                }
             }
         }
+        isSpeaking.set(false)
     }
 }

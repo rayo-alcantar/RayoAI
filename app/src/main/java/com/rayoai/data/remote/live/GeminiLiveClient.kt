@@ -33,6 +33,7 @@ class GeminiLiveClient(
     private val onStateChanged: (LiveSessionState) -> Unit,
     private val onAudioReceived: (ByteArray) -> Unit,
     private val onTextReceived: (String) -> Unit = {},
+    private val onTurnComplete: () -> Unit = {},
     private val onInterrupted: () -> Unit = {},
     private val onError: (String) -> Unit
 ) {
@@ -180,6 +181,21 @@ class GeminiLiveClient(
             systemInstruction.put("parts", parts)
             setup.put("systemInstruction", systemInstruction)
 
+            // Configuración de detección de actividad / VAD (idéntico a rayoai_win)
+            val realtimeInputConfig = JSONObject()
+            val autoDetection = JSONObject()
+            if (config.pushToTalk) {
+                autoDetection.put("disabled", true)
+            } else {
+                val sensitivity = if (config.vadSensitivity.equals("low", ignoreCase = true)) "LOW" else "HIGH"
+                autoDetection.put("startOfSpeechSensitivity", "START_SENSITIVITY_$sensitivity")
+                autoDetection.put("endOfSpeechSensitivity", "END_SENSITIVITY_$sensitivity")
+                autoDetection.put("prefixPaddingMs", 100)
+                autoDetection.put("silenceDurationMs", 500)
+            }
+            realtimeInputConfig.put("automaticActivityDetection", autoDetection)
+            setup.put("realtimeInputConfig", realtimeInputConfig)
+
             // Session resumption si existe
             sessionHandle?.let { handle ->
                 setup.put("sessionResumption", JSONObject().put("handle", handle))
@@ -255,6 +271,15 @@ class GeminiLiveClient(
                             }
                         }
                     }
+                }
+
+                val isTurnComplete = serverContent.optBoolean("turnComplete", false) ||
+                                     serverContent.optBoolean("turn_complete", false) ||
+                                     serverContent.optBoolean("generationComplete", false) ||
+                                     serverContent.optBoolean("generation_complete", false)
+                if (isTurnComplete) {
+                    Log.d(TAG, "TurnComplete / GenerationComplete recibido del servidor Live.")
+                    onTurnComplete()
                 }
             }
 
