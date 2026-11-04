@@ -26,6 +26,7 @@ class LiveSessionForegroundService : Service() {
 
     private var screenCaptureManager: ScreenCaptureManager? = null
     private var isScreenCaptureActive = false
+    private var activeCapturedAppName: String? = null
 
     companion object {
         const val CHANNEL_ID = "rayoai_live_session_channel"
@@ -37,6 +38,7 @@ class LiveSessionForegroundService : Service() {
 
         const val EXTRA_RESULT_CODE = "com.rayoai.live.EXTRA_RESULT_CODE"
         const val EXTRA_RESULT_DATA = "com.rayoai.live.EXTRA_RESULT_DATA"
+        const val EXTRA_APP_NAME = "com.rayoai.live.EXTRA_APP_NAME"
 
         fun start(context: Context) {
             val intent = Intent(context, LiveSessionForegroundService::class.java)
@@ -47,11 +49,14 @@ class LiveSessionForegroundService : Service() {
             }
         }
 
-        fun startScreenCapture(context: Context, resultCode: Int, data: Intent) {
+        fun startScreenCapture(context: Context, resultCode: Int, data: Intent, appName: String? = null) {
             val intent = Intent(context, LiveSessionForegroundService::class.java).apply {
                 action = ACTION_START_SCREEN_CAPTURE
                 putExtra(EXTRA_RESULT_CODE, resultCode)
                 putExtra(EXTRA_RESULT_DATA, data)
+                if (appName != null) {
+                    putExtra(EXTRA_APP_NAME, appName)
+                }
             }
             if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
                 context.startForegroundService(intent)
@@ -87,9 +92,19 @@ class LiveSessionForegroundService : Service() {
     override fun onStartCommand(intent: Intent?, flags: Int, startId: Int): Int {
         when (intent?.action) {
             ACTION_STOP -> {
+                isScreenCaptureActive = false
+                activeCapturedAppName = null
                 screenCaptureManager?.stop()
                 screenCaptureManager = null
                 liveManager.stopSession()
+                if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.N) {
+                    stopForeground(STOP_FOREGROUND_REMOVE)
+                } else {
+                    @Suppress("DEPRECATION")
+                    stopForeground(true)
+                }
+                val notificationManager = getSystemService(Context.NOTIFICATION_SERVICE) as NotificationManager
+                notificationManager.cancel(NOTIFICATION_ID)
                 stopSelf()
                 return START_NOT_STICKY
             }
@@ -98,11 +113,16 @@ class LiveSessionForegroundService : Service() {
             }
             ACTION_START_SCREEN_CAPTURE -> {
                 isScreenCaptureActive = true
+                intent.getStringExtra(EXTRA_APP_NAME)?.let {
+                    activeCapturedAppName = it
+                }
             }
             ACTION_STOP_SCREEN_CAPTURE -> {
                 isScreenCaptureActive = false
+                activeCapturedAppName = null
                 screenCaptureManager?.stop()
                 screenCaptureManager = null
+                liveManager.setVisualSource(com.rayoai.domain.model.live.VisualSource.NONE)
             }
         }
 
@@ -125,6 +145,12 @@ class LiveSessionForegroundService : Service() {
             }
         } else {
             startForeground(NOTIFICATION_ID, notification)
+        }
+
+        // Si se detuvo la captura pero el servicio sigue corriendo (solo audio), actualizar notificación
+        if (intent?.action == ACTION_STOP_SCREEN_CAPTURE) {
+            val notificationManager = getSystemService(Context.NOTIFICATION_SERVICE) as NotificationManager
+            notificationManager.notify(NOTIFICATION_ID, notification)
         }
 
         // Si la acción era iniciar la captura, la iniciamos ahora que el servicio está
@@ -156,8 +182,18 @@ class LiveSessionForegroundService : Service() {
 
     override fun onDestroy() {
         super.onDestroy()
+        isScreenCaptureActive = false
+        activeCapturedAppName = null
         screenCaptureManager?.stop()
         screenCaptureManager = null
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.N) {
+            stopForeground(STOP_FOREGROUND_REMOVE)
+        } else {
+            @Suppress("DEPRECATION")
+            stopForeground(true)
+        }
+        val notificationManager = getSystemService(Context.NOTIFICATION_SERVICE) as NotificationManager
+        notificationManager.cancel(NOTIFICATION_ID)
     }
 
     private fun createNotificationChannel() {
@@ -194,18 +230,54 @@ class LiveSessionForegroundService : Service() {
             PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE
         )
 
-        return NotificationCompat.Builder(this, CHANNEL_ID)
-            .setContentTitle(getString(R.string.live_mode_title))
-            .setContentText(getString(R.string.live_mode_state_running))
+        val title = if (isScreenCaptureActive) {
+            val appName = activeCapturedAppName
+            if (!appName.isNullOrBlank()) {
+                getString(R.string.live_mode_screen_notification_title_app, appName)
+            } else {
+                getString(R.string.live_mode_screen_notification_title)
+            }
+        } else {
+            getString(R.string.live_mode_title)
+        }
+
+        val contentText = if (isScreenCaptureActive) {
+            getString(R.string.live_mode_screen_notification_desc)
+        } else {
+            getString(R.string.live_mode_state_running)
+        }
+
+        val builder = NotificationCompat.Builder(this, CHANNEL_ID)
+            .setContentTitle(title)
+            .setContentText(contentText)
             .setSmallIcon(R.mipmap.ic_launcher)
             .setContentIntent(openPendingIntent)
             .setOngoing(true)
-            .addAction(
-                android.R.drawable.ic_menu_close_clear_cancel,
-                getString(R.string.live_mode_stop),
-                stopPendingIntent
-            )
             .setPriority(NotificationCompat.PRIORITY_LOW)
-            .build()
+
+        if (isScreenCaptureActive) {
+            val stopScreenIntent = Intent(this, LiveSessionForegroundService::class.java).apply {
+                action = ACTION_STOP_SCREEN_CAPTURE
+            }
+            val stopScreenPendingIntent = PendingIntent.getService(
+                this,
+                2,
+                stopScreenIntent,
+                PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE
+            )
+            builder.addAction(
+                android.R.drawable.ic_menu_close_clear_cancel,
+                getString(R.string.live_mode_screen_notification_stop),
+                stopScreenPendingIntent
+            )
+        }
+
+        builder.addAction(
+            android.R.drawable.ic_lock_power_off,
+            getString(R.string.live_mode_stop),
+            stopPendingIntent
+        )
+
+        return builder.build()
     }
 }

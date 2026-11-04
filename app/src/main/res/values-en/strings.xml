@@ -474,6 +474,24 @@ Card: 4152314082325278</string>
     <string name="live_mode_tap_to_interrupt">Tap to interrupt response</string>
     <string name="live_mode_interrupt_button">Interrupt RayoAI</string>
     <string name="live_mode_tap_anywhere_to_interrupt">Tap anywhere on the screen to interrupt response</string>
+    <string name="live_mode_source_app">App</string>
+    <string name="live_mode_share_app_title">Share application</string>
+    <string name="live_mode_share_app_search_placeholder">Search application…</string>
+    <string name="live_mode_share_app_search_clear">Clear search</string>
+    <string name="live_mode_share_app_recent_section">Recent</string>
+    <string name="live_mode_share_app_all_section">All applications</string>
+    <string name="live_mode_share_app_no_results">No applications found</string>
+    <string name="live_mode_share_app_loading">Loading applications…</string>
+    <string name="live_mode_confirm_app_share_title">Share with RayoAI</string>
+    <string name="live_mode_confirm_app_share_message">Do you want to start screen capture and open %1$s? RayoAI will assist you by voice in the background.</string>
+    <string name="live_mode_dont_ask_again">Do not ask again</string>
+    <string name="live_mode_confirm_start">Accept and start</string>
+    <string name="live_mode_cancel">Cancel</string>
+    <string name="live_mode_open_app_button">Open %1$s</string>
+    <string name="live_mode_screen_notification_title">RayoAI - Screen sharing</string>
+    <string name="live_mode_screen_notification_title_app">RayoAI - Sharing %1$s</string>
+    <string name="live_mode_screen_notification_desc">RayoAI is analyzing the screen. Tap to return.</string>
+    <string name="live_mode_screen_notification_stop">Stop screen share</string>
     <string name="settings_live_section_title">Live Mode (Gemini Live)</string>
     <string name="settings_live_section_description">Configure model, voice, thinking, and live visual streaming.</string>
 

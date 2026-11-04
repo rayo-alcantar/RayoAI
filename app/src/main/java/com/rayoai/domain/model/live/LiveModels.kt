@@ -14,6 +14,7 @@ enum class LiveSessionState {
 enum class VisualSource {
     CAMERA,
     SCREEN,
+    APP,
     NONE
 }
 

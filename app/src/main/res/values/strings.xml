@@ -483,6 +483,24 @@ Tarjeta: 4152314082325278</string>
     <string name="live_mode_tap_to_interrupt">Toca para interrumpir la respuesta</string>
     <string name="live_mode_interrupt_button">Interrumpir a RayoAI</string>
     <string name="live_mode_tap_anywhere_to_interrupt">Toca cualquier parte de la pantalla para interrumpir la respuesta</string>
+    <string name="live_mode_source_app">App</string>
+    <string name="live_mode_share_app_title">Compartir aplicación</string>
+    <string name="live_mode_share_app_search_placeholder">Buscar aplicación…</string>
+    <string name="live_mode_share_app_search_clear">Borrar búsqueda</string>
+    <string name="live_mode_share_app_recent_section">Recientes</string>
+    <string name="live_mode_share_app_all_section">Todas las aplicaciones</string>
+    <string name="live_mode_share_app_no_results">No se encontraron aplicaciones</string>
+    <string name="live_mode_share_app_loading">Cargando aplicaciones…</string>
+    <string name="live_mode_confirm_app_share_title">Compartir con RayoAI</string>
+    <string name="live_mode_confirm_app_share_message">¿Deseas iniciar la captura de pantalla y abrir %1$s? RayoAI te asistirá por voz en segundo plano.</string>
+    <string name="live_mode_dont_ask_again">No volver a preguntar</string>
+    <string name="live_mode_confirm_start">Aceptar e iniciar</string>
+    <string name="live_mode_cancel">Cancelar</string>
+    <string name="live_mode_open_app_button">Abrir %1$s</string>
+    <string name="live_mode_screen_notification_title">RayoAI - Compartiendo pantalla</string>
+    <string name="live_mode_screen_notification_title_app">RayoAI - Compartiendo %1$s</string>
+    <string name="live_mode_screen_notification_desc">RayoAI está analizando la pantalla. Toca para volver.</string>
+    <string name="live_mode_screen_notification_stop">Detener pantalla</string>
     <string name="settings_live_section_title">Modo Live (Gemini Live)</string>
     <string name="settings_live_section_description">Configura el modelo, la voz, el razonamiento y la transmisión visual en vivo.</string>
 

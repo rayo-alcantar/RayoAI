@@ -47,6 +47,7 @@ class GeminiLiveClient(
     private var webSocket: WebSocket? = null
     private val isRunning = AtomicBoolean(false)
     private val isTurnCancelled = AtomicBoolean(false)
+    private val isSetupComplete = AtomicBoolean(false)
     @Volatile
     private var turnCancelledUntilElapsedRealtime: Long = 0L
     private var sessionHandle: String? = null
@@ -73,6 +74,7 @@ class GeminiLiveClient(
 
     private fun openWebSocket() {
         if (!isRunning.get()) return
+        isSetupComplete.set(false)
 
         val url = "$LIVE_WS_URL?key=${config.apiKey.trim()}"
         val request = Request.Builder()
@@ -106,6 +108,7 @@ class GeminiLiveClient(
 
             override fun onClosing(webSocket: WebSocket, code: Int, reason: String) {
                 Log.w(TAG, "WebSocket cerrándose: $code / $reason")
+                isSetupComplete.set(false)
                 if (code == 1008 || code == 1002 || code == 1003 || code == 1007) {
                     isRunning.set(false)
                     onStateChanged(LiveSessionState.STOPPED)
@@ -115,6 +118,7 @@ class GeminiLiveClient(
 
             override fun onClosed(webSocket: WebSocket, code: Int, reason: String) {
                 Log.d(TAG, "WebSocket cerrado: $code / $reason")
+                isSetupComplete.set(false)
                 if (code == 1008 || code == 1002 || code == 1003 || code == 1007) {
                     isRunning.set(false)
                     onStateChanged(LiveSessionState.STOPPED)
@@ -130,6 +134,7 @@ class GeminiLiveClient(
 
             override fun onFailure(webSocket: WebSocket, t: Throwable, response: Response?) {
                 Log.e(TAG, "Error en WebSocket Live: ${t.message}", t)
+                isSetupComplete.set(false)
                 if (isRunning.get()) {
                     scheduleReconnect()
                 } else {
@@ -224,6 +229,7 @@ class GeminiLiveClient(
             val json = JSONObject(text)
 
             if (json.has("error")) {
+                isSetupComplete.set(false)
                 val errObj = json.optJSONObject("error")
                 val errMsg = errObj?.optString("message") ?: "Error desconocido de Gemini Live"
                 val errCode = errObj?.optInt("code") ?: 0
@@ -234,6 +240,7 @@ class GeminiLiveClient(
 
             if (json.has("setupComplete") || json.has("setup_complete")) {
                 Log.i(TAG, "Sesión Live configurada con éxito.")
+                isSetupComplete.set(true)
                 isConnectedOnce = true
                 onStateChanged(LiveSessionState.RUNNING)
                 sendInitialGreeting(ws)
@@ -344,7 +351,7 @@ class GeminiLiveClient(
 
     fun sendAudio(data: ByteArray) {
         val ws = webSocket ?: return
-        if (!isRunning.get() || data.isEmpty()) return
+        if (!isRunning.get() || !isSetupComplete.get() || data.isEmpty()) return
         try {
             val root = JSONObject()
             val realtimeInput = JSONObject()
@@ -361,7 +368,7 @@ class GeminiLiveClient(
 
     fun sendVideoFrame(jpegBytes: ByteArray) {
         val ws = webSocket ?: return
-        if (!isRunning.get() || jpegBytes.isEmpty()) return
+        if (!isRunning.get() || !isSetupComplete.get() || jpegBytes.isEmpty()) return
         try {
             val root = JSONObject()
             val realtimeInput = JSONObject()
@@ -380,11 +387,14 @@ class GeminiLiveClient(
         Log.d(TAG, "cancelCurrentTurn solicitado. Marcando turno como cancelado y enviando activityStart.")
         isTurnCancelled.set(true)
         turnCancelledUntilElapsedRealtime = SystemClock.elapsedRealtime() + 350L
-        sendActivityStart()
+        if (isSetupComplete.get()) {
+            sendActivityStart()
+        }
     }
 
     fun sendActivityStart() {
         val ws = webSocket ?: return
+        if (!isRunning.get() || !isSetupComplete.get()) return
         try {
             val root = JSONObject()
             val realtimeInput = JSONObject()
@@ -399,6 +409,7 @@ class GeminiLiveClient(
 
     fun sendActivityEnd() {
         val ws = webSocket ?: return
+        if (!isRunning.get() || !isSetupComplete.get()) return
         try {
             val root = JSONObject()
             val realtimeInput = JSONObject()
@@ -413,6 +424,7 @@ class GeminiLiveClient(
 
     private fun scheduleReconnect() {
         if (!isRunning.get()) return
+        isSetupComplete.set(false)
         reconnectAttempts++
         val maxAttempts = if (isConnectedOnce) 6 else 3
         if (reconnectAttempts > maxAttempts) {
@@ -438,6 +450,7 @@ class GeminiLiveClient(
 
     fun stop() {
         isRunning.set(false)
+        isSetupComplete.set(false)
         scope.cancel()
         scope = CoroutineScope(SupervisorJob() + Dispatchers.IO)
         try {

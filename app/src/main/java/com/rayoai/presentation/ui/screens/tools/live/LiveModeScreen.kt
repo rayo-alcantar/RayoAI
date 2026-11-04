@@ -8,8 +8,14 @@ package com.rayoai.presentation.ui.screens.tools.live
 import android.Manifest
 import android.app.Activity
 import android.content.Context
+import android.content.Intent
+import android.content.pm.PackageManager
+import android.graphics.drawable.Drawable
+import android.media.projection.MediaProjectionConfig
 import android.media.projection.MediaProjectionManager
+import android.os.Build
 import android.os.SystemClock
+import android.util.Log
 import android.view.ViewGroup
 import androidx.activity.compose.BackHandler
 import androidx.activity.compose.rememberLauncherForActivityResult
@@ -32,18 +38,24 @@ import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
+import androidx.compose.foundation.lazy.LazyColumn
+import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
+import androidx.compose.material.icons.automirrored.filled.Launch
 import androidx.compose.material.icons.automirrored.filled.ScreenShare
 import androidx.compose.material.icons.automirrored.filled.VolumeOff
 import androidx.compose.material.icons.automirrored.filled.VolumeUp
+import androidx.compose.material.icons.filled.Android
+import androidx.compose.material.icons.filled.Apps
 import androidx.compose.material.icons.filled.CallEnd
 import androidx.compose.material.icons.filled.Cameraswitch
 import androidx.compose.material.icons.filled.Close
@@ -58,6 +70,7 @@ import androidx.compose.material.icons.filled.PlayArrow
 import androidx.compose.material.icons.filled.Psychology
 import androidx.compose.material.icons.filled.RecordVoiceOver
 import androidx.compose.material.icons.filled.Refresh
+import androidx.compose.material.icons.filled.Search
 import androidx.compose.material.icons.filled.Settings
 import androidx.compose.material.icons.filled.Stop
 import androidx.compose.material.icons.filled.Timer
@@ -67,6 +80,7 @@ import androidx.compose.material3.Button
 import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
+import androidx.compose.material3.Checkbox
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.DropdownMenuItem
 import androidx.compose.material3.ExperimentalMaterial3Api
@@ -124,6 +138,10 @@ import com.rayoai.R
 import com.rayoai.domain.model.GeminiModelConfig
 import com.rayoai.domain.model.live.LiveSessionState
 import com.rayoai.domain.model.live.VisualSource
+import coil.compose.AsyncImage
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.withContext
+import java.util.Locale
 import java.util.concurrent.Executors
 
 @Composable
@@ -149,11 +167,19 @@ fun LiveModeScreen(
     val livePushToTalk by viewModel.livePushToTalk.collectAsState()
     val liveCaptureIntervalSeconds by viewModel.liveCaptureIntervalSeconds.collectAsState()
     val liveAudioOutput by viewModel.liveAudioOutput.collectAsState()
+    val liveDontAskScreenShareConfirm by viewModel.liveDontAskScreenShareConfirm.collectAsState()
+    val liveRecentSharedApps by viewModel.liveRecentSharedApps.collectAsState()
 
     var showConfigSheet by remember { mutableStateOf(false) }
     var showApiKeyDialog by remember { mutableStateOf(false) }
     var isFrontCamera by remember { mutableStateOf(false) }
     var isTorchOn by remember { mutableStateOf(false) }
+
+    var showAppPickerSheet by remember { mutableStateOf(false) }
+    var appToConfirmShare by remember { mutableStateOf<AppInfo?>(null) }
+    var pendingAppPackage by remember { mutableStateOf<String?>(null) }
+    var pendingAppName by remember { mutableStateOf<String?>(null) }
+    var currentActiveAppName by remember { mutableStateOf<String?>(null) }
 
     // Textos accesibles resueltos en alcance Composable
     val screenTitle = stringResource(R.string.live_mode_title)
@@ -184,10 +210,69 @@ fun LiveModeScreen(
         contract = ActivityResultContracts.StartActivityForResult()
     ) { result ->
         if (result.resultCode == Activity.RESULT_OK && result.data != null) {
-            LiveSessionForegroundService.startScreenCapture(context, result.resultCode, result.data!!)
+            val targetPkg = pendingAppPackage
+            val targetName = pendingAppName
+            currentActiveAppName = targetName
+
+            if (targetPkg != null) {
+                viewModel.setVisualSource(VisualSource.APP)
+                viewModel.addRecentSharedApp(targetPkg)
+            } else {
+                viewModel.setVisualSource(VisualSource.SCREEN)
+            }
+
+            LiveSessionForegroundService.startScreenCapture(
+                context = context,
+                resultCode = result.resultCode,
+                data = result.data!!,
+                appName = targetName
+            )
+
+            if (sessionState == LiveSessionState.STOPPED) {
+                viewModel.startSession(
+                    onMissingApiKey = { showApiKeyDialog = true }
+                )
+            }
+
+            if (targetPkg != null) {
+                val launchIntent = context.packageManager.getLaunchIntentForPackage(targetPkg)?.apply {
+                    addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
+                }
+                if (launchIntent != null) {
+                    try {
+                        context.startActivity(launchIntent)
+                    } catch (e: Exception) {
+                        Log.w("LiveModeScreen", "No se pudo abrir la app seleccionada: ${e.message}")
+                    }
+                }
+            } else {
+                val homeIntent = Intent(Intent.ACTION_MAIN).apply {
+                    addCategory(Intent.CATEGORY_HOME)
+                    flags = Intent.FLAG_ACTIVITY_NEW_TASK
+                }
+                try {
+                    context.startActivity(homeIntent)
+                } catch (_: Exception) {}
+            }
         } else {
+            pendingAppPackage = null
+            pendingAppName = null
+            currentActiveAppName = null
             viewModel.setVisualSource(VisualSource.CAMERA)
         }
+    }
+
+    val launchScreenCapture: (String?, String?) -> Unit = { pkg, name ->
+        pendingAppPackage = pkg
+        pendingAppName = name
+        val projectionManager = context.getSystemService(Context.MEDIA_PROJECTION_SERVICE) as MediaProjectionManager
+        val intent = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.UPSIDE_DOWN_CAKE) {
+            val config = MediaProjectionConfig.createConfigForDefaultDisplay()
+            projectionManager.createScreenCaptureIntent(config)
+        } else {
+            projectionManager.createScreenCaptureIntent()
+        }
+        screenCaptureLauncher.launch(intent)
     }
 
     // Gestor de retroalimentación auditiva y háptica
@@ -367,6 +452,23 @@ fun LiveModeScreen(
                         VisualSource.SCREEN -> {
                             ScreenLiveView()
                         }
+                        VisualSource.APP -> {
+                            ScreenLiveView(
+                                appName = currentActiveAppName,
+                                onOpenApp = {
+                                    pendingAppPackage?.let { pkg ->
+                                        val launchIntent = context.packageManager.getLaunchIntentForPackage(pkg)?.apply {
+                                            addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
+                                        }
+                                        if (launchIntent != null) {
+                                            try {
+                                                context.startActivity(launchIntent)
+                                            } catch (_: Exception) {}
+                                        }
+                                    }
+                                }
+                            )
+                        }
                         VisualSource.NONE -> {
                             VoiceOnlyLiveView()
                         }
@@ -448,10 +550,11 @@ fun LiveModeScreen(
                         // Selector de Modo Visual
                         Row(
                             modifier = Modifier.fillMaxWidth(),
-                            horizontalArrangement = Arrangement.spacedBy(8.dp)
+                            horizontalArrangement = Arrangement.spacedBy(6.dp)
                         ) {
                             val isCamera = visualSource == VisualSource.CAMERA
                             val isScreen = visualSource == VisualSource.SCREEN
+                            val isApp = visualSource == VisualSource.APP
                             val isNone = visualSource == VisualSource.NONE
 
                             ModeSelectChip(
@@ -461,6 +564,9 @@ fun LiveModeScreen(
                                 modifier = Modifier.weight(1f),
                                 onClick = {
                                     LiveSessionForegroundService.stopScreenCapture(context)
+                                    pendingAppPackage = null
+                                    pendingAppName = null
+                                    currentActiveAppName = null
                                     viewModel.setVisualSource(VisualSource.CAMERA)
                                 }
                             )
@@ -471,9 +577,18 @@ fun LiveModeScreen(
                                 isSelected = isScreen,
                                 modifier = Modifier.weight(1f),
                                 onClick = {
-                                    viewModel.setVisualSource(VisualSource.SCREEN)
-                                    val projectionManager = context.getSystemService(Context.MEDIA_PROJECTION_SERVICE) as MediaProjectionManager
-                                    screenCaptureLauncher.launch(projectionManager.createScreenCaptureIntent())
+                                    LiveSessionForegroundService.stopScreenCapture(context)
+                                    launchScreenCapture(null, null)
+                                }
+                            )
+
+                            ModeSelectChip(
+                                label = stringResource(R.string.live_mode_source_app),
+                                icon = Icons.Filled.Apps,
+                                isSelected = isApp,
+                                modifier = Modifier.weight(1f),
+                                onClick = {
+                                    showAppPickerSheet = true
                                 }
                             )
 
@@ -484,6 +599,9 @@ fun LiveModeScreen(
                                 modifier = Modifier.weight(1f),
                                 onClick = {
                                     LiveSessionForegroundService.stopScreenCapture(context)
+                                    pendingAppPackage = null
+                                    pendingAppName = null
+                                    currentActiveAppName = null
                                     viewModel.setVisualSource(VisualSource.NONE)
                                 }
                             )
@@ -753,6 +871,82 @@ fun LiveModeScreen(
             onSaveAudioOutput = { viewModel.setAudioOutput(it) }
         )
     }
+
+    // Selector de Aplicación para Compartir
+    if (showAppPickerSheet) {
+        AppSharePickerSheet(
+            recentPackages = liveRecentSharedApps,
+            onDismiss = { showAppPickerSheet = false },
+            onSelectApp = { app ->
+                showAppPickerSheet = false
+                if (liveDontAskScreenShareConfirm) {
+                    launchScreenCapture(app.packageName, app.name)
+                } else {
+                    appToConfirmShare = app
+                }
+            }
+        )
+    }
+
+    // Confirmación de Compartir Aplicación
+    if (appToConfirmShare != null) {
+        val app = appToConfirmShare!!
+        var dontAskChecked by remember { mutableStateOf(false) }
+
+        AlertDialog(
+            onDismissRequest = { appToConfirmShare = null },
+            title = {
+                Text(stringResource(R.string.live_mode_confirm_app_share_title))
+            },
+            text = {
+                Column {
+                    Text(
+                        stringResource(
+                            R.string.live_mode_confirm_app_share_message,
+                            app.name
+                        )
+                    )
+                    Spacer(Modifier.height(16.dp))
+                    Row(
+                        verticalAlignment = Alignment.CenterVertically,
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .clickable { dontAskChecked = !dontAskChecked }
+                            .padding(vertical = 4.dp)
+                    ) {
+                        Checkbox(
+                            checked = dontAskChecked,
+                            onCheckedChange = { dontAskChecked = it }
+                        )
+                        Spacer(Modifier.width(8.dp))
+                        Text(
+                            text = stringResource(R.string.live_mode_dont_ask_again),
+                            style = MaterialTheme.typography.bodyMedium
+                        )
+                    }
+                }
+            },
+            confirmButton = {
+                TextButton(
+                    onClick = {
+                        val target = app
+                        appToConfirmShare = null
+                        if (dontAskChecked) {
+                            viewModel.saveLiveDontAskScreenShareConfirm(true)
+                        }
+                        launchScreenCapture(target.packageName, target.name)
+                    }
+                ) {
+                    Text(stringResource(R.string.live_mode_confirm_start))
+                }
+            },
+            dismissButton = {
+                TextButton(onClick = { appToConfirmShare = null }) {
+                    Text(stringResource(R.string.live_mode_cancel))
+                }
+            }
+        )
+    }
 }
 
 @Composable
@@ -964,7 +1158,10 @@ private fun CameraLivePreview(
 }
 
 @Composable
-private fun ScreenLiveView() {
+private fun ScreenLiveView(
+    appName: String? = null,
+    onOpenApp: (() -> Unit)? = null
+) {
     Column(
         modifier = Modifier
             .fillMaxSize()
@@ -973,14 +1170,18 @@ private fun ScreenLiveView() {
         horizontalAlignment = Alignment.CenterHorizontally
     ) {
         Icon(
-            imageVector = Icons.AutoMirrored.Filled.ScreenShare,
+            imageVector = if (!appName.isNullOrBlank()) Icons.Filled.Apps else Icons.AutoMirrored.Filled.ScreenShare,
             contentDescription = null,
             modifier = Modifier.size(72.dp),
             tint = Color(0xFF00E676)
         )
         Spacer(Modifier.height(16.dp))
         Text(
-            text = stringResource(R.string.live_mode_screen_active),
+            text = if (!appName.isNullOrBlank()) {
+                stringResource(R.string.live_mode_screen_notification_title_app, appName)
+            } else {
+                stringResource(R.string.live_mode_screen_active)
+            },
             style = MaterialTheme.typography.titleMedium,
             color = Color.White,
             textAlign = TextAlign.Center,
@@ -993,6 +1194,24 @@ private fun ScreenLiveView() {
             color = Color.LightGray,
             textAlign = TextAlign.Center
         )
+        if (onOpenApp != null && !appName.isNullOrBlank()) {
+            Spacer(Modifier.height(18.dp))
+            Button(
+                onClick = onOpenApp,
+                colors = ButtonDefaults.buttonColors(
+                    containerColor = Color(0xFF00E676)
+                ),
+                shape = RoundedCornerShape(20.dp)
+            ) {
+                Icon(Icons.AutoMirrored.Filled.Launch, contentDescription = null, tint = Color.Black)
+                Spacer(Modifier.width(8.dp))
+                Text(
+                    text = stringResource(R.string.live_mode_open_app_button, appName),
+                    color = Color.Black,
+                    fontWeight = FontWeight.Bold
+                )
+            }
+        }
     }
 }
 
@@ -1330,6 +1549,240 @@ private fun LiveSettingsSheet(
             }
 
             Spacer(Modifier.height(16.dp))
+        }
+    }
+}
+
+private data class AppInfo(
+    val name: String,
+    val packageName: String,
+    val icon: Drawable? = null
+)
+
+@OptIn(ExperimentalMaterial3Api::class)
+@Composable
+private fun AppSharePickerSheet(
+    recentPackages: List<String>,
+    onDismiss: () -> Unit,
+    onSelectApp: (AppInfo) -> Unit
+) {
+    val context = LocalContext.current
+    var apps by remember { mutableStateOf<List<AppInfo>>(emptyList()) }
+    var isLoading by remember { mutableStateOf(true) }
+    var searchQuery by remember { mutableStateOf("") }
+
+    LaunchedEffect(Unit) {
+        withContext(Dispatchers.IO) {
+            val pm = context.packageManager
+            val mainIntent = Intent(Intent.ACTION_MAIN, null).apply {
+                addCategory(Intent.CATEGORY_LAUNCHER)
+            }
+            val resolveInfos = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
+                pm.queryIntentActivities(mainIntent, PackageManager.ResolveInfoFlags.of(0L))
+            } else {
+                @Suppress("DEPRECATION")
+                pm.queryIntentActivities(mainIntent, 0)
+            }
+            val myPkg = context.packageName
+            val loaded = resolveInfos.mapNotNull { ri ->
+                val pkg = ri.activityInfo.packageName
+                if (pkg == myPkg) return@mapNotNull null
+                val label = ri.loadLabel(pm).toString()
+                val icon = try { ri.loadIcon(pm) } catch (_: Exception) { null }
+                AppInfo(name = label, packageName = pkg, icon = icon)
+            }.distinctBy { it.packageName }
+            .sortedBy { it.name.lowercase(Locale.getDefault()) }
+
+            withContext(Dispatchers.Main) {
+                apps = loaded
+                isLoading = false
+            }
+        }
+    }
+
+    val filteredApps = remember(apps, searchQuery) {
+        if (searchQuery.isBlank()) apps
+        else apps.filter {
+            it.name.contains(searchQuery, ignoreCase = true) ||
+            it.packageName.contains(searchQuery, ignoreCase = true)
+        }
+    }
+
+    val recentApps = remember(apps, recentPackages, searchQuery) {
+        if (searchQuery.isNotBlank() || recentPackages.isEmpty()) emptyList()
+        else {
+            val appMap = apps.associateBy { it.packageName }
+            recentPackages.mapNotNull { appMap[it] }
+        }
+    }
+
+    ModalBottomSheet(
+        onDismissRequest = onDismiss,
+        sheetState = rememberModalBottomSheetState(skipPartiallyExpanded = true)
+    ) {
+        Column(
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(bottom = 24.dp)
+        ) {
+            Text(
+                text = stringResource(R.string.live_mode_share_app_title),
+                style = MaterialTheme.typography.titleLarge,
+                fontWeight = FontWeight.Bold,
+                modifier = Modifier.padding(horizontal = 20.dp, vertical = 8.dp)
+            )
+
+            OutlinedTextField(
+                value = searchQuery,
+                onValueChange = { searchQuery = it },
+                placeholder = { Text(stringResource(R.string.live_mode_share_app_search_placeholder)) },
+                leadingIcon = {
+                    Icon(Icons.Filled.Search, contentDescription = null)
+                },
+                trailingIcon = {
+                    if (searchQuery.isNotEmpty()) {
+                        IconButton(onClick = { searchQuery = "" }) {
+                            Icon(
+                                imageVector = Icons.Filled.Close,
+                                contentDescription = stringResource(R.string.live_mode_share_app_search_clear)
+                            )
+                        }
+                    }
+                },
+                singleLine = true,
+                shape = RoundedCornerShape(16.dp),
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(horizontal = 20.dp, vertical = 8.dp)
+            )
+
+            if (isLoading) {
+                Box(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .height(240.dp),
+                    contentAlignment = Alignment.Center
+                ) {
+                    Column(horizontalAlignment = Alignment.CenterHorizontally) {
+                        CircularProgressIndicator()
+                        Spacer(Modifier.height(12.dp))
+                        Text(
+                            text = stringResource(R.string.live_mode_share_app_loading),
+                            style = MaterialTheme.typography.bodyMedium
+                        )
+                    }
+                }
+            } else if (filteredApps.isEmpty()) {
+                Box(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .height(200.dp),
+                    contentAlignment = Alignment.Center
+                ) {
+                    Text(
+                        text = stringResource(R.string.live_mode_share_app_no_results),
+                        style = MaterialTheme.typography.bodyMedium,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant
+                    )
+                }
+            } else {
+                LazyColumn(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .heightIn(max = 480.dp)
+                ) {
+                    if (recentApps.isNotEmpty()) {
+                        item {
+                            Text(
+                                text = stringResource(R.string.live_mode_share_app_recent_section),
+                                style = MaterialTheme.typography.labelMedium,
+                                color = MaterialTheme.colorScheme.primary,
+                                fontWeight = FontWeight.Bold,
+                                modifier = Modifier.padding(horizontal = 20.dp, vertical = 8.dp)
+                            )
+                        }
+                        items(recentApps, key = { "recent_${it.packageName}" }) { app ->
+                            AppListItem(app = app, onClick = { onSelectApp(app) })
+                        }
+                        item {
+                            Text(
+                                text = stringResource(R.string.live_mode_share_app_all_section),
+                                style = MaterialTheme.typography.labelMedium,
+                                color = MaterialTheme.colorScheme.primary,
+                                fontWeight = FontWeight.Bold,
+                                modifier = Modifier.padding(horizontal = 20.dp, vertical = 8.dp)
+                            )
+                        }
+                    }
+
+                    items(filteredApps, key = { it.packageName }) { app ->
+                        AppListItem(app = app, onClick = { onSelectApp(app) })
+                    }
+                }
+            }
+        }
+    }
+}
+
+@Composable
+private fun AppListItem(
+    app: AppInfo,
+    onClick: () -> Unit
+) {
+    Surface(
+        onClick = onClick,
+        modifier = Modifier
+            .fillMaxWidth()
+            .padding(horizontal = 12.dp, vertical = 2.dp)
+            .semantics {
+                role = Role.Button
+                contentDescription = app.name
+            },
+        shape = RoundedCornerShape(12.dp),
+        color = Color.Transparent
+    ) {
+        Row(
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(horizontal = 12.dp, vertical = 10.dp),
+            verticalAlignment = Alignment.CenterVertically
+        ) {
+            if (app.icon != null) {
+                AsyncImage(
+                    model = app.icon,
+                    contentDescription = null,
+                    modifier = Modifier
+                        .size(42.dp)
+                        .clip(RoundedCornerShape(10.dp))
+                )
+            } else {
+                Box(
+                    modifier = Modifier
+                        .size(42.dp)
+                        .background(MaterialTheme.colorScheme.surfaceVariant, RoundedCornerShape(10.dp)),
+                    contentAlignment = Alignment.Center
+                ) {
+                    Icon(
+                        imageVector = Icons.Filled.Android,
+                        contentDescription = null,
+                        tint = MaterialTheme.colorScheme.primary
+                    )
+                }
+            }
+            Spacer(Modifier.width(14.dp))
+            Column(modifier = Modifier.weight(1f)) {
+                Text(
+                    text = app.name,
+                    style = MaterialTheme.typography.bodyLarge,
+                    fontWeight = FontWeight.SemiBold,
+                    color = MaterialTheme.colorScheme.onSurface
+                )
+                Text(
+                    text = app.packageName,
+                    style = MaterialTheme.typography.bodySmall,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                )
+            }
         }
     }
 }

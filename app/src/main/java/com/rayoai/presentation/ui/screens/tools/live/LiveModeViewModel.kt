@@ -57,6 +57,12 @@ class LiveModeViewModel @Inject constructor(
     val liveAudioOutput: StateFlow<String> = userPreferencesRepository.liveAudioOutput
         .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), "speaker")
 
+    val liveDontAskScreenShareConfirm: StateFlow<Boolean> = userPreferencesRepository.liveDontAskScreenShareConfirm
+        .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), false)
+
+    val liveRecentSharedApps: StateFlow<List<String>> = userPreferencesRepository.liveRecentSharedApps
+        .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), emptyList())
+
     fun startSession(onMissingApiKey: () -> Unit) {
         viewModelScope.launch {
             val key = apiKey.value ?: userPreferencesRepository.apiKey.first()
@@ -144,6 +150,14 @@ class LiveModeViewModel @Inject constructor(
     fun setAudioOutput(output: String) {
         liveManager.setAudioOutput(output)
         viewModelScope.launch { userPreferencesRepository.saveLiveAudioOutput(output) }
+    }
+
+    fun saveLiveDontAskScreenShareConfirm(dontAsk: Boolean) {
+        viewModelScope.launch { userPreferencesRepository.saveLiveDontAskScreenShareConfirm(dontAsk) }
+    }
+
+    fun addRecentSharedApp(packageName: String) {
+        viewModelScope.launch { userPreferencesRepository.addRecentSharedApp(packageName) }
     }
 
     override fun onCleared() {

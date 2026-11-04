@@ -44,6 +44,8 @@ class UserPreferencesRepositoryImpl @Inject constructor(
         val LIVE_PUSH_TO_TALK = booleanPreferencesKey("live_push_to_talk")
         val LIVE_CAPTURE_INTERVAL_SECONDS = floatPreferencesKey("live_capture_interval_seconds")
         val LIVE_AUDIO_OUTPUT = stringPreferencesKey("live_audio_output")
+        val LIVE_DONT_ASK_SCREEN_SHARE_CONFIRM = booleanPreferencesKey("live_dont_ask_screen_share_confirm")
+        val LIVE_RECENT_SHARED_APPS = stringPreferencesKey("live_recent_shared_apps")
     }
 
     override val apiKey: Flow<String?> = dataStore.data.map {
@@ -148,6 +150,16 @@ class UserPreferencesRepositoryImpl @Inject constructor(
 
     override val liveAudioOutput: Flow<String> = dataStore.data.map {
         it[PreferencesKeys.LIVE_AUDIO_OUTPUT] ?: "speaker"
+    }
+
+    override val liveDontAskScreenShareConfirm: Flow<Boolean> = dataStore.data.map {
+        it[PreferencesKeys.LIVE_DONT_ASK_SCREEN_SHARE_CONFIRM] ?: false
+    }
+
+    override val liveRecentSharedApps: Flow<List<String>> = dataStore.data.map {
+        val raw = it[PreferencesKeys.LIVE_RECENT_SHARED_APPS] ?: ""
+        if (raw.isBlank()) emptyList()
+        else raw.split(",").map { pkg -> pkg.trim() }.filter { pkg -> pkg.isNotEmpty() }
     }
 
     override suspend fun saveApiKey(apiKey: String) {
@@ -285,6 +297,23 @@ class UserPreferencesRepositoryImpl @Inject constructor(
     override suspend fun saveLiveAudioOutput(output: String) {
         dataStore.edit {
             it[PreferencesKeys.LIVE_AUDIO_OUTPUT] = output
+        }
+    }
+
+    override suspend fun saveLiveDontAskScreenShareConfirm(dontAsk: Boolean) {
+        dataStore.edit {
+            it[PreferencesKeys.LIVE_DONT_ASK_SCREEN_SHARE_CONFIRM] = dontAsk
+        }
+    }
+
+    override suspend fun addRecentSharedApp(packageName: String) {
+        if (packageName.isBlank()) return
+        dataStore.edit { prefs ->
+            val raw = prefs[PreferencesKeys.LIVE_RECENT_SHARED_APPS] ?: ""
+            val currentList = if (raw.isBlank()) emptyList()
+            else raw.split(",").map { it.trim() }.filter { it.isNotEmpty() }
+            val updated = (listOf(packageName) + currentList.filter { it != packageName }).take(6)
+            prefs[PreferencesKeys.LIVE_RECENT_SHARED_APPS] = updated.joinToString(",")
         }
     }
 }
