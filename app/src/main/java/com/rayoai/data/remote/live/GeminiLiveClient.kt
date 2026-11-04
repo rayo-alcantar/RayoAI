@@ -58,13 +58,11 @@ class GeminiLiveClient(
         if (!isRunning.get()) return
         onStateChanged(if (isConnectedOnce) LiveSessionState.RECONNECTING else LiveSessionState.STARTING)
 
-        scope.launch {
-            if (!isConnectedOnce) {
-                activeModel = resolveLiveModel(config.apiKey, config.model)
-                Log.i(TAG, "Modelo Live resuelto para la sesión: $activeModel")
-            }
-            openWebSocket()
+        if (!isConnectedOnce) {
+            activeModel = resolveLiveModel(config.model)
+            Log.i(TAG, "Modelo Live configurado para la sesión: $activeModel")
         }
+        openWebSocket()
     }
 
     private fun openWebSocket() {
@@ -128,54 +126,12 @@ class GeminiLiveClient(
         })
     }
 
-    private suspend fun resolveLiveModel(apiKey: String, preferredModel: String): String {
-        val normalizedPreferred = if (preferredModel.startsWith("models/")) preferredModel else "models/$preferredModel"
-        return withContext(Dispatchers.IO) {
-            try {
-                val request = Request.Builder()
-                    .url("https://generativelanguage.googleapis.com/v1beta/models?key=${apiKey.trim()}")
-                    .get()
-                    .build()
-                val response = okHttpClient.newCall(request).execute()
-                val body = response.body?.string()
-                if (response.isSuccessful && !body.isNullOrBlank()) {
-                    val json = JSONObject(body)
-                    val modelsArray = json.optJSONArray("models")
-                    if (modelsArray != null) {
-                        val supportedBidiModels = mutableListOf<String>()
-                        for (i in 0 until modelsArray.length()) {
-                            val modelObj = modelsArray.getJSONObject(i)
-                            val name = modelObj.optString("name")
-                            val methods = modelObj.optJSONArray("supportedGenerationMethods")
-                            if (methods != null) {
-                                for (j in 0 until methods.length()) {
-                                    if (methods.optString(j) == "bidiGenerateContent") {
-                                        supportedBidiModels.add(name)
-                                        break
-                                    }
-                                }
-                            }
-                        }
-                        Log.i(TAG, "Modelos que admiten bidiGenerateContent: $supportedBidiModels")
-                        if (supportedBidiModels.isNotEmpty()) {
-                            if (supportedBidiModels.contains(normalizedPreferred)) {
-                                return@withContext normalizedPreferred
-                            }
-                            val cleanPref = preferredModel.removePrefix("models/")
-                            val partialMatch = supportedBidiModels.firstOrNull { it.contains(cleanPref) }
-                            if (partialMatch != null) {
-                                return@withContext partialMatch
-                            }
-                            return@withContext supportedBidiModels.first()
-                        }
-                    }
-                } else {
-                    Log.w(TAG, "Respuesta de ListModels no exitosa: ${response.code}")
-                }
-            } catch (e: Exception) {
-                Log.w(TAG, "No se pudo consultar ListModels, usando modelo por defecto", e)
-            }
-            normalizedPreferred
+    private fun resolveLiveModel(preferredModel: String): String {
+        val clean = preferredModel.removePrefix("models/").trim()
+        return if (GeminiModelConfig.liveSelectableModels.contains(clean)) {
+            clean
+        } else {
+            GeminiModelConfig.DEFAULT_LIVE_MODEL
         }
     }
 

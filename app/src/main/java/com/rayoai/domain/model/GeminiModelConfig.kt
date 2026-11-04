@@ -9,31 +9,27 @@ import com.rayoai.data.remote.dto.ThinkingConfigDto
  * Incluye también la configuración canónica para el modo Live.
  */
 object GeminiModelConfig {
-    const val DEFAULT_MODEL = "gemini-3.1-flash-lite-preview"
+    const val DEFAULT_MODEL = "gemini-3.1-flash-lite"
     const val FALLBACK_MODEL = "gemini-2.5-flash"
 
     // Modelo predeterminado para Gemini Live API bidireccional (audio + visión)
-    const val DEFAULT_LIVE_MODEL = "gemini-2.0-flash"
+    const val DEFAULT_LIVE_MODEL = "gemini-3.1-flash-live-preview"
 
     /**
      * Modelos visibles para el selector de ajustes generales (ordenados de más rápidos a más pesados).
      */
     val selectableModels = listOf(
         DEFAULT_MODEL,
-        "gemini-3-flash-preview",
         FALLBACK_MODEL,
-        "gemini-3.1-pro-preview",
-        "gemini-2.5-pro"
+        "gemini-3-flash-preview",
+        "gemini-3.1-pro-preview"
     )
 
     /**
      * Modelos compatibles con el modo Live (WebSocket bidireccional BidiGenerateContent).
      */
     val liveSelectableModels = listOf(
-        DEFAULT_LIVE_MODEL,
-        "gemini-2.5-flash",
-        "gemini-2.0-flash-realtime-exp",
-        "gemini-2.0-flash-live-001"
+        DEFAULT_LIVE_MODEL
     )
 
     /**
@@ -87,10 +83,9 @@ object GeminiModelConfig {
      */
     val fallbackOrder = listOf(
         DEFAULT_MODEL,
-        "gemini-3-flash-preview",
         FALLBACK_MODEL,
-        "gemini-3.1-pro-preview",
-        "gemini-2.5-pro"
+        "gemini-3-flash-preview",
+        "gemini-3.1-pro-preview"
     )
 
     /**

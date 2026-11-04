@@ -52,9 +52,9 @@ class UserPreferencesRepositoryImpl @Inject constructor(
     override val defaultModel: Flow<String> = dataStore.data.map {
         val savedModel = it[PreferencesKeys.DEFAULT_MODEL] ?: GeminiModelConfig.DEFAULT_MODEL
         
-        // Migración automática: si el usuario tiene 2.0-flash, cambiarlo a 2.5-flash
-        if (savedModel.contains("2.0-flash") || savedModel.contains("2.0")) {
-            "gemini-2.5-flash"
+        // Migración automática: si el usuario tiene modelos obsoletos, migrar al predeterminado
+        if (savedModel.contains("2.0") || savedModel == "gemini-2.5-pro" || savedModel.isBlank()) {
+            GeminiModelConfig.DEFAULT_MODEL
         } else {
             savedModel
         }
@@ -118,7 +118,7 @@ class UserPreferencesRepositoryImpl @Inject constructor(
 
     override val liveModel: Flow<String> = dataStore.data.map {
         val stored = it[PreferencesKeys.LIVE_MODEL]
-        if (stored.isNullOrBlank() || stored.contains("3.1") || stored.contains("exp")) {
+        if (stored.isNullOrBlank() || !GeminiModelConfig.liveSelectableModels.contains(stored)) {
             GeminiModelConfig.DEFAULT_LIVE_MODEL
         } else {
             stored

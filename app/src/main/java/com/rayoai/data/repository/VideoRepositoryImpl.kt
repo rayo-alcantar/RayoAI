@@ -660,10 +660,9 @@ class VideoRepositoryImpl @Inject constructor(
         private const val FILE_RETENTION_MILLIS = 48L * 60L * 60L * 1000L
         private val VIDEO_MODEL_FALLBACK_ORDER = listOf(
             GeminiModelConfig.DEFAULT_MODEL,
+            GeminiModelConfig.FALLBACK_MODEL,
             "gemini-3-flash-preview",
-            "gemini-2.5-flash",
-            "gemini-3.1-pro-preview",
-            "gemini-2.5-pro"
+            "gemini-3.1-pro-preview"
         )
         private val TOKEN_REGEX = Regex("""name=["']_token["']\s+value=["']([^"']+)["']""")
         private val MP4_REGEX = Regex("""href=["']([^"']+\.mp4[^"']*)["']|["'](https?://[^"']+\.mp4[^"']*)["']""", RegexOption.IGNORE_CASE)

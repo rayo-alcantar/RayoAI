@@ -11,16 +11,16 @@ class GeminiModelConfigTest {
     @Test
     fun buildModelPriority_placesPreferredFirstAndFlashBeforePro() {
         val priority = GeminiModelConfig.buildModelPriority("")
-        assertEquals("gemini-3.1-flash-lite-preview", priority.first())
+        assertEquals("gemini-3.1-flash-lite", priority.first())
         val flashIndex = priority.indexOf("gemini-3-flash-preview")
         val proIndex = priority.indexOf("gemini-3.1-pro-preview")
         assertTrue(flashIndex in 1 until proIndex)
-        assertFalse(priority.contains("gemini-2.5"))
+        assertFalse(priority.contains("gemini-2.5-pro"))
     }
 
     @Test
     fun thinkingConfigFor_adaptsByModelFamily() {
-        val gemini3Config = GeminiModelConfig.thinkingConfigFor("gemini-3.1-flash-lite-preview")
+        val gemini3Config = GeminiModelConfig.thinkingConfigFor("gemini-3.1-flash-lite")
         assertEquals(false, gemini3Config?.includeThoughts)
         assertEquals("MINIMAL", gemini3Config?.thinkingLevel)
         assertNull(gemini3Config?.thinkingBudget)
@@ -44,12 +44,11 @@ class GeminiModelConfigTest {
 
     @Test
     fun liveModelsAndVoices_areConfiguredCorrectly() {
-        assertEquals("gemini-2.0-flash", GeminiModelConfig.DEFAULT_LIVE_MODEL)
+        assertEquals("gemini-3.1-flash-live-preview", GeminiModelConfig.DEFAULT_LIVE_MODEL)
         assertTrue(GeminiModelConfig.liveSelectableModels.contains(GeminiModelConfig.DEFAULT_LIVE_MODEL))
-        assertTrue(GeminiModelConfig.liveSelectableModels.contains("gemini-2.0-flash-live-001"))
         assertTrue(GeminiModelConfig.liveVoices.contains("Kore"))
         assertTrue(GeminiModelConfig.liveVoices.contains("Puck"))
         assertTrue(GeminiModelConfig.liveModelSupportsThinking("gemini-3.1-flash-live-preview"))
-        assertFalse(GeminiModelConfig.liveModelSupportsThinking("gemini-2.0-flash-live-001"))
+        assertFalse(GeminiModelConfig.liveModelSupportsThinking("gemini-2.5-flash"))
     }
 }

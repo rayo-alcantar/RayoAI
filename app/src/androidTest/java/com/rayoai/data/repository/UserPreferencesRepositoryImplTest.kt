@@ -60,7 +60,7 @@ class UserPreferencesRepositoryImplTest {
 
     @Test
     fun saveDefaultModel_retrievesCorrectly() = testCoroutineScope.runTest {
-        val newModel = "gemini-2.5-pro"
+        val newModel = "gemini-3.1-pro-preview"
 
         repository.defaultModel.test {
             assertEquals(GeminiModelConfig.DEFAULT_MODEL, awaitItem())

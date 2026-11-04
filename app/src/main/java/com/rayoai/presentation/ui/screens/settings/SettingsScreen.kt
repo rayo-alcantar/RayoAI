@@ -116,10 +116,9 @@ fun SettingsScreen(
 
     val modelOptions = listOf(
         GeminiModelConfig.DEFAULT_MODEL to stringResource(R.string.model_gemini_31_flash_lite),
-        "gemini-3.1-pro-preview" to stringResource(R.string.model_gemini_31_pro),
-        "gemini-3-flash-preview" to stringResource(R.string.model_gemini_3_flash),
         GeminiModelConfig.FALLBACK_MODEL to stringResource(R.string.model_gemini_25_flash),
-        "gemini-2.5-pro" to stringResource(R.string.model_gemini_25_pro)
+        "gemini-3-flash-preview" to stringResource(R.string.model_gemini_3_flash),
+        "gemini-3.1-pro-preview" to stringResource(R.string.model_gemini_31_pro)
     )
     val themeOptions = listOf(
         ThemeMode.SYSTEM to stringResource(R.string.theme_mode_system),
