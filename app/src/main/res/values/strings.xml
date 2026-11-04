@@ -485,5 +485,36 @@ Tarjeta: 4152314082325278</string>
     <string name="live_mode_tap_anywhere_to_interrupt">Toca cualquier parte de la pantalla para interrumpir la respuesta</string>
     <string name="settings_live_section_title">Modo Live (Gemini Live)</string>
     <string name="settings_live_section_description">Configura el modelo, la voz, el razonamiento y la transmisión visual en vivo.</string>
+
+    <!-- Modo Proactivo (Centinela) -->
+    <string name="tool_proactive_mode">Modo Proactivo (Centinela)</string>
+    <string name="tool_proactive_mode_description">Vigila tu entorno con la cámara y te avisa cuando detecte puertas, estado de la luz, personas u objetivos propios.</string>
+    <string name="proactive_mode_title">Centinela Proactivo</string>
+    <string name="proactive_mode_start">Iniciar vigilancia</string>
+    <string name="proactive_mode_stop">Detener vigilancia</string>
+    <string name="proactive_mode_monitoring_active">Vigilancia activa</string>
+    <string name="proactive_mode_monitoring_idle">En espera. Selecciona un objetivo y pulsa Iniciar.</string>
+    <string name="proactive_mode_analyzing">Analizando entorno…</string>
+    <string name="proactive_mode_detected">¡Detectado!</string>
+    <string name="proactive_mode_no_detection">Sin cambios relevantes</string>
+    <string name="proactive_preset_light_title">💡 Luz</string>
+    <string name="proactive_preset_light_condition">Detecta si la luz está encendida o apagada, y avisa si la iluminación cambia.</string>
+    <string name="proactive_preset_door_title">🚪 Puertas</string>
+    <string name="proactive_preset_door_condition">Detecta si hay una puerta visible en el campo de visión y si está abierta o cerrada.</string>
+    <string name="proactive_preset_person_title">👤 Personas</string>
+    <string name="proactive_preset_person_condition">Detecta si hay personas visibles o si alguien se acerca hacia la cámara.</string>
+    <string name="proactive_preset_seat_title">🪑 Asientos</string>
+    <string name="proactive_preset_seat_condition">Detecta sillas, bancos o asientos disponibles para sentarse.</string>
+    <string name="proactive_preset_obstacle_title">🚶 Obstáculos</string>
+    <string name="proactive_preset_obstacle_condition">Detecta escaleras (subida o bajada), desniveles, bordillos u obstáculos en el paso.</string>
+    <string name="proactive_preset_custom_title">✍️ Personalizado</string>
+    <string name="proactive_preset_custom_condition">Detecta el objetivo especificado por el usuario.</string>
+    <string name="proactive_custom_hint">¿Qué deseas que vigile? (ej. dime cuando veas una ventana)</string>
+    <string name="proactive_interval_label">Frecuencia</string>
+    <string name="proactive_interval_2s">2s (rápido)</string>
+    <string name="proactive_interval_3s">3s (óptimo)</string>
+    <string name="proactive_interval_5s">5s (ahorro)</string>
+    <string name="proactive_silence_hint">Toca para silenciar anuncio actual</string>
+    <string name="proactive_api_key_required">Configura tu clave de API de Gemini en Ajustes para usar el Centinela Proactivo.</string>
 </resources>
 

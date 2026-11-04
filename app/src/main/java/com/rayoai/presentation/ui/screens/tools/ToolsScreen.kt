@@ -32,6 +32,7 @@ import androidx.compose.material.icons.filled.LightMode
 import androidx.compose.material.icons.filled.PictureAsPdf
 import androidx.compose.material.icons.filled.QrCodeScanner
 import androidx.compose.material.icons.filled.VideoLibrary
+import androidx.compose.material.icons.filled.Visibility
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.Icon
@@ -332,11 +333,14 @@ fun ToolsScreen(
     onScanPdf: () -> Unit,
     onScanVideo: () -> Unit,
     onScanQr: () -> Unit,
-    onLiveMode: () -> Unit
+    onLiveMode: () -> Unit,
+    onProactiveMode: () -> Unit
 ) {
     val toolsTitle = stringResource(R.string.tools_title)
     val liveModeText = stringResource(R.string.tool_live_mode)
     val liveModeDescription = stringResource(R.string.tool_live_mode_description)
+    val proactiveModeText = stringResource(R.string.tool_proactive_mode)
+    val proactiveModeDescription = stringResource(R.string.tool_proactive_mode_description)
     val scanPdfText = stringResource(R.string.tool_scan_pdf)
     val scanPdfDescription = stringResource(R.string.tool_scan_pdf_description)
     val scanVideoText = stringResource(R.string.scan_video)
@@ -373,6 +377,29 @@ fun ToolsScreen(
                         Spacer(modifier = Modifier.width(4.dp))
                         Text(text = liveModeText, style = MaterialTheme.typography.titleMedium)
                         Text(text = liveModeDescription)
+                    }
+                }
+            }
+
+            item {
+                Card(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .semantics {
+                            role = Role.Button
+                            contentDescription = "$proactiveModeText. $proactiveModeDescription"
+                        }
+                        .clickable(onClick = onProactiveMode),
+                    colors = CardDefaults.cardColors(MaterialTheme.colorScheme.secondaryContainer)
+                ) {
+                    Column(Modifier.padding(16.dp)) {
+                        Icon(
+                            imageVector = Icons.Filled.Visibility,
+                            contentDescription = null
+                        )
+                        Spacer(modifier = Modifier.width(4.dp))
+                        Text(text = proactiveModeText, style = MaterialTheme.typography.titleMedium)
+                        Text(text = proactiveModeDescription)
                     }
                 }
             }

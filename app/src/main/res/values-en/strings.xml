@@ -476,4 +476,35 @@ Card: 4152314082325278</string>
     <string name="live_mode_tap_anywhere_to_interrupt">Tap anywhere on the screen to interrupt response</string>
     <string name="settings_live_section_title">Live Mode (Gemini Live)</string>
     <string name="settings_live_section_description">Configure model, voice, thinking, and live visual streaming.</string>
+
+    <!-- Proactive Mode (Sentinel) -->
+    <string name="tool_proactive_mode">Proactive Mode (Sentinel)</string>
+    <string name="tool_proactive_mode_description">Monitors your environment with camera and alerts you when it detects doors, light state, people, or custom goals.</string>
+    <string name="proactive_mode_title">Proactive Sentinel</string>
+    <string name="proactive_mode_start">Start monitoring</string>
+    <string name="proactive_mode_stop">Stop monitoring</string>
+    <string name="proactive_mode_monitoring_active">Monitoring active</string>
+    <string name="proactive_mode_monitoring_idle">Idle. Select a target and press Start.</string>
+    <string name="proactive_mode_analyzing">Analyzing environment…</string>
+    <string name="proactive_mode_detected">Detected!</string>
+    <string name="proactive_mode_no_detection">No relevant changes</string>
+    <string name="proactive_preset_light_title">💡 Light</string>
+    <string name="proactive_preset_light_condition">Detect whether the light is on or off, and alert if lighting changes.</string>
+    <string name="proactive_preset_door_title">🚪 Doors</string>
+    <string name="proactive_preset_door_condition">Detect whether there is a door visible in view and whether it is open or closed.</string>
+    <string name="proactive_preset_person_title">👤 People</string>
+    <string name="proactive_preset_person_condition">Detect whether people are visible or if someone is approaching the camera.</string>
+    <string name="proactive_preset_seat_title">🪑 Seats</string>
+    <string name="proactive_preset_seat_condition">Detect chairs, benches, or available seats.</string>
+    <string name="proactive_preset_obstacle_title">🚶 Obstacles</string>
+    <string name="proactive_preset_obstacle_condition">Detect stairs (up or down), steps, curbs, or obstacles ahead.</string>
+    <string name="proactive_preset_custom_title">✍️ Custom</string>
+    <string name="proactive_preset_custom_condition">Detect the target specified by the user.</string>
+    <string name="proactive_custom_hint">What do you want it to watch for? (e.g., tell me when you see a window)</string>
+    <string name="proactive_interval_label">Frequency</string>
+    <string name="proactive_interval_2s">2s (fast)</string>
+    <string name="proactive_interval_3s">3s (optimal)</string>
+    <string name="proactive_interval_5s">5s (saver)</string>
+    <string name="proactive_silence_hint">Tap to silence current alert</string>
+    <string name="proactive_api_key_required">Configure your Gemini API key in Settings to use the Proactive Sentinel.</string>
 </resources>

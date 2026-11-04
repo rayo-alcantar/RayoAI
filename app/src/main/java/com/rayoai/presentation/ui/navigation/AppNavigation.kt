@@ -61,6 +61,7 @@ sealed class Screen(val route: String, val baseRoute: String, val labelRes: Int?
     object History : Screen("history", "history", R.string.tab_history, Icons.Default.History)
     object Tools : Screen("tools", "tools", R.string.tab_tools, Icons.Default.Build)
     object LiveMode : Screen("live_mode", "tools")
+    object ProactiveMode : Screen("proactive_mode", "tools")
     object ScanPdf : Screen("scan_pdf", "tools")
     object ViewPdf : Screen("view_pdf?id={id}", "tools") {
         fun createRoute(id: Long) = "view_pdf?id=$id"
@@ -262,11 +263,18 @@ fun AppNavigation(
                     onScanPdf = { navController.navigate(Screen.ScanPdf.route) },
                     onScanVideo = { navController.navigate(Screen.ScanVideo.route) },
                     onScanQr = { navController.navigate(Screen.ScanQr.route) },
-                    onLiveMode = { navController.navigate(Screen.LiveMode.route) }
+                    onLiveMode = { navController.navigate(Screen.LiveMode.route) },
+                    onProactiveMode = { navController.navigate(Screen.ProactiveMode.route) }
                 )
             }
             composable(Screen.LiveMode.route) {
                 com.rayoai.presentation.ui.screens.tools.live.LiveModeScreen(
+                    onNavigateBack = { navController.popBackStack() },
+                    onNavigateToSettings = { navController.navigate(Screen.Settings.route) }
+                )
+            }
+            composable(Screen.ProactiveMode.route) {
+                com.rayoai.presentation.ui.screens.tools.proactive.ProactiveModeScreen(
                     onNavigateBack = { navController.popBackStack() },
                     onNavigateToSettings = { navController.navigate(Screen.Settings.route) }
                 )
