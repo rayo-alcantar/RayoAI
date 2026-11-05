@@ -3,6 +3,7 @@ package com.rayoai.presentation.ui.screens.tools.proactive
 import android.Manifest
 import android.annotation.SuppressLint
 import android.content.Context
+import android.content.pm.PackageManager
 import android.graphics.Bitmap
 import android.graphics.Matrix
 import android.media.AudioManager
@@ -10,9 +11,12 @@ import android.media.ToneGenerator
 import android.os.Build
 import android.os.VibrationEffect
 import android.os.Vibrator
+import android.os.VibratorManager
 import android.speech.tts.TextToSpeech
 import android.view.ViewGroup
 import androidx.activity.compose.BackHandler
+import androidx.activity.compose.rememberLauncherForActivityResult
+import androidx.activity.result.contract.ActivityResultContracts
 import androidx.camera.core.CameraSelector
 import androidx.camera.core.ImageAnalysis
 import androidx.camera.core.ImageProxy
@@ -40,8 +44,10 @@ import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material.icons.filled.Cameraswitch
+import androidx.compose.material.icons.filled.CheckCircle
 import androidx.compose.material.icons.filled.FlashOff
 import androidx.compose.material.icons.filled.FlashOn
+import androidx.compose.material.icons.filled.Mic
 import androidx.compose.material.icons.filled.PlayArrow
 import androidx.compose.material.icons.filled.Stop
 import androidx.compose.material.icons.filled.Timer
@@ -72,6 +78,7 @@ import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableLongStateOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
@@ -80,22 +87,23 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalLifecycleOwner
 import androidx.compose.ui.res.stringResource
-import androidx.compose.ui.semantics.LiveRegionMode
 import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.semantics.contentDescription
-import androidx.compose.ui.semantics.liveRegion
 import androidx.compose.ui.semantics.role
 import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.viewinterop.AndroidView
+import androidx.core.content.ContextCompat
 import androidx.hilt.navigation.compose.hiltViewModel
 import com.google.accompanist.permissions.ExperimentalPermissionsApi
 import com.google.accompanist.permissions.rememberMultiplePermissionsState
 import com.rayoai.R
+import com.rayoai.domain.model.AudioRecording
 import com.rayoai.domain.model.proactive.ProactivePreset
 import com.rayoai.presentation.ui.LocalTextToSpeech
-import com.rayoai.presentation.ui.components.VoiceInputButton
+import com.rayoai.presentation.voice.VoiceRecorder
+import kotlinx.coroutines.launch
 import java.util.concurrent.Executors
 
 @OptIn(ExperimentalMaterial3Api::class, ExperimentalPermissionsApi::class)
@@ -129,8 +137,6 @@ fun ProactiveModeScreen(
     val stopMonitoringText = stringResource(R.string.proactive_mode_stop)
     val monitoringActiveText = stringResource(R.string.proactive_mode_monitoring_active)
     val monitoringIdleText = stringResource(R.string.proactive_mode_monitoring_idle)
-    val analyzingText = stringResource(R.string.proactive_mode_analyzing)
-    val detectedBadgeText = stringResource(R.string.proactive_mode_detected)
     val customHintText = stringResource(R.string.proactive_custom_hint)
     val silenceHint = stringResource(R.string.proactive_silence_hint)
     val cameraTouchToSilenceDesc = stringResource(R.string.proactive_camera_touch_to_silence)
@@ -138,16 +144,20 @@ fun ProactiveModeScreen(
     val openSettingsText = stringResource(R.string.live_mode_open_settings)
     val flipCameraDesc = stringResource(R.string.live_mode_flip_camera)
     val intervalLabel = stringResource(R.string.proactive_interval_label)
-    val voiceTargetFeedbackTemplate = if (isMonitoring) {
-        stringResource(R.string.proactive_voice_target_feedback)
-    } else {
-        stringResource(R.string.proactive_voice_target_set)
-    }
+    val changeTargetBtnText = stringResource(R.string.proactive_change_target_btn)
+    val dictateTargetBtnText = stringResource(R.string.proactive_dictate_target_btn)
+    val detectedPrefixText = stringResource(R.string.proactive_detected_prefix)
 
     val torchDesc = if (isTorchOn) stringResource(R.string.live_mode_torch_off)
     else stringResource(R.string.live_mode_torch_on)
 
     val presetCondition = stringResource(selectedPreset.promptConditionRes)
+
+    val currentTargetDisplay = if (selectedPreset == ProactivePreset.CUSTOM && customCondition.isNotBlank()) {
+        customCondition
+    } else {
+        stringResource(selectedPreset.titleRes)
+    }
 
     val permissionsState = rememberMultiplePermissionsState(
         permissions = listOf(
@@ -156,8 +166,17 @@ fun ProactiveModeScreen(
         )
     )
 
-    // Manejo de vibración y earcon sonoro
-    val vibrator = remember { context.getSystemService(Context.VIBRATOR_SERVICE) as? Vibrator }
+    // Manejo de vibración y earcon sonoro discreto
+    val vibrator = remember {
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S) {
+            val manager = context.getSystemService(Context.VIBRATOR_MANAGER_SERVICE) as? VibratorManager
+            manager?.defaultVibrator
+        } else {
+            @Suppress("DEPRECATION")
+            context.getSystemService(Context.VIBRATOR_SERVICE) as? Vibrator
+        }
+    }
+
     val toneGen = remember {
         try {
             ToneGenerator(AudioManager.STREAM_NOTIFICATION, 85)
@@ -173,7 +192,7 @@ fun ProactiveModeScreen(
         }
     }
 
-    // Anuncio vocal por Google TTS cuando se detecta el objetivo
+    // Anuncio vocal por Google TTS ÚNICAMENTE cuando se localiza el objeto
     LaunchedEffect(viewModel.alertTrigger) {
         viewModel.alertTrigger.collect { announcement ->
             try {
@@ -184,17 +203,18 @@ fun ProactiveModeScreen(
         }
     }
 
-    // Confirmación vocal por Google TTS cuando se dicta un objetivo por voz
+    // Confirmación breve por Google TTS al fijar/cambiar el objetivo en lenguaje natural
     LaunchedEffect(viewModel.speechFeedbackTrigger) {
         viewModel.speechFeedbackTrigger.collect { feedback ->
             textToSpeech?.stop()
-            textToSpeech?.speak(feedback, TextToSpeech.QUEUE_FLUSH, null, "proactive_feedback")
+            textToSpeech?.speak(feedback, TextToSpeech.QUEUE_FLUSH, null, "proactive_target_confirm")
         }
     }
 
+    // Vibración háptica al localizar
     LaunchedEffect(viewModel.hapticTrigger) {
         viewModel.hapticTrigger.collect {
-            vibrateDetection(context, vibrator)
+            vibrateDetection(vibrator)
         }
     }
 
@@ -226,7 +246,7 @@ fun ProactiveModeScreen(
                     }
                 },
                 actions = {
-                    // Botón Linterna (solo cámara trasera)
+                    // Linterna (cámara trasera)
                     if (!isFrontCamera) {
                         IconButton(
                             onClick = { viewModel.toggleTorch() },
@@ -243,7 +263,7 @@ fun ProactiveModeScreen(
                         }
                     }
 
-                    // Botón Cambiar Cámara
+                    // Cambiar Cámara
                     IconButton(
                         onClick = { viewModel.toggleFrontCamera() },
                         modifier = Modifier.semantics {
@@ -254,7 +274,7 @@ fun ProactiveModeScreen(
                         Icon(Icons.Filled.Cameraswitch, contentDescription = null)
                     }
 
-                    // Botón Selector de Intervalo (Ciclo rápido 1s, 2s, 3s, 5s)
+                    // Frecuencia (1s, 2s, 3s, 5s)
                     val intervalText = "$intervalLabel: ${intervalSeconds}s"
                     TextButton(
                         onClick = { viewModel.cycleInterval() },
@@ -296,7 +316,7 @@ fun ProactiveModeScreen(
                     .fillMaxSize()
                     .padding(innerPadding)
             ) {
-                // Escenario de Cámara Central con Toque para Silenciar Anuncios
+                // Escenario de Cámara Central (Tocar silencia cualquier anuncio en curso)
                 Box(
                     modifier = Modifier
                         .weight(1f)
@@ -321,37 +341,44 @@ fun ProactiveModeScreen(
                         }
                     )
 
-                    // Indicador flotante de estado en vivo sobre la cámara
-                    if (isMonitoring) {
-                        Row(
+                    // Pastilla superior con el estado y objetivo actual
+                    Row(
+                        modifier = Modifier
+                            .align(Alignment.TopStart)
+                            .padding(14.dp)
+                            .clip(RoundedCornerShape(20.dp))
+                            .background(Color.Black.copy(alpha = 0.8f))
+                            .padding(horizontal = 14.dp, vertical = 7.dp),
+                        verticalAlignment = Alignment.CenterVertically
+                    ) {
+                        Box(
                             modifier = Modifier
-                                .align(Alignment.TopStart)
-                                .padding(14.dp)
-                                .clip(RoundedCornerShape(20.dp))
-                                .background(Color.Black.copy(alpha = 0.75f))
-                                .padding(horizontal = 12.dp, vertical = 6.dp),
-                            verticalAlignment = Alignment.CenterVertically
-                        ) {
-                            Box(
-                                modifier = Modifier
-                                    .size(10.dp)
-                                    .background(
-                                        if (latestDetection?.detected == true) Color(0xFF00E676) else Color(0xFFFFB300),
-                                        CircleShape
-                                    )
-                            )
-                            Spacer(Modifier.width(8.dp))
-                            Text(
-                                text = if (isAnalyzing) analyzingText else "$monitoringActiveText (${intervalSeconds}s)",
-                                color = Color.White,
-                                style = MaterialTheme.typography.labelMedium,
-                                fontWeight = FontWeight.Bold
-                            )
-                        }
+                                .size(10.dp)
+                                .background(
+                                    when {
+                                        !isMonitoring -> Color(0xFFB0BEC5)
+                                        latestDetection?.detected == true -> Color(0xFF00E676)
+                                        else -> Color(0xFFFFB300)
+                                    },
+                                    CircleShape
+                                )
+                        )
+                        Spacer(Modifier.width(8.dp))
+                        Text(
+                            text = if (isMonitoring) {
+                                "$monitoringActiveText • $currentTargetDisplay"
+                            } else {
+                                monitoringIdleText
+                            },
+                            color = Color.White,
+                            style = MaterialTheme.typography.labelMedium,
+                            fontWeight = FontWeight.Bold,
+                            maxLines = 1
+                        )
                     }
                 }
 
-                // Panel de Control Inferior: Presets, Alerta y Botón de Inicio
+                // Panel Inferior: Información Limpia y Controles Robustos
                 Surface(
                     color = MaterialTheme.colorScheme.surface,
                     tonalElevation = 8.dp,
@@ -363,68 +390,19 @@ fun ProactiveModeScreen(
                             .padding(horizontal = 16.dp, vertical = 14.dp),
                         verticalArrangement = Arrangement.spacedBy(12.dp)
                     ) {
-                        // Fila de Chips de Objetivos Proactivos
-                        Row(
-                            modifier = Modifier
-                                .fillMaxWidth()
-                                .horizontalScroll(rememberScrollState()),
-                            horizontalArrangement = Arrangement.spacedBy(8.dp)
-                        ) {
-                            ProactivePreset.entries.forEach { preset ->
-                                val isSelected = selectedPreset == preset
-                                val title = stringResource(preset.titleRes)
-                                FilterChip(
-                                    selected = isSelected,
-                                    onClick = { viewModel.setPreset(preset) },
-                                    label = { Text(title, fontWeight = if (isSelected) FontWeight.Bold else FontWeight.Normal) },
-                                    colors = FilterChipDefaults.filterChipColors(
-                                        selectedContainerColor = MaterialTheme.colorScheme.primaryContainer,
-                                        selectedLabelColor = MaterialTheme.colorScheme.onPrimaryContainer
-                                    )
-                                )
-                            }
-                        }
-
-                        // Campo personalizado si el preset es CUSTOM con dictado por voz integrado
-                        AnimatedVisibility(visible = selectedPreset == ProactivePreset.CUSTOM) {
-                            Row(
-                                modifier = Modifier.fillMaxWidth(),
-                                verticalAlignment = Alignment.CenterVertically
-                            ) {
-                                OutlinedTextField(
-                                    value = customCondition,
-                                    onValueChange = { viewModel.setCustomCondition(it) },
-                                    modifier = Modifier.weight(1f),
-                                    placeholder = { Text(customHintText) },
-                                    singleLine = true
-                                )
-                                Spacer(Modifier.width(8.dp))
-                                VoiceInputButton(
-                                    enabled = !isTranscribingAudio,
-                                    isTranscribingAudio = isTranscribingAudio,
-                                    onRecordingReady = { recording ->
-                                        viewModel.transcribeVoiceAndSetCustomCondition(
-                                            context = context,
-                                            recording = recording,
-                                            feedbackTemplate = voiceTargetFeedbackTemplate
-                                        )
-                                    },
-                                    onError = {}
-                                )
-                            }
-                        }
-
-                        // Tarjeta de Alerta y Detección Accesible (con toque para silenciar anuncio)
+                        // Tarjeta de Estado/Localización (SIN liveRegion para eliminar el spam en TalkBack)
                         val detection = latestDetection
                         val isDetected = detection?.detected == true
-                        val cardBg = if (isDetected) MaterialTheme.colorScheme.primaryContainer else MaterialTheme.colorScheme.surfaceVariant
-                        val cardContentColor = if (isDetected) MaterialTheme.colorScheme.onPrimaryContainer else MaterialTheme.colorScheme.onSurfaceVariant
 
-                        val statusCardText = when {
-                            !isMonitoring -> monitoringIdleText
-                            isDetected && !detection?.announcement.isNullOrBlank() -> "${detection?.announcement}. ${detection?.details ?: ""}"
-                            isAnalyzing -> analyzingText
-                            else -> stringResource(selectedPreset.titleRes) + ": " + stringResource(R.string.proactive_mode_no_detection)
+                        val cardBg = if (isDetected) {
+                            MaterialTheme.colorScheme.primaryContainer
+                        } else {
+                            MaterialTheme.colorScheme.surfaceVariant
+                        }
+                        val cardContentColor = if (isDetected) {
+                            MaterialTheme.colorScheme.onPrimaryContainer
+                        } else {
+                            MaterialTheme.colorScheme.onSurfaceVariant
                         }
 
                         Card(
@@ -435,9 +413,12 @@ fun ProactiveModeScreen(
                                     textToSpeech?.stop()
                                 }
                                 .semantics {
-                                    liveRegion = LiveRegionMode.Assertive
                                     role = Role.Button
-                                    contentDescription = "$statusCardText. $silenceHint"
+                                    contentDescription = if (isDetected) {
+                                        "$detectedPrefixText: ${detection?.announcement ?: ""}. $silenceHint"
+                                    } else {
+                                        "$currentTargetDisplay. $silenceHint"
+                                    }
                                 },
                             colors = CardDefaults.cardColors(containerColor = cardBg),
                             shape = RoundedCornerShape(16.dp)
@@ -454,21 +435,21 @@ fun ProactiveModeScreen(
                                 ) {
                                     Row(verticalAlignment = Alignment.CenterVertically) {
                                         Icon(
-                                            imageVector = Icons.Filled.Visibility,
+                                            imageVector = if (isDetected) Icons.Filled.CheckCircle else Icons.Filled.Visibility,
                                             contentDescription = null,
                                             tint = cardContentColor,
-                                            modifier = Modifier.size(20.dp)
+                                            modifier = Modifier.size(22.dp)
                                         )
                                         Spacer(Modifier.width(8.dp))
                                         Text(
-                                            text = if (isDetected) detectedBadgeText else stringResource(selectedPreset.titleRes),
-                                            style = MaterialTheme.typography.titleSmall,
+                                            text = if (isDetected) detectedPrefixText else currentTargetDisplay,
+                                            style = MaterialTheme.typography.titleMedium,
                                             color = cardContentColor,
                                             fontWeight = FontWeight.Bold
                                         )
                                     }
 
-                                    if (isAnalyzing) {
+                                    if (isAnalyzing && isMonitoring) {
                                         CircularProgressIndicator(
                                             modifier = Modifier.size(16.dp),
                                             strokeWidth = 2.dp,
@@ -477,10 +458,16 @@ fun ProactiveModeScreen(
                                     }
                                 }
 
-                                Spacer(Modifier.height(6.dp))
+                                Spacer(Modifier.height(4.dp))
 
                                 Text(
-                                    text = statusCardText,
+                                    text = if (isDetected) {
+                                        detection?.announcement ?: ""
+                                    } else if (isMonitoring) {
+                                        stringResource(R.string.proactive_searching_label, currentTargetDisplay)
+                                    } else {
+                                        monitoringIdleText
+                                    },
                                     style = MaterialTheme.typography.bodyLarge,
                                     color = cardContentColor,
                                     fontWeight = if (isDetected) FontWeight.Bold else FontWeight.Normal
@@ -488,60 +475,125 @@ fun ProactiveModeScreen(
                             }
                         }
 
-                        // Botones de Acción: Iniciar / Detener Vigilancia y Dictado de Voz en Vivo
-                        val actionButtonText = if (isMonitoring) stopMonitoringText else startMonitoringText
-                        Row(
-                            modifier = Modifier.fillMaxWidth(),
-                            verticalAlignment = Alignment.CenterVertically,
-                            horizontalArrangement = Arrangement.spacedBy(10.dp)
-                        ) {
-                            Button(
-                                onClick = {
-                                    if (isMonitoring) {
-                                        textToSpeech?.stop()
-                                    }
-                                    viewModel.toggleMonitoring(
-                                        onMissingApiKey = { showApiKeyDialog = true }
-                                    )
-                                },
+                        // Presets para selección rápida cuando no está en ejecución
+                        if (!isMonitoring) {
+                            Row(
                                 modifier = Modifier
-                                    .weight(1f)
-                                    .height(56.dp)
-                                    .semantics {
-                                        role = Role.Button
-                                        contentDescription = actionButtonText
-                                    },
-                                colors = ButtonDefaults.buttonColors(
-                                    containerColor = if (isMonitoring) MaterialTheme.colorScheme.error else MaterialTheme.colorScheme.primary
-                                ),
-                                shape = RoundedCornerShape(28.dp)
+                                    .fillMaxWidth()
+                                    .horizontalScroll(rememberScrollState()),
+                                horizontalArrangement = Arrangement.spacedBy(8.dp)
                             ) {
-                                Icon(
-                                    imageVector = if (isMonitoring) Icons.Filled.Stop else Icons.Filled.PlayArrow,
-                                    contentDescription = null,
-                                    modifier = Modifier.size(24.dp)
-                                )
-                                Spacer(Modifier.width(10.dp))
-                                Text(
-                                    text = actionButtonText,
-                                    style = MaterialTheme.typography.titleMedium,
-                                    fontWeight = FontWeight.Bold
-                                )
+                                ProactivePreset.entries.forEach { preset ->
+                                    val isSelected = selectedPreset == preset
+                                    val title = stringResource(preset.titleRes)
+                                    FilterChip(
+                                        selected = isSelected,
+                                        onClick = { viewModel.setPreset(preset) },
+                                        label = { Text(title, fontWeight = if (isSelected) FontWeight.Bold else FontWeight.Normal) },
+                                        colors = FilterChipDefaults.filterChipColors(
+                                            selectedContainerColor = MaterialTheme.colorScheme.primaryContainer,
+                                            selectedLabelColor = MaterialTheme.colorScheme.onPrimaryContainer
+                                        )
+                                    )
+                                }
                             }
 
-                            // Botón de voz en vivo durante vigilancia para cambiar objetivo al vuelo
-                            if (isMonitoring) {
-                                VoiceInputButton(
-                                    enabled = !isTranscribingAudio,
-                                    isTranscribingAudio = isTranscribingAudio,
+                            // Campo de texto personalizado si el preset es CUSTOM
+                            AnimatedVisibility(visible = selectedPreset == ProactivePreset.CUSTOM) {
+                                OutlinedTextField(
+                                    value = customCondition,
+                                    onValueChange = { viewModel.setCustomCondition(it) },
+                                    modifier = Modifier.fillMaxWidth(),
+                                    placeholder = { Text(customHintText) },
+                                    singleLine = true
+                                )
+                            }
+                        }
+
+                        // Barra de Acciones: Cambiar objetivo al vuelo por voz y Iniciar / Detener
+                        if (isMonitoring) {
+                            // MODO ACTIVO: Dos botones grandes (Micrófono para cambiar sobre la marcha y Detener)
+                            Row(
+                                modifier = Modifier.fillMaxWidth(),
+                                horizontalArrangement = Arrangement.spacedBy(10.dp),
+                                verticalAlignment = Alignment.CenterVertically
+                            ) {
+                                ProactiveVoiceActionButton(
+                                    isTranscribing = isTranscribingAudio,
+                                    idleText = changeTargetBtnText,
                                     onRecordingReady = { recording ->
                                         viewModel.transcribeVoiceAndSetCustomCondition(
                                             context = context,
-                                            recording = recording,
-                                            feedbackTemplate = voiceTargetFeedbackTemplate
+                                            recording = recording
                                         )
                                     },
-                                    onError = {}
+                                    modifier = Modifier.weight(1.2f)
+                                )
+
+                                Button(
+                                    onClick = {
+                                        textToSpeech?.stop()
+                                        viewModel.stopMonitoring()
+                                    },
+                                    modifier = Modifier
+                                        .weight(0.8f)
+                                        .height(56.dp)
+                                        .semantics {
+                                            role = Role.Button
+                                            contentDescription = stopMonitoringText
+                                        },
+                                    colors = ButtonDefaults.buttonColors(
+                                        containerColor = MaterialTheme.colorScheme.error,
+                                        contentColor = MaterialTheme.colorScheme.onError
+                                    ),
+                                    shape = RoundedCornerShape(28.dp)
+                                ) {
+                                    Icon(Icons.Filled.Stop, contentDescription = null, modifier = Modifier.size(22.dp))
+                                    Spacer(Modifier.width(6.dp))
+                                    Text(stopMonitoringText, style = MaterialTheme.typography.titleSmall, fontWeight = FontWeight.Bold)
+                                }
+                            }
+                        } else {
+                            // MODO EN ESPERA: Botón Gigante Iniciar + Botón Dictar Objetivo
+                            Row(
+                                modifier = Modifier.fillMaxWidth(),
+                                horizontalArrangement = Arrangement.spacedBy(10.dp),
+                                verticalAlignment = Alignment.CenterVertically
+                            ) {
+                                Button(
+                                    onClick = {
+                                        textToSpeech?.stop()
+                                        viewModel.startMonitoring(
+                                            onMissingApiKey = { showApiKeyDialog = true }
+                                        )
+                                    },
+                                    modifier = Modifier
+                                        .weight(1.2f)
+                                        .height(56.dp)
+                                        .semantics {
+                                            role = Role.Button
+                                            contentDescription = startMonitoringText
+                                        },
+                                    colors = ButtonDefaults.buttonColors(
+                                        containerColor = MaterialTheme.colorScheme.primary
+                                    ),
+                                    shape = RoundedCornerShape(28.dp)
+                                ) {
+                                    Icon(Icons.Filled.PlayArrow, contentDescription = null, modifier = Modifier.size(24.dp))
+                                    Spacer(Modifier.width(8.dp))
+                                    Text(startMonitoringText, style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Bold)
+                                }
+
+                                ProactiveVoiceActionButton(
+                                    isTranscribing = isTranscribingAudio,
+                                    idleText = dictateTargetBtnText,
+                                    onRecordingReady = { recording ->
+                                        viewModel.transcribeVoiceAndSetCustomCondition(
+                                            context = context,
+                                            recording = recording
+                                        )
+                                    },
+                                    modifier = Modifier.weight(0.8f)
                                 )
                             }
                         }
@@ -586,6 +638,126 @@ fun ProactiveModeScreen(
                     Text(stringResource(android.R.string.ok))
                 }
             }
+        )
+    }
+}
+
+/**
+ * Botón accesible de dictado por voz en lenguaje natural, utilizable tanto antes como durante la vigilancia.
+ */
+@Composable
+private fun ProactiveVoiceActionButton(
+    isTranscribing: Boolean,
+    idleText: String,
+    onRecordingReady: (AudioRecording) -> Unit,
+    modifier: Modifier = Modifier
+) {
+    val context = LocalContext.current
+    val scope = rememberCoroutineScope()
+    val recorder = remember { VoiceRecorder(context.applicationContext) }
+    val textToSpeech = LocalTextToSpeech.current
+    var isRecording by remember { mutableStateOf(false) }
+
+    val startRecordingLabel = stringResource(R.string.voice_record_start)
+    val stopRecordingLabel = stringResource(R.string.voice_record_stop)
+    val transcribingLabel = stringResource(R.string.voice_record_transcribing)
+
+    val permissionLauncher = rememberLauncherForActivityResult(
+        contract = ActivityResultContracts.RequestPermission()
+    ) { granted ->
+        if (granted) {
+            try {
+                textToSpeech?.stop()
+                recorder.start()
+                isRecording = true
+            } catch (_: Exception) {}
+        }
+    }
+
+    DisposableEffect(Unit) {
+        onDispose { recorder.cancel() }
+    }
+
+    val buttonText = when {
+        isRecording -> stopRecordingLabel
+        isTranscribing -> transcribingLabel
+        else -> idleText
+    }
+
+    val buttonColor = if (isRecording) {
+        MaterialTheme.colorScheme.error
+    } else {
+        MaterialTheme.colorScheme.secondaryContainer
+    }
+
+    val contentColor = if (isRecording) {
+        MaterialTheme.colorScheme.onError
+    } else {
+        MaterialTheme.colorScheme.onSecondaryContainer
+    }
+
+    Button(
+        onClick = {
+            if (isRecording) {
+                scope.launch {
+                    try {
+                        val recording = recorder.stop()
+                        isRecording = false
+                        onRecordingReady(recording)
+                    } catch (_: Exception) {
+                        isRecording = false
+                    }
+                }
+            } else {
+                val hasPermission = ContextCompat.checkSelfPermission(
+                    context,
+                    Manifest.permission.RECORD_AUDIO
+                ) == PackageManager.PERMISSION_GRANTED
+
+                if (hasPermission) {
+                    try {
+                        textToSpeech?.stop()
+                        recorder.start()
+                        isRecording = true
+                    } catch (_: Exception) {}
+                } else {
+                    permissionLauncher.launch(Manifest.permission.RECORD_AUDIO)
+                }
+            }
+        },
+        enabled = !isTranscribing,
+        modifier = modifier
+            .height(56.dp)
+            .semantics {
+                contentDescription = buttonText
+                role = Role.Button
+            },
+        colors = ButtonDefaults.buttonColors(
+            containerColor = buttonColor,
+            contentColor = contentColor
+        ),
+        shape = RoundedCornerShape(28.dp)
+    ) {
+        if (isTranscribing) {
+            CircularProgressIndicator(
+                modifier = Modifier.size(20.dp),
+                strokeWidth = 2.dp,
+                color = contentColor
+            )
+            Spacer(Modifier.width(8.dp))
+        } else {
+            Icon(
+                imageVector = if (isRecording) Icons.Filled.Stop else Icons.Filled.Mic,
+                contentDescription = null,
+                modifier = Modifier.size(22.dp)
+            )
+            Spacer(Modifier.width(8.dp))
+        }
+        Text(
+            text = buttonText,
+            style = MaterialTheme.typography.titleSmall,
+            fontWeight = FontWeight.Bold,
+            maxLines = 1
         )
     }
 }
@@ -704,7 +876,7 @@ private fun imageProxyToBitmap(image: ImageProxy, maxDim: Int = 768): Bitmap? {
     return processed
 }
 
-private fun vibrateDetection(context: Context, vibrator: Vibrator?) {
+private fun vibrateDetection(vibrator: Vibrator?) {
     try {
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
             val effect = VibrationEffect.createWaveform(longArrayOf(0, 160, 100, 200), -1)

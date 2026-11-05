@@ -43,7 +43,7 @@ class ProactiveModeViewModel @Inject constructor(
     private val _isTranscribingAudio = MutableStateFlow(false)
     val isTranscribingAudio: StateFlow<Boolean> = _isTranscribingAudio.asStateFlow()
 
-    private val _selectedPreset = MutableStateFlow(ProactivePreset.LIGHT)
+    private val _selectedPreset = MutableStateFlow(ProactivePreset.OBJECT)
     val selectedPreset: StateFlow<ProactivePreset> = _selectedPreset.asStateFlow()
 
     private val _customCondition = MutableStateFlow("")
@@ -81,6 +81,7 @@ class ProactiveModeViewModel @Inject constructor(
 
     private var lastAnnouncementTimeMs: Long = 0L
     private var wasDetected: Boolean = false
+    private var consecutiveNonDetectionFrames: Int = 0
 
     fun toggleMonitoring(onMissingApiKey: () -> Unit) {
         if (_isMonitoring.value) {
@@ -102,6 +103,7 @@ class ProactiveModeViewModel @Inject constructor(
             _lastAnnouncedPhrase.value = null
             lastAnnouncementTimeMs = 0L
             wasDetected = false
+            consecutiveNonDetectionFrames = 0
         }
     }
 
@@ -109,6 +111,7 @@ class ProactiveModeViewModel @Inject constructor(
         _isMonitoring.value = false
         _isAnalyzing.value = false
         wasDetected = false
+        consecutiveNonDetectionFrames = 0
     }
 
     fun setPreset(preset: ProactivePreset) {
@@ -117,6 +120,7 @@ class ProactiveModeViewModel @Inject constructor(
         _lastAnnouncedPhrase.value = null
         lastAnnouncementTimeMs = 0L
         wasDetected = false
+        consecutiveNonDetectionFrames = 0
     }
 
     fun setCustomCondition(condition: String) {
@@ -125,6 +129,7 @@ class ProactiveModeViewModel @Inject constructor(
         _lastAnnouncedPhrase.value = null
         lastAnnouncementTimeMs = 0L
         wasDetected = false
+        consecutiveNonDetectionFrames = 0
     }
 
     fun cycleInterval() {
@@ -148,10 +153,45 @@ class ProactiveModeViewModel @Inject constructor(
         _errorMessage.value = null
     }
 
+    /**
+     * Limpia y extrae el objetivo principal en lenguaje natural para la confirmación de voz y UI.
+     */
+    fun extractNaturalLanguageTarget(spokenText: String): String {
+        var cleaned = spokenText.trim().trim('.', ',', '!', '¡', '?', '¿', '"', '\'')
+
+        val patterns = listOf(
+            Regex("^(che rayo|rayo|por favor|che)\\s+", RegexOption.IGNORE_CASE),
+            Regex("^(buscame|buscá|buscar|busca|encontrame|encontrá|encuentra|encontrar)\\s+", RegexOption.IGNORE_CASE),
+            Regex("^(avisame si ves|avisame cuando veas|avisame si hay|avisame si|avisame)\\s+", RegexOption.IGNORE_CASE),
+            Regex("^(fijate si ves|fijate si hay|fijate si|fijate|mira si ves|mira si hay|mira si|mira)\\s+", RegexOption.IGNORE_CASE),
+            Regex("^(quiero encontrar|quiero que busques|quiero ver si|quiero ver)\\s+", RegexOption.IGNORE_CASE),
+            Regex("^(decime si ves|decime si hay|decime si|decime)\\s+", RegexOption.IGNORE_CASE),
+            Regex("^(donde estan|donde esta|donde deje|donde dejé|dónde están|dónde está|dónde dejé)\\s+", RegexOption.IGNORE_CASE)
+        )
+
+        var changed = true
+        while (changed) {
+            changed = false
+            for (pattern in patterns) {
+                if (pattern.containsMatchIn(cleaned)) {
+                    cleaned = cleaned.replace(pattern, "").trim()
+                    changed = true
+                }
+            }
+        }
+
+        val articlePattern = Regex("^(el|la|los|las|un|una|unos|unas|mi|mis)\\s+", RegexOption.IGNORE_CASE)
+        if (articlePattern.containsMatchIn(cleaned)) {
+            cleaned = cleaned.replace(articlePattern, "").trim()
+        }
+
+        return cleaned.ifBlank { spokenText.trim() }
+            .replaceFirstChar { if (it.isLowerCase()) it.titlecase(Locale.getDefault()) else it.toString() }
+    }
+
     fun transcribeVoiceAndSetCustomCondition(
         context: Context,
-        recording: AudioRecording,
-        feedbackTemplate: String
+        recording: AudioRecording
     ) {
         viewModelScope.launch {
             val key = apiKey.value ?: userPreferencesRepository.apiKey.first()
@@ -175,16 +215,18 @@ class ProactiveModeViewModel @Inject constructor(
                 }
 
                 if (!text.isNullOrBlank()) {
-                    val cleanText = text.trim()
-                    _customCondition.value = cleanText
+                    val rawSpoken = text.trim()
+                    val cleanTarget = extractNaturalLanguageTarget(rawSpoken)
+
+                    _customCondition.value = cleanTarget
                     _selectedPreset.value = ProactivePreset.CUSTOM
                     _latestDetection.value = null
                     _lastAnnouncedPhrase.value = null
                     lastAnnouncementTimeMs = 0L
                     wasDetected = false
+                    consecutiveNonDetectionFrames = 0
 
-                    val feedback = String.format(feedbackTemplate, cleanText)
-                    _speechFeedbackTrigger.tryEmit(feedback)
+                    _speechFeedbackTrigger.tryEmit("Buscando: $cleanTarget")
                 }
             } catch (e: Exception) {
                 _errorMessage.value = e.localizedMessage ?: "Error al transcribir voz"
@@ -222,7 +264,7 @@ class ProactiveModeViewModel @Inject constructor(
                     return@launch
                 }
 
-                // Asegurar escala óptima (máximo 768px) para baja latencia en tiempo real
+                // Escalar a 768px máximo para respuesta ágil en tiempo real
                 val maxDim = 768
                 if (bitmap.width > maxDim || bitmap.height > maxDim) {
                     val scale = maxDim.toFloat() / maxOf(bitmap.width, bitmap.height)
@@ -251,7 +293,7 @@ class ProactiveModeViewModel @Inject constructor(
                     when (result) {
                         is ResultWrapper.Loading -> Unit
                         is ResultWrapper.Error -> {
-                            // Ignorar error transitorio para mantener la vigilancia en tiempo real
+                            // Silencio ante fallo transitorio de frame
                         }
                         is ResultWrapper.Success -> {
                             val detection = result.data
@@ -261,11 +303,12 @@ class ProactiveModeViewModel @Inject constructor(
                             val phrase = detection.announcement
 
                             if (detection.detected && !phrase.isNullOrBlank()) {
-                                val isFreshDetection = !wasDetected
-                                val isPhraseChanged = phrase != _lastAnnouncedPhrase.value
-                                val isRepeatedCooldownExpired = (now - lastAnnouncementTimeMs) > 12_000L
+                                consecutiveNonDetectionFrames = 0
+                                val isFirstTimeDetected = !wasDetected
+                                val isCooldownExpired = (now - lastAnnouncementTimeMs) > 16_000L
 
-                                if (isFreshDetection || isPhraseChanged || isRepeatedCooldownExpired) {
+                                // Solo anuncia cuando localiza por primera vez o tras el cooldown continuo
+                                if (isFirstTimeDetected || isCooldownExpired) {
                                     _lastAnnouncedPhrase.value = phrase
                                     lastAnnouncementTimeMs = now
                                     _alertTrigger.tryEmit(phrase)
@@ -273,13 +316,17 @@ class ProactiveModeViewModel @Inject constructor(
                                 }
                                 wasDetected = true
                             } else {
-                                wasDetected = false
+                                consecutiveNonDetectionFrames++
+                                // Requiere al menos 2 frames consecutivos sin detección para considerarlo fuera de vista
+                                if (consecutiveNonDetectionFrames >= 2) {
+                                    wasDetected = false
+                                }
                             }
                         }
                     }
                 }
             } catch (e: Exception) {
-                // Mantener vigilancia activa ante errores transitorios
+                // Mantener vigilancia activa en silencio
             } finally {
                 frameToProcess.recycle()
                 _isAnalyzing.value = false

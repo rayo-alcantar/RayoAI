@@ -549,6 +549,11 @@ Tarjeta: 4152314082325278</string>
     <string name="proactive_voice_target_set">Objetivo fijado: %1$s</string>
     <string name="proactive_voice_button_desc">Dictar objetivo por voz para el Centinela</string>
     <string name="proactive_voice_live_button_desc">Cambiar objetivo por voz durante la vigilancia</string>
+    <string name="proactive_change_target_btn">Cambiar objetivo</string>
+    <string name="proactive_dictate_target_btn">Dictar qué buscar</string>
+    <string name="proactive_current_target_label">Objetivo: %1$s</string>
+    <string name="proactive_searching_label">Buscando: %1$s</string>
+    <string name="proactive_detected_prefix">¡Localizado!</string>
     <string name="proactive_api_key_required">Configura tu clave de API de Gemini en Ajustes para usar el Centinela Proactivo.</string>
 </resources>
 

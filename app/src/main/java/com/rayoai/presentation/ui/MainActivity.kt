@@ -97,12 +97,17 @@ class MainActivity : ComponentActivity() {
                     textToSpeech?.setLanguage(Locale("es", "ES"))
                 }
                 try {
-                    textToSpeech?.voices?.firstOrNull { voice ->
-                        voice.locale.language == preferredLocale.language && !voice.isNetworkConnectionRequired && !voice.features.contains("notInstalled")
-                    }?.let { voice ->
-                        textToSpeech?.voice = voice
+                    val matchingVoices = textToSpeech?.voices?.filter { voice ->
+                        voice.locale.language == preferredLocale.language && !voice.features.contains("notInstalled")
+                    }
+                    val bestVoice = matchingVoices?.maxByOrNull { it.quality }
+                        ?: matchingVoices?.firstOrNull()
+                    if (bestVoice != null) {
+                        textToSpeech?.voice = bestVoice
                     }
                 } catch (_: Exception) {}
+                textToSpeech?.setSpeechRate(1.0f)
+                textToSpeech?.setPitch(1.0f)
                 textToSpeechState = textToSpeech
             } else if (targetEngine != null) {
                 Log.w("TTS", "No se pudo iniciar motor Google TTS ($targetEngine). Reintentando con motor por defecto.")
