@@ -11,7 +11,6 @@ import android.content.Context
 import android.content.Intent
 import android.content.pm.PackageManager
 import android.graphics.drawable.Drawable
-import android.media.projection.MediaProjectionConfig
 import android.media.projection.MediaProjectionManager
 import android.os.Build
 import android.os.SystemClock
@@ -266,13 +265,7 @@ fun LiveModeScreen(
         pendingAppPackage = pkg
         pendingAppName = name
         val projectionManager = context.getSystemService(Context.MEDIA_PROJECTION_SERVICE) as MediaProjectionManager
-        val intent = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.UPSIDE_DOWN_CAKE) {
-            val config = MediaProjectionConfig.createConfigForDefaultDisplay()
-            projectionManager.createScreenCaptureIntent(config)
-        } else {
-            projectionManager.createScreenCaptureIntent()
-        }
-        screenCaptureLauncher.launch(intent)
+        screenCaptureLauncher.launch(projectionManager.createScreenCaptureIntent())
     }
 
     // Gestor de retroalimentación auditiva y háptica
