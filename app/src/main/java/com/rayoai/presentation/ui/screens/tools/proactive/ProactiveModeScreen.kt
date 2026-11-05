@@ -49,6 +49,7 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material.icons.filled.Add
 import androidx.compose.material.icons.filled.AutoAwesome
+import androidx.compose.material.icons.filled.Bolt
 import androidx.compose.material.icons.filled.Bookmarks
 import androidx.compose.material.icons.filled.Cameraswitch
 import androidx.compose.material.icons.filled.Check
@@ -69,6 +70,8 @@ import androidx.compose.material.icons.filled.Timer
 import androidx.compose.material.icons.filled.Tune
 import androidx.compose.material.icons.filled.Visibility
 import androidx.compose.material3.AlertDialog
+import androidx.compose.material3.AssistChip
+import androidx.compose.material3.AssistChipDefaults
 import androidx.compose.material3.Button
 import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.Card
@@ -86,6 +89,8 @@ import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Surface
+import androidx.compose.material3.Tab
+import androidx.compose.material3.TabRow
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.material3.TopAppBar
@@ -132,6 +137,12 @@ import kotlinx.coroutines.launch
 import java.util.UUID
 import java.util.concurrent.Executors
 
+private enum class ProactiveTargetTab {
+    QUICK,
+    PERSONAL_OBJECTS,
+    PRESETS
+}
+
 @OptIn(ExperimentalMaterial3Api::class, ExperimentalPermissionsApi::class)
 @Composable
 fun ProactiveModeScreen(
@@ -167,6 +178,21 @@ fun ProactiveModeScreen(
     var personalObjectToEdit by remember { mutableStateOf<PersonalObject?>(null) }
     var isCreatingNewPreset by remember { mutableStateOf(false) }
 
+    val initialTargetTab = when {
+        activePreset != null -> ProactiveTargetTab.PRESETS
+        selectedPersonalObject != null -> ProactiveTargetTab.PERSONAL_OBJECTS
+        else -> ProactiveTargetTab.QUICK
+    }
+    var selectedTab by remember { mutableStateOf(initialTargetTab) }
+
+    LaunchedEffect(activePreset, selectedPersonalObject) {
+        if (activePreset != null) {
+            selectedTab = ProactiveTargetTab.PRESETS
+        } else if (selectedPersonalObject != null) {
+            selectedTab = ProactiveTargetTab.PERSONAL_OBJECTS
+        }
+    }
+
     // Textos accesibles resueltos en alcance Composable
     val screenTitle = stringResource(R.string.proactive_mode_title)
     val backButtonDesc = stringResource(R.string.back)
@@ -184,9 +210,6 @@ fun ProactiveModeScreen(
     val changeTargetBtnText = stringResource(R.string.proactive_change_target_btn)
     val dictateTargetBtnText = stringResource(R.string.proactive_dictate_target_btn)
     val detectedPrefixText = stringResource(R.string.proactive_detected_prefix)
-    val presetsManageBtnDesc = stringResource(R.string.proactive_preset_open_manager_desc)
-    val presetsManageLabel = stringResource(R.string.proactive_preset_open_manager)
-    val personalObjectsManagerDesc = stringResource(R.string.personal_objects_manager_title)
 
     val torchDesc = if (isTorchOn) stringResource(R.string.live_mode_torch_off)
     else stringResource(R.string.live_mode_torch_on)
@@ -300,38 +323,6 @@ fun ProactiveModeScreen(
                     }
                 },
                 actions = {
-                    // Botón para abrir el Gestor de Objetos Personales con fotos
-                    IconButton(
-                        onClick = { showPersonalObjectsManagerDialog = true },
-                        modifier = Modifier.semantics {
-                            role = Role.Button
-                            contentDescription = personalObjectsManagerDesc
-                        }
-                    ) {
-                        Icon(
-                            imageVector = Icons.Filled.Stars,
-                            contentDescription = null,
-                            tint = if (selectedPersonalObject != null) MaterialTheme.colorScheme.primary
-                            else MaterialTheme.colorScheme.onSurface
-                        )
-                    }
-
-                    // Botón para abrir la ventana de Presets
-                    IconButton(
-                        onClick = { showPresetsManagerDialog = true },
-                        modifier = Modifier.semantics {
-                            role = Role.Button
-                            contentDescription = presetsManageBtnDesc
-                        }
-                    ) {
-                        Icon(
-                            imageVector = Icons.Filled.Bookmarks,
-                            contentDescription = null,
-                            tint = if (activePreset != null) MaterialTheme.colorScheme.primary
-                            else MaterialTheme.colorScheme.onSurface
-                        )
-                    }
-
                     // Linterna (cámara trasera)
                     if (!isFrontCamera) {
                         IconButton(
@@ -464,7 +455,7 @@ fun ProactiveModeScreen(
                     }
                 }
 
-                // Panel Inferior: Modo Directo Predeterminado, Objetos Personales y Controles
+                // Panel Inferior: Modo Directo, Objetos Personales y Presets bien estructurados
                 Surface(
                     color = MaterialTheme.colorScheme.surface,
                     tonalElevation = 8.dp,
@@ -473,377 +464,94 @@ fun ProactiveModeScreen(
                     Column(
                         modifier = Modifier
                             .fillMaxWidth()
-                            .padding(horizontal = 16.dp, vertical = 14.dp),
+                            .padding(horizontal = 16.dp, vertical = 12.dp),
                         verticalArrangement = Arrangement.spacedBy(10.dp)
                     ) {
-                        // Tarjeta de Estado/Localización (SIN liveRegion para eliminar el spam en TalkBack)
-                        val detection = latestDetection
-                        val isDetected = detection?.detected == true
+                        if (isMonitoring) {
+                            // ==========================================
+                            // ESTADO DE VIGILANCIA ACTIVA (Ultra limpio)
+                            // ==========================================
+                            val detection = latestDetection
+                            val isDetected = detection?.detected == true
 
-                        val cardBg = if (isDetected) {
-                            MaterialTheme.colorScheme.primaryContainer
-                        } else {
-                            MaterialTheme.colorScheme.surfaceVariant
-                        }
-                        val cardContentColor = if (isDetected) {
-                            MaterialTheme.colorScheme.onPrimaryContainer
-                        } else {
-                            MaterialTheme.colorScheme.onSurfaceVariant
-                        }
+                            val cardBg = if (isDetected) {
+                                MaterialTheme.colorScheme.primaryContainer
+                            } else {
+                                MaterialTheme.colorScheme.surfaceVariant
+                            }
+                            val cardContentColor = if (isDetected) {
+                                MaterialTheme.colorScheme.onPrimaryContainer
+                            } else {
+                                MaterialTheme.colorScheme.onSurfaceVariant
+                            }
 
-                        Card(
-                            modifier = Modifier
-                                .fillMaxWidth()
-                                .clip(RoundedCornerShape(16.dp))
-                                .clickable {
-                                    textToSpeech?.stop()
-                                }
-                                .semantics {
-                                    role = Role.Button
-                                    contentDescription = if (isDetected) {
-                                        "$detectedPrefixText: ${detection?.announcement ?: ""}. $silenceHint"
-                                    } else {
-                                        "$currentTargetDisplay. $silenceHint"
-                                    }
-                                },
-                            colors = CardDefaults.cardColors(containerColor = cardBg),
-                            shape = RoundedCornerShape(16.dp)
-                        ) {
-                            Column(
+                            Card(
                                 modifier = Modifier
                                     .fillMaxWidth()
-                                    .padding(14.dp)
-                            ) {
-                                Row(
-                                    verticalAlignment = Alignment.CenterVertically,
-                                    horizontalArrangement = Arrangement.SpaceBetween,
-                                    modifier = Modifier.fillMaxWidth()
-                                ) {
-                                    Row(verticalAlignment = Alignment.CenterVertically) {
-                                        Icon(
-                                            imageVector = if (isDetected) Icons.Filled.CheckCircle else Icons.Filled.Visibility,
-                                            contentDescription = null,
-                                            tint = cardContentColor,
-                                            modifier = Modifier.size(22.dp)
-                                        )
-                                        Spacer(Modifier.width(8.dp))
-                                        Text(
-                                            text = if (isDetected) detectedPrefixText else currentTargetDisplay,
-                                            style = MaterialTheme.typography.titleMedium,
-                                            color = cardContentColor,
-                                            fontWeight = FontWeight.Bold
-                                        )
-                                    }
-
-                                    if (isAnalyzing && isMonitoring) {
-                                        CircularProgressIndicator(
-                                            modifier = Modifier.size(16.dp),
-                                            strokeWidth = 2.dp,
-                                            color = cardContentColor
-                                        )
-                                    }
-                                }
-
-                                Spacer(Modifier.height(4.dp))
-
-                                Text(
-                                    text = if (isDetected) {
-                                        detection?.announcement ?: ""
-                                    } else if (isMonitoring) {
-                                        stringResource(R.string.proactive_searching_label, searchingTargetsSummary)
-                                    } else {
-                                        monitoringIdleText
+                                    .clip(RoundedCornerShape(16.dp))
+                                    .clickable { textToSpeech?.stop() }
+                                    .semantics {
+                                        role = Role.Button
+                                        contentDescription = if (isDetected) {
+                                            "$detectedPrefixText: ${detection?.announcement ?: ""}. $silenceHint"
+                                        } else {
+                                            "$currentTargetDisplay. $silenceHint"
+                                        }
                                     },
-                                    style = MaterialTheme.typography.bodyLarge,
-                                    color = cardContentColor,
-                                    fontWeight = if (isDetected) FontWeight.Bold else FontWeight.Normal
-                                )
-                            }
-                        }
-
-                        // Configuración del objetivo cuando no está vigilando
-                        if (!isMonitoring) {
-                            val personalObj = selectedPersonalObject
-                            val presetLoaded = activePreset
-
-                            if (personalObj != null) {
-                                // MODO OBJETO PERSONAL ACTIVO: Tarjeta destacada con foto y perfil visual
-                                Card(
-                                    colors = CardDefaults.cardColors(
-                                        containerColor = MaterialTheme.colorScheme.tertiaryContainer.copy(alpha = 0.8f)
-                                    ),
-                                    shape = RoundedCornerShape(14.dp),
-                                    modifier = Modifier.fillMaxWidth()
-                                ) {
-                                    Column(
-                                        modifier = Modifier
-                                            .fillMaxWidth()
-                                            .padding(12.dp),
-                                        verticalArrangement = Arrangement.spacedBy(8.dp)
-                                    ) {
-                                        Row(
-                                            modifier = Modifier.fillMaxWidth(),
-                                            verticalAlignment = Alignment.CenterVertically
-                                        ) {
-                                            if (personalObj.imageUris.isNotEmpty()) {
-                                                AsyncImage(
-                                                    model = Uri.parse(personalObj.imageUris.first()),
-                                                    contentDescription = null,
-                                                    contentScale = ContentScale.Crop,
-                                                    modifier = Modifier
-                                                        .size(44.dp)
-                                                        .clip(RoundedCornerShape(8.dp))
-                                                )
-                                                Spacer(Modifier.width(10.dp))
-                                            } else {
-                                                Icon(
-                                                    imageVector = Icons.Filled.Stars,
-                                                    contentDescription = null,
-                                                    tint = MaterialTheme.colorScheme.primary,
-                                                    modifier = Modifier.size(28.dp)
-                                                )
-                                                Spacer(Modifier.width(8.dp))
-                                            }
-
-                                            Column(modifier = Modifier.weight(1f)) {
-                                                Text(
-                                                    text = stringResource(R.string.personal_object_active_badge, personalObj.name),
-                                                    style = MaterialTheme.typography.titleSmall,
-                                                    fontWeight = FontWeight.Bold,
-                                                    color = MaterialTheme.colorScheme.onTertiaryContainer
-                                                )
-                                                Text(
-                                                    text = personalObj.visualDescription,
-                                                    style = MaterialTheme.typography.bodySmall,
-                                                    color = MaterialTheme.colorScheme.onTertiaryContainer.copy(alpha = 0.85f),
-                                                    maxLines = 2
-                                                )
-                                            }
-                                        }
-
-                                        Row(
-                                            modifier = Modifier.fillMaxWidth(),
-                                            horizontalArrangement = Arrangement.spacedBy(8.dp)
-                                        ) {
-                                            OutlinedButton(
-                                                onClick = { viewModel.clearSelectedPersonalObject() },
-                                                modifier = Modifier.weight(1f)
-                                            ) {
-                                                Icon(Icons.Filled.Close, contentDescription = null, modifier = Modifier.size(16.dp))
-                                                Spacer(Modifier.width(4.dp))
-                                                Text(stringResource(R.string.proactive_preset_unload_btn), style = MaterialTheme.typography.labelMedium)
-                                            }
-
-                                            Button(
-                                                onClick = { showPersonalObjectsManagerDialog = true },
-                                                modifier = Modifier.weight(1f)
-                                            ) {
-                                                Text(stringResource(R.string.personal_objects_title), style = MaterialTheme.typography.labelMedium)
-                                            }
-                                        }
-                                    }
-                                }
-                            } else if (presetLoaded != null) {
-                                // MODO PRESET ACTIVO: Banner claro con opción para volver al modo simple o cambiar preset
-                                Card(
-                                    colors = CardDefaults.cardColors(
-                                        containerColor = MaterialTheme.colorScheme.primaryContainer.copy(alpha = 0.7f)
-                                    ),
-                                    shape = RoundedCornerShape(14.dp),
-                                    modifier = Modifier.fillMaxWidth()
-                                ) {
-                                    Column(
-                                        modifier = Modifier
-                                            .fillMaxWidth()
-                                            .padding(12.dp),
-                                        verticalArrangement = Arrangement.spacedBy(8.dp)
-                                    ) {
-                                        Row(
-                                            modifier = Modifier.fillMaxWidth(),
-                                            horizontalArrangement = Arrangement.SpaceBetween,
-                                            verticalAlignment = Alignment.CenterVertically
-                                        ) {
-                                            Row(verticalAlignment = Alignment.CenterVertically) {
-                                                Icon(
-                                                    imageVector = Icons.Filled.Bookmarks,
-                                                    contentDescription = null,
-                                                    tint = MaterialTheme.colorScheme.onPrimaryContainer,
-                                                    modifier = Modifier.size(20.dp)
-                                                )
-                                                Spacer(Modifier.width(8.dp))
-                                                Text(
-                                                    text = stringResource(R.string.proactive_preset_active_badge, presetLoaded.getDisplayName(context)),
-                                                    style = MaterialTheme.typography.titleSmall,
-                                                    fontWeight = FontWeight.Bold,
-                                                    color = MaterialTheme.colorScheme.onPrimaryContainer
-                                                )
-                                            }
-                                        }
-
-                                        val targetNames = presetLoaded.getActiveTargetNames(context, personalObjects)
-                                        Text(
-                                            text = if (targetNames.isNotEmpty()) targetNames.joinToString(", ")
-                                            else stringResource(R.string.proactive_target_obstacles),
-                                            style = MaterialTheme.typography.bodySmall,
-                                            color = MaterialTheme.colorScheme.onPrimaryContainer.copy(alpha = 0.85f),
-                                            maxLines = 2
-                                        )
-
-                                        Row(
-                                            modifier = Modifier.fillMaxWidth(),
-                                            horizontalArrangement = Arrangement.spacedBy(8.dp)
-                                        ) {
-                                            OutlinedButton(
-                                                onClick = { viewModel.unloadPreset() },
-                                                modifier = Modifier.weight(1f)
-                                            ) {
-                                                Icon(Icons.Filled.Close, contentDescription = null, modifier = Modifier.size(16.dp))
-                                                Spacer(Modifier.width(4.dp))
-                                                Text(stringResource(R.string.proactive_preset_unload_btn), style = MaterialTheme.typography.labelMedium)
-                                            }
-
-                                            Button(
-                                                onClick = { showPresetsManagerDialog = true },
-                                                modifier = Modifier.weight(1f),
-                                                colors = ButtonDefaults.buttonColors(
-                                                    containerColor = MaterialTheme.colorScheme.primary
-                                                )
-                                            ) {
-                                                Text(stringResource(R.string.proactive_presets_manage_btn), style = MaterialTheme.typography.labelMedium)
-                                            }
-                                        }
-                                    }
-                                }
-                            } else {
-                                // MODO PREDETERMINADO: Búsqueda directa (objetos personales + categorías rápidas + presets)
-                                Row(
+                                colors = CardDefaults.cardColors(containerColor = cardBg),
+                                shape = RoundedCornerShape(16.dp)
+                            ) {
+                                Column(
                                     modifier = Modifier
                                         .fillMaxWidth()
-                                        .horizontalScroll(rememberScrollState()),
-                                    horizontalArrangement = Arrangement.spacedBy(8.dp),
-                                    verticalAlignment = Alignment.CenterVertically
+                                        .padding(14.dp)
                                 ) {
-                                    // Chips para los objetos personales registrados
-                                    personalObjects.forEach { obj ->
-                                        FilterChip(
-                                            selected = false,
-                                            onClick = { viewModel.selectPersonalObject(obj) },
-                                            label = { Text("⭐ ${obj.name}", fontWeight = FontWeight.Bold) },
-                                            colors = FilterChipDefaults.filterChipColors(
-                                                containerColor = MaterialTheme.colorScheme.tertiaryContainer.copy(alpha = 0.7f),
-                                                labelColor = MaterialTheme.colorScheme.onTertiaryContainer
+                                    Row(
+                                        verticalAlignment = Alignment.CenterVertically,
+                                        horizontalArrangement = Arrangement.SpaceBetween,
+                                        modifier = Modifier.fillMaxWidth()
+                                    ) {
+                                        Row(verticalAlignment = Alignment.CenterVertically) {
+                                            Icon(
+                                                imageVector = if (isDetected) Icons.Filled.CheckCircle else Icons.Filled.Visibility,
+                                                contentDescription = null,
+                                                tint = cardContentColor,
+                                                modifier = Modifier.size(22.dp)
                                             )
-                                        )
-                                    }
-
-                                    // Chips de categorías simples estándar
-                                    ProactivePreset.entries.forEach { target ->
-                                        val isSelected = selectedQuickTarget == target
-                                        val title = stringResource(target.titleRes)
-                                        FilterChip(
-                                            selected = isSelected,
-                                            onClick = { viewModel.setQuickTarget(target) },
-                                            label = { Text(title, fontWeight = if (isSelected) FontWeight.Bold else FontWeight.Normal) },
-                                            colors = FilterChipDefaults.filterChipColors(
-                                                selectedContainerColor = MaterialTheme.colorScheme.primaryContainer,
-                                                selectedLabelColor = MaterialTheme.colorScheme.onPrimaryContainer
-                                            )
-                                        )
-                                    }
-
-                                    // Botón para acceder al Gestor de Objetos Personales
-                                    FilterChip(
-                                        selected = false,
-                                        onClick = { showPersonalObjectsManagerDialog = true },
-                                        label = {
+                                            Spacer(Modifier.width(8.dp))
                                             Text(
-                                                text = if (personalObjects.isNotEmpty()) {
-                                                    "${stringResource(R.string.personal_objects_title)} (${personalObjects.size})"
-                                                } else {
-                                                    stringResource(R.string.personal_objects_title)
-                                                },
+                                                text = if (isDetected) detectedPrefixText else currentTargetDisplay,
+                                                style = MaterialTheme.typography.titleMedium,
+                                                color = cardContentColor,
                                                 fontWeight = FontWeight.Bold
                                             )
-                                        },
-                                        leadingIcon = {
-                                            Icon(
-                                                imageVector = Icons.Filled.Stars,
-                                                contentDescription = null,
-                                                modifier = Modifier.size(16.dp)
+                                        }
+
+                                        if (isAnalyzing) {
+                                            CircularProgressIndicator(
+                                                modifier = Modifier.size(16.dp),
+                                                strokeWidth = 2.dp,
+                                                color = cardContentColor
                                             )
-                                        },
-                                        colors = FilterChipDefaults.filterChipColors(
-                                            containerColor = MaterialTheme.colorScheme.secondaryContainer.copy(alpha = 0.8f),
-                                            labelColor = MaterialTheme.colorScheme.onSecondaryContainer
-                                        )
-                                    )
-
-                                    // Botón para acceder a la ventana de Presets
-                                    FilterChip(
-                                        selected = false,
-                                        onClick = { showPresetsManagerDialog = true },
-                                        label = { Text(presetsManageLabel, fontWeight = FontWeight.Bold) },
-                                        leadingIcon = {
-                                            Icon(
-                                                imageVector = Icons.Filled.Bookmarks,
-                                                contentDescription = null,
-                                                modifier = Modifier.size(16.dp)
-                                            )
-                                        },
-                                        colors = FilterChipDefaults.filterChipColors(
-                                            containerColor = MaterialTheme.colorScheme.secondaryContainer.copy(alpha = 0.6f),
-                                            labelColor = MaterialTheme.colorScheme.onSecondaryContainer
-                                        )
-                                    )
-                                }
-
-                                // Campo de texto si seleccionó Personalizado
-                                AnimatedVisibility(visible = selectedQuickTarget == ProactivePreset.CUSTOM) {
-                                    OutlinedTextField(
-                                        value = customCondition,
-                                        onValueChange = { viewModel.setCustomCondition(it) },
-                                        modifier = Modifier.fillMaxWidth(),
-                                        placeholder = { Text(customHintText) },
-                                        singleLine = true
-                                    )
-                                }
-                            }
-
-                            // Aviso de objetivo dictado por voz si existe
-                            if (!temporaryVoiceCondition.isNullOrBlank()) {
-                                Row(
-                                    modifier = Modifier
-                                        .fillMaxWidth()
-                                        .clip(RoundedCornerShape(8.dp))
-                                        .background(MaterialTheme.colorScheme.tertiaryContainer)
-                                        .padding(horizontal = 10.dp, vertical = 6.dp),
-                                    verticalAlignment = Alignment.CenterVertically,
-                                    horizontalArrangement = Arrangement.SpaceBetween
-                                ) {
-                                    Text(
-                                        text = "Voz: $temporaryVoiceCondition",
-                                        style = MaterialTheme.typography.labelMedium,
-                                        color = MaterialTheme.colorScheme.onTertiaryContainer,
-                                        modifier = Modifier.weight(1f),
-                                        maxLines = 1
-                                    )
-                                    IconButton(
-                                        onClick = { viewModel.clearTemporaryVoiceCondition() },
-                                        modifier = Modifier.size(24.dp)
-                                    ) {
-                                        Icon(
-                                            imageVector = Icons.Filled.Close,
-                                            contentDescription = stringResource(R.string.proactive_clear_voice_target),
-                                            tint = MaterialTheme.colorScheme.onTertiaryContainer
-                                        )
+                                        }
                                     }
+
+                                    Spacer(Modifier.height(4.dp))
+
+                                    Text(
+                                        text = if (isDetected) {
+                                            detection?.announcement ?: ""
+                                        } else {
+                                            stringResource(R.string.proactive_searching_label, searchingTargetsSummary)
+                                        },
+                                        style = MaterialTheme.typography.bodyLarge,
+                                        color = cardContentColor,
+                                        fontWeight = if (isDetected) FontWeight.Bold else FontWeight.Normal
+                                    )
                                 }
                             }
-                        }
 
-                        // Barra de Acciones: Cambiar objetivo al vuelo por voz y Iniciar / Detener
-                        if (isMonitoring) {
-                            // MODO ACTIVO: Dos botones grandes (Micrófono para cambiar sobre la marcha y Detener)
+                            // Botones en Vigilancia Activa: Cambiar objetivo por voz sobre la marcha + Detener
                             Row(
                                 modifier = Modifier.fillMaxWidth(),
                                 horizontalArrangement = Arrangement.spacedBy(10.dp),
@@ -885,7 +593,452 @@ fun ProactiveModeScreen(
                                 }
                             }
                         } else {
-                            // MODO EN ESPERA: Botón Gigante Iniciar + Botón Dictar Objetivo
+                            // ==========================================
+                            // ESTADO EN REPOSO: CONFIGURACIÓN JERÁRQUICA
+                            // ==========================================
+
+                            // 1. Selector de Paradigma / Modo (Pestañas accesibles)
+                            TabRow(
+                                selectedTabIndex = selectedTab.ordinal,
+                                modifier = Modifier
+                                    .fillMaxWidth()
+                                    .clip(RoundedCornerShape(12.dp))
+                            ) {
+                                Tab(
+                                    selected = selectedTab == ProactiveTargetTab.QUICK,
+                                    onClick = {
+                                        selectedTab = ProactiveTargetTab.QUICK
+                                        viewModel.unloadPreset()
+                                        viewModel.clearSelectedPersonalObject()
+                                    },
+                                    text = {
+                                        Text(
+                                            text = stringResource(R.string.proactive_tab_quick),
+                                            style = MaterialTheme.typography.labelLarge,
+                                            fontWeight = if (selectedTab == ProactiveTargetTab.QUICK) FontWeight.Bold else FontWeight.Normal
+                                        )
+                                    },
+                                    icon = {
+                                        Icon(Icons.Filled.Bolt, contentDescription = null, modifier = Modifier.size(18.dp))
+                                    },
+                                    modifier = Modifier.semantics { role = Role.Tab }
+                                )
+
+                                Tab(
+                                    selected = selectedTab == ProactiveTargetTab.PERSONAL_OBJECTS,
+                                    onClick = {
+                                        selectedTab = ProactiveTargetTab.PERSONAL_OBJECTS
+                                        viewModel.unloadPreset()
+                                        if (personalObjects.isNotEmpty() && selectedPersonalObject == null) {
+                                            viewModel.selectPersonalObject(personalObjects.first())
+                                        }
+                                    },
+                                    text = {
+                                        val countSuffix = if (personalObjects.isNotEmpty()) " (${personalObjects.size})" else ""
+                                        Text(
+                                            text = stringResource(R.string.proactive_tab_personal) + countSuffix,
+                                            style = MaterialTheme.typography.labelLarge,
+                                            fontWeight = if (selectedTab == ProactiveTargetTab.PERSONAL_OBJECTS) FontWeight.Bold else FontWeight.Normal
+                                        )
+                                    },
+                                    icon = {
+                                        Icon(Icons.Filled.Stars, contentDescription = null, modifier = Modifier.size(18.dp))
+                                    },
+                                    modifier = Modifier.semantics { role = Role.Tab }
+                                )
+
+                                Tab(
+                                    selected = selectedTab == ProactiveTargetTab.PRESETS,
+                                    onClick = {
+                                        selectedTab = ProactiveTargetTab.PRESETS
+                                        viewModel.clearSelectedPersonalObject()
+                                        if (activePreset == null && presets.isNotEmpty()) {
+                                            viewModel.loadPreset(presets.first())
+                                        }
+                                    },
+                                    text = {
+                                        val countSuffix = if (presets.isNotEmpty()) " (${presets.size})" else ""
+                                        Text(
+                                            text = stringResource(R.string.proactive_tab_presets) + countSuffix,
+                                            style = MaterialTheme.typography.labelLarge,
+                                            fontWeight = if (selectedTab == ProactiveTargetTab.PRESETS) FontWeight.Bold else FontWeight.Normal
+                                        )
+                                    },
+                                    icon = {
+                                        Icon(Icons.Filled.Bookmarks, contentDescription = null, modifier = Modifier.size(18.dp))
+                                    },
+                                    modifier = Modifier.semantics { role = Role.Tab }
+                                )
+                            }
+
+                            // 2. Contenido Específico del Modo Seleccionado
+                            when (selectedTab) {
+                                ProactiveTargetTab.QUICK -> {
+                                    // Fila de Chips con categorías rápidas estándar
+                                    Row(
+                                        modifier = Modifier
+                                            .fillMaxWidth()
+                                            .horizontalScroll(rememberScrollState()),
+                                        horizontalArrangement = Arrangement.spacedBy(8.dp),
+                                        verticalAlignment = Alignment.CenterVertically
+                                    ) {
+                                        ProactivePreset.entries.forEach { target ->
+                                            val isSelected = selectedQuickTarget == target && temporaryVoiceCondition.isNullOrBlank()
+                                            val title = stringResource(target.titleRes)
+                                            FilterChip(
+                                                selected = isSelected,
+                                                onClick = { viewModel.setQuickTarget(target) },
+                                                label = { Text(title, fontWeight = if (isSelected) FontWeight.Bold else FontWeight.Normal) },
+                                                colors = FilterChipDefaults.filterChipColors(
+                                                    selectedContainerColor = MaterialTheme.colorScheme.primaryContainer,
+                                                    selectedLabelColor = MaterialTheme.colorScheme.onPrimaryContainer
+                                                )
+                                            )
+                                        }
+                                    }
+
+                                    // Campo de texto para objetivo personalizado
+                                    AnimatedVisibility(visible = selectedQuickTarget == ProactivePreset.CUSTOM) {
+                                        OutlinedTextField(
+                                            value = customCondition,
+                                            onValueChange = { viewModel.setCustomCondition(it) },
+                                            modifier = Modifier.fillMaxWidth(),
+                                            placeholder = { Text(customHintText) },
+                                            singleLine = true
+                                        )
+                                    }
+                                }
+
+                                ProactiveTargetTab.PERSONAL_OBJECTS -> {
+                                    if (personalObjects.isEmpty()) {
+                                        // Estado vacío amigable
+                                        Card(
+                                            colors = CardDefaults.cardColors(
+                                                containerColor = MaterialTheme.colorScheme.surfaceVariant
+                                            ),
+                                            shape = RoundedCornerShape(12.dp),
+                                            modifier = Modifier.fillMaxWidth()
+                                        ) {
+                                            Row(
+                                                modifier = Modifier
+                                                    .fillMaxWidth()
+                                                    .padding(12.dp),
+                                                verticalAlignment = Alignment.CenterVertically,
+                                                horizontalArrangement = Arrangement.SpaceBetween
+                                            ) {
+                                                Column(modifier = Modifier.weight(1f)) {
+                                                    Text(
+                                                        text = stringResource(R.string.proactive_personal_empty_prompt),
+                                                        style = MaterialTheme.typography.bodySmall,
+                                                        color = MaterialTheme.colorScheme.onSurfaceVariant
+                                                    )
+                                                }
+                                                Spacer(Modifier.width(8.dp))
+                                                Button(
+                                                    onClick = {
+                                                        personalObjectToEdit = null
+                                                        showPersonalObjectEditorDialog = true
+                                                    },
+                                                    shape = RoundedCornerShape(8.dp)
+                                                ) {
+                                                    Icon(Icons.Filled.Add, contentDescription = null, modifier = Modifier.size(16.dp))
+                                                    Spacer(Modifier.width(4.dp))
+                                                    Text(stringResource(R.string.personal_object_new_btn), style = MaterialTheme.typography.labelSmall)
+                                                }
+                                            }
+                                        }
+                                    } else {
+                                        // Selector horizontal de objetos personales + acciones
+                                        Row(
+                                            modifier = Modifier
+                                                .fillMaxWidth()
+                                                .horizontalScroll(rememberScrollState()),
+                                            horizontalArrangement = Arrangement.spacedBy(8.dp),
+                                            verticalAlignment = Alignment.CenterVertically
+                                        ) {
+                                            personalObjects.forEach { obj ->
+                                                val isSelected = selectedPersonalObject?.id == obj.id
+                                                FilterChip(
+                                                    selected = isSelected,
+                                                    onClick = { viewModel.selectPersonalObject(obj) },
+                                                    label = { Text("⭐ ${obj.name}", fontWeight = if (isSelected) FontWeight.Bold else FontWeight.Normal) },
+                                                    leadingIcon = if (obj.imageUris.isNotEmpty()) {
+                                                        {
+                                                            AsyncImage(
+                                                                model = Uri.parse(obj.imageUris.first()),
+                                                                contentDescription = null,
+                                                                contentScale = ContentScale.Crop,
+                                                                modifier = Modifier
+                                                                    .size(20.dp)
+                                                                    .clip(CircleShape)
+                                                            )
+                                                        }
+                                                    } else null,
+                                                    colors = FilterChipDefaults.filterChipColors(
+                                                        selectedContainerColor = MaterialTheme.colorScheme.tertiaryContainer,
+                                                        selectedLabelColor = MaterialTheme.colorScheme.onTertiaryContainer
+                                                    )
+                                                )
+                                            }
+
+                                            // Botón para nuevo objeto
+                                            AssistChip(
+                                                onClick = {
+                                                    personalObjectToEdit = null
+                                                    showPersonalObjectEditorDialog = true
+                                                },
+                                                label = { Text(stringResource(R.string.personal_object_new_btn)) },
+                                                leadingIcon = { Icon(Icons.Filled.Add, contentDescription = null, modifier = Modifier.size(16.dp)) }
+                                            )
+
+                                            // Botón para gestionar todos
+                                            AssistChip(
+                                                onClick = { showPersonalObjectsManagerDialog = true },
+                                                label = { Text(stringResource(R.string.proactive_manage_objects_btn)) },
+                                                leadingIcon = { Icon(Icons.Filled.Tune, contentDescription = null, modifier = Modifier.size(16.dp)) }
+                                            )
+                                        }
+
+                                        // Si hay objeto seleccionado, mostramos su ficha descriptiva
+                                        val activeObj = selectedPersonalObject
+                                        if (activeObj != null) {
+                                            Card(
+                                                colors = CardDefaults.cardColors(
+                                                    containerColor = MaterialTheme.colorScheme.tertiaryContainer.copy(alpha = 0.5f)
+                                                ),
+                                                shape = RoundedCornerShape(12.dp),
+                                                modifier = Modifier.fillMaxWidth()
+                                            ) {
+                                                Row(
+                                                    modifier = Modifier
+                                                        .fillMaxWidth()
+                                                        .padding(10.dp),
+                                                    verticalAlignment = Alignment.CenterVertically
+                                                ) {
+                                                    if (activeObj.imageUris.isNotEmpty()) {
+                                                        AsyncImage(
+                                                            model = Uri.parse(activeObj.imageUris.first()),
+                                                            contentDescription = null,
+                                                            contentScale = ContentScale.Crop,
+                                                            modifier = Modifier
+                                                                .size(40.dp)
+                                                                .clip(RoundedCornerShape(8.dp))
+                                                        )
+                                                        Spacer(Modifier.width(10.dp))
+                                                    }
+                                                    Column(modifier = Modifier.weight(1f)) {
+                                                        Text(
+                                                            text = activeObj.name,
+                                                            style = MaterialTheme.typography.titleSmall,
+                                                            fontWeight = FontWeight.Bold,
+                                                            color = MaterialTheme.colorScheme.onTertiaryContainer
+                                                        )
+                                                        Text(
+                                                            text = activeObj.visualDescription,
+                                                            style = MaterialTheme.typography.bodySmall,
+                                                            color = MaterialTheme.colorScheme.onTertiaryContainer.copy(alpha = 0.8f),
+                                                            maxLines = 1
+                                                        )
+                                                    }
+                                                    IconButton(
+                                                        onClick = {
+                                                            personalObjectToEdit = activeObj
+                                                            showPersonalObjectEditorDialog = true
+                                                        },
+                                                        modifier = Modifier.size(32.dp)
+                                                    ) {
+                                                        Icon(
+                                                            Icons.Filled.Edit,
+                                                            contentDescription = stringResource(R.string.edit),
+                                                            tint = MaterialTheme.colorScheme.onTertiaryContainer,
+                                                            modifier = Modifier.size(18.dp)
+                                                        )
+                                                    }
+                                                }
+                                            }
+                                        }
+                                    }
+                                }
+
+                                ProactiveTargetTab.PRESETS -> {
+                                    // Selector horizontal de presets disponibles + acciones
+                                    Row(
+                                        modifier = Modifier
+                                            .fillMaxWidth()
+                                            .horizontalScroll(rememberScrollState()),
+                                        horizontalArrangement = Arrangement.spacedBy(8.dp),
+                                        verticalAlignment = Alignment.CenterVertically
+                                    ) {
+                                        presets.forEach { preset ->
+                                            val isSelected = activePreset?.id == preset.id
+                                            val name = preset.getDisplayName(context)
+                                            FilterChip(
+                                                selected = isSelected,
+                                                onClick = { viewModel.loadPreset(preset) },
+                                                label = { Text(name, fontWeight = if (isSelected) FontWeight.Bold else FontWeight.Normal) },
+                                                leadingIcon = {
+                                                    Icon(Icons.Filled.Bookmarks, contentDescription = null, modifier = Modifier.size(16.dp))
+                                                },
+                                                colors = FilterChipDefaults.filterChipColors(
+                                                    selectedContainerColor = MaterialTheme.colorScheme.primaryContainer,
+                                                    selectedLabelColor = MaterialTheme.colorScheme.onPrimaryContainer
+                                                )
+                                            )
+                                        }
+
+                                        // Botón para crear nuevo preset
+                                        AssistChip(
+                                            onClick = {
+                                                presetToEdit = null
+                                                isCreatingNewPreset = true
+                                                showPresetEditorDialog = true
+                                            },
+                                            label = { Text(stringResource(R.string.proactive_new_preset_btn)) },
+                                            leadingIcon = { Icon(Icons.Filled.Add, contentDescription = null, modifier = Modifier.size(16.dp)) }
+                                        )
+
+                                        // Botón para gestionar todos los presets
+                                        AssistChip(
+                                            onClick = { showPresetsManagerDialog = true },
+                                            label = { Text(stringResource(R.string.proactive_presets_manage_btn)) },
+                                            leadingIcon = { Icon(Icons.Filled.Tune, contentDescription = null, modifier = Modifier.size(16.dp)) }
+                                        )
+                                    }
+
+                                    // Si hay un preset activo, mostramos el detalle de sus objetivos
+                                    val active = activePreset
+                                    if (active != null) {
+                                        Card(
+                                            colors = CardDefaults.cardColors(
+                                                containerColor = MaterialTheme.colorScheme.primaryContainer.copy(alpha = 0.5f)
+                                            ),
+                                            shape = RoundedCornerShape(12.dp),
+                                            modifier = Modifier.fillMaxWidth()
+                                        ) {
+                                            Row(
+                                                modifier = Modifier
+                                                    .fillMaxWidth()
+                                                    .padding(10.dp),
+                                                verticalAlignment = Alignment.CenterVertically
+                                            ) {
+                                                Column(modifier = Modifier.weight(1f)) {
+                                                    Text(
+                                                        text = active.getDisplayName(context),
+                                                        style = MaterialTheme.typography.titleSmall,
+                                                        fontWeight = FontWeight.Bold,
+                                                        color = MaterialTheme.colorScheme.onPrimaryContainer
+                                                    )
+                                                    val targets = active.getActiveTargetNames(context, personalObjects)
+                                                    Text(
+                                                        text = if (targets.isNotEmpty()) targets.joinToString(", ")
+                                                        else stringResource(R.string.proactive_target_obstacles),
+                                                        style = MaterialTheme.typography.bodySmall,
+                                                        color = MaterialTheme.colorScheme.onPrimaryContainer.copy(alpha = 0.8f),
+                                                        maxLines = 1
+                                                    )
+                                                }
+                                                IconButton(
+                                                    onClick = {
+                                                        presetToEdit = active
+                                                        isCreatingNewPreset = false
+                                                        showPresetEditorDialog = true
+                                                    },
+                                                    modifier = Modifier.size(32.dp)
+                                                ) {
+                                                    Icon(
+                                                        Icons.Filled.Edit,
+                                                        contentDescription = stringResource(R.string.proactive_edit_preset_btn),
+                                                        tint = MaterialTheme.colorScheme.onPrimaryContainer,
+                                                        modifier = Modifier.size(18.dp)
+                                                    )
+                                                }
+                                            }
+                                        }
+                                    }
+                                }
+                            }
+
+                            // Aviso de objetivo dictado por voz si existe
+                            if (!temporaryVoiceCondition.isNullOrBlank()) {
+                                Row(
+                                    modifier = Modifier
+                                        .fillMaxWidth()
+                                        .clip(RoundedCornerShape(8.dp))
+                                        .background(MaterialTheme.colorScheme.tertiaryContainer)
+                                        .padding(horizontal = 10.dp, vertical = 6.dp),
+                                    verticalAlignment = Alignment.CenterVertically,
+                                    horizontalArrangement = Arrangement.SpaceBetween
+                                ) {
+                                    Text(
+                                        text = "${stringResource(R.string.proactive_voice_target_prefix)}: $temporaryVoiceCondition",
+                                        style = MaterialTheme.typography.labelMedium,
+                                        color = MaterialTheme.colorScheme.onTertiaryContainer,
+                                        modifier = Modifier.weight(1f),
+                                        maxLines = 1
+                                    )
+                                    IconButton(
+                                        onClick = { viewModel.clearTemporaryVoiceCondition() },
+                                        modifier = Modifier.size(24.dp)
+                                    ) {
+                                        Icon(
+                                            imageVector = Icons.Filled.Close,
+                                            contentDescription = stringResource(R.string.proactive_clear_voice_target),
+                                            tint = MaterialTheme.colorScheme.onTertiaryContainer
+                                        )
+                                    }
+                                }
+                            }
+
+                            // 3. Tarjeta Resumen Consolidada ("Objetivo preparado")
+                            val targetReadyHeader = stringResource(R.string.proactive_target_ready_header)
+                            Card(
+                                modifier = Modifier
+                                    .fillMaxWidth()
+                                    .clip(RoundedCornerShape(14.dp))
+                                    .semantics {
+                                        contentDescription = "$targetReadyHeader: $currentTargetDisplay. $searchingTargetsSummary"
+                                    },
+                                colors = CardDefaults.cardColors(
+                                    containerColor = MaterialTheme.colorScheme.surfaceVariant
+                                ),
+                                shape = RoundedCornerShape(14.dp)
+                            ) {
+                                Row(
+                                    modifier = Modifier
+                                        .fillMaxWidth()
+                                        .padding(horizontal = 14.dp, vertical = 10.dp),
+                                    verticalAlignment = Alignment.CenterVertically
+                                ) {
+                                    Icon(
+                                        imageVector = when {
+                                            !temporaryVoiceCondition.isNullOrBlank() -> Icons.Filled.Mic
+                                            selectedPersonalObject != null -> Icons.Filled.Stars
+                                            activePreset != null -> Icons.Filled.Bookmarks
+                                            else -> Icons.Filled.Visibility
+                                        },
+                                        contentDescription = null,
+                                        tint = MaterialTheme.colorScheme.primary,
+                                        modifier = Modifier.size(22.dp)
+                                    )
+                                    Spacer(Modifier.width(10.dp))
+                                    Column(modifier = Modifier.weight(1f)) {
+                                        Text(
+                                            text = currentTargetDisplay,
+                                            style = MaterialTheme.typography.titleMedium,
+                                            fontWeight = FontWeight.Bold,
+                                            color = MaterialTheme.colorScheme.onSurfaceVariant
+                                        )
+                                        Text(
+                                            text = searchingTargetsSummary,
+                                            style = MaterialTheme.typography.bodySmall,
+                                            color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.8f),
+                                            maxLines = 1
+                                        )
+                                    }
+                                }
+                            }
+
+                            // 4. Botones de Acción Primarios
                             Row(
                                 modifier = Modifier.fillMaxWidth(),
                                 horizontalArrangement = Arrangement.spacedBy(10.dp),
@@ -1753,169 +1906,220 @@ private fun ProactivePresetEditorDialog(
                     )
                 }
 
-                // Sección de Casillas Estándar
-                Text(
-                    text = stringResource(R.string.proactive_preset_standard_targets_header),
-                    style = MaterialTheme.typography.titleMedium,
-                    fontWeight = FontWeight.Bold,
-                    color = MaterialTheme.colorScheme.primary
-                )
-
-                StandardProactiveTarget.entries.forEach { target ->
-                    val isChecked = selectedStandardKeys.contains(target.key)
-                    val titleText = stringResource(target.titleRes)
-                    val desc = stringResource(target.descriptionRes)
-
-                    Row(
+                // 1. Sección de Objetos del Entorno
+                Card(
+                    modifier = Modifier.fillMaxWidth(),
+                    colors = CardDefaults.cardColors(
+                        containerColor = MaterialTheme.colorScheme.surfaceColorAtElevation(1.dp)
+                    ),
+                    shape = RoundedCornerShape(12.dp)
+                ) {
+                    Column(
                         modifier = Modifier
                             .fillMaxWidth()
-                            .clip(RoundedCornerShape(8.dp))
-                            .toggleable(
-                                value = isChecked,
-                                role = Role.Checkbox,
-                                onValueChange = { checked ->
-                                    selectedStandardKeys = if (checked) {
-                                        selectedStandardKeys + target.key
-                                    } else {
-                                        selectedStandardKeys - target.key
-                                    }
-                                    validationError = null
-                                }
-                            )
-                            .padding(vertical = 8.dp, horizontal = 4.dp),
-                        verticalAlignment = Alignment.CenterVertically
+                            .padding(12.dp),
+                        verticalArrangement = Arrangement.spacedBy(8.dp)
                     ) {
-                        Checkbox(
-                            checked = isChecked,
-                            onCheckedChange = null
+                        Text(
+                            text = stringResource(R.string.proactive_section_environment),
+                            style = MaterialTheme.typography.titleMedium,
+                            fontWeight = FontWeight.Bold,
+                            color = MaterialTheme.colorScheme.primary
                         )
-                        Spacer(Modifier.width(12.dp))
-                        Column(modifier = Modifier.weight(1f)) {
-                            Text(
-                                text = titleText,
-                                style = MaterialTheme.typography.bodyLarge,
-                                fontWeight = FontWeight.Bold
-                            )
-                            Text(
-                                text = desc,
-                                style = MaterialTheme.typography.bodySmall,
-                                color = MaterialTheme.colorScheme.onSurfaceVariant
-                            )
-                        }
-                    }
-                }
 
-                // Sección de Objetos Personales vinculables si existen
-                if (personalObjects.isNotEmpty()) {
-                    Spacer(Modifier.height(4.dp))
-                    Text(
-                        text = stringResource(R.string.personal_objects_in_presets_header),
-                        style = MaterialTheme.typography.titleMedium,
-                        fontWeight = FontWeight.Bold,
-                        color = MaterialTheme.colorScheme.primary
-                    )
+                        StandardProactiveTarget.entries.forEach { target ->
+                            val isChecked = selectedStandardKeys.contains(target.key)
+                            val titleText = stringResource(target.titleRes)
+                            val desc = stringResource(target.descriptionRes)
 
-                    personalObjects.forEach { obj ->
-                        val isChecked = selectedPersonalObjectIds.contains(obj.id)
-                        Row(
-                            modifier = Modifier
-                                .fillMaxWidth()
-                                .clip(RoundedCornerShape(8.dp))
-                                .toggleable(
-                                    value = isChecked,
-                                    role = Role.Checkbox,
-                                    onValueChange = { checked ->
-                                        selectedPersonalObjectIds = if (checked) {
-                                            selectedPersonalObjectIds + obj.id
-                                        } else {
-                                            selectedPersonalObjectIds - obj.id
+                            Row(
+                                modifier = Modifier
+                                    .fillMaxWidth()
+                                    .clip(RoundedCornerShape(8.dp))
+                                    .toggleable(
+                                        value = isChecked,
+                                        role = Role.Checkbox,
+                                        onValueChange = { checked ->
+                                            selectedStandardKeys = if (checked) {
+                                                selectedStandardKeys + target.key
+                                            } else {
+                                                selectedStandardKeys - target.key
+                                            }
+                                            validationError = null
                                         }
-                                        validationError = null
-                                    }
+                                    )
+                                    .padding(vertical = 6.dp, horizontal = 4.dp),
+                                verticalAlignment = Alignment.CenterVertically
+                            ) {
+                                Checkbox(
+                                    checked = isChecked,
+                                    onCheckedChange = null
                                 )
-                                .padding(vertical = 8.dp, horizontal = 4.dp),
-                            verticalAlignment = Alignment.CenterVertically
-                        ) {
-                            Checkbox(
-                                checked = isChecked,
-                                onCheckedChange = null
-                            )
-                            Spacer(Modifier.width(12.dp))
-                            Column(modifier = Modifier.weight(1f)) {
-                                Text(
-                                    text = "⭐ ${obj.name}",
-                                    style = MaterialTheme.typography.bodyLarge,
-                                    fontWeight = FontWeight.Bold
-                                )
-                                Text(
-                                    text = obj.visualDescription,
-                                    style = MaterialTheme.typography.bodySmall,
-                                    color = MaterialTheme.colorScheme.onSurfaceVariant,
-                                    maxLines = 1
-                                )
+                                Spacer(Modifier.width(12.dp))
+                                Column(modifier = Modifier.weight(1f)) {
+                                    Text(
+                                        text = titleText,
+                                        style = MaterialTheme.typography.bodyLarge,
+                                        fontWeight = FontWeight.Bold
+                                    )
+                                    Text(
+                                        text = desc,
+                                        style = MaterialTheme.typography.bodySmall,
+                                        color = MaterialTheme.colorScheme.onSurfaceVariant
+                                    )
+                                }
                             }
                         }
                     }
                 }
 
-                Spacer(Modifier.height(4.dp))
-
-                // Sección de Objetos Adicionales escritos por el usuario
-                Text(
-                    text = stringResource(R.string.proactive_preset_custom_targets_header),
-                    style = MaterialTheme.typography.titleMedium,
-                    fontWeight = FontWeight.Bold,
-                    color = MaterialTheme.colorScheme.primary
-                )
-
-                Row(
-                    modifier = Modifier.fillMaxWidth(),
-                    verticalAlignment = Alignment.CenterVertically
-                ) {
-                    OutlinedTextField(
-                        value = newCustomInput,
-                        onValueChange = { newCustomInput = it },
-                        placeholder = { Text(stringResource(R.string.proactive_preset_custom_target_placeholder)) },
-                        modifier = Modifier.weight(1f),
-                        singleLine = true
-                    )
-                    Spacer(Modifier.width(8.dp))
-                    Button(
-                        onClick = {
-                            val trimmed = newCustomInput.trim()
-                            if (trimmed.isNotBlank() && !customTargets.contains(trimmed)) {
-                                customTargets = customTargets + trimmed
-                                newCustomInput = ""
-                                validationError = null
-                            }
-                        },
+                // 2. Sección de Objetos Personales vinculables
+                if (personalObjects.isNotEmpty()) {
+                    Card(
+                        modifier = Modifier.fillMaxWidth(),
+                        colors = CardDefaults.cardColors(
+                            containerColor = MaterialTheme.colorScheme.tertiaryContainer.copy(alpha = 0.35f)
+                        ),
                         shape = RoundedCornerShape(12.dp)
                     ) {
-                        Text(stringResource(R.string.proactive_preset_add_target_btn))
+                        Column(
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .padding(12.dp),
+                            verticalArrangement = Arrangement.spacedBy(8.dp)
+                        ) {
+                            Row(verticalAlignment = Alignment.CenterVertically) {
+                                Icon(
+                                    imageVector = Icons.Filled.Stars,
+                                    contentDescription = null,
+                                    tint = MaterialTheme.colorScheme.tertiary,
+                                    modifier = Modifier.size(20.dp)
+                                )
+                                Spacer(Modifier.width(8.dp))
+                                Text(
+                                    text = stringResource(R.string.proactive_section_personal),
+                                    style = MaterialTheme.typography.titleMedium,
+                                    fontWeight = FontWeight.Bold,
+                                    color = MaterialTheme.colorScheme.onTertiaryContainer
+                                )
+                            }
+
+                            personalObjects.forEach { obj ->
+                                val isChecked = selectedPersonalObjectIds.contains(obj.id)
+                                Row(
+                                    modifier = Modifier
+                                        .fillMaxWidth()
+                                        .clip(RoundedCornerShape(8.dp))
+                                        .toggleable(
+                                            value = isChecked,
+                                            role = Role.Checkbox,
+                                            onValueChange = { checked ->
+                                                selectedPersonalObjectIds = if (checked) {
+                                                    selectedPersonalObjectIds + obj.id
+                                                } else {
+                                                    selectedPersonalObjectIds - obj.id
+                                                }
+                                                validationError = null
+                                            }
+                                        )
+                                        .padding(vertical = 6.dp, horizontal = 4.dp),
+                                    verticalAlignment = Alignment.CenterVertically
+                                ) {
+                                    Checkbox(
+                                        checked = isChecked,
+                                        onCheckedChange = null
+                                    )
+                                    Spacer(Modifier.width(12.dp))
+                                    Column(modifier = Modifier.weight(1f)) {
+                                        Text(
+                                            text = "⭐ ${obj.name}",
+                                            style = MaterialTheme.typography.bodyLarge,
+                                            fontWeight = FontWeight.Bold
+                                        )
+                                        Text(
+                                            text = obj.visualDescription,
+                                            style = MaterialTheme.typography.bodySmall,
+                                            color = MaterialTheme.colorScheme.onSurfaceVariant,
+                                            maxLines = 1
+                                        )
+                                    }
+                                }
+                            }
+                        }
                     }
                 }
 
-                // Lista de chips de objetos adicionales agregados
-                if (customTargets.isNotEmpty()) {
+                // 3. Sección de Objetos Adicionales escritos por el usuario
+                Card(
+                    modifier = Modifier.fillMaxWidth(),
+                    colors = CardDefaults.cardColors(
+                        containerColor = MaterialTheme.colorScheme.surfaceColorAtElevation(1.dp)
+                    ),
+                    shape = RoundedCornerShape(12.dp)
+                ) {
                     Column(
-                        modifier = Modifier.fillMaxWidth(),
-                        verticalArrangement = Arrangement.spacedBy(6.dp)
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .padding(12.dp),
+                        verticalArrangement = Arrangement.spacedBy(8.dp)
                     ) {
-                        customTargets.forEach { item ->
-                            val removeDesc = stringResource(R.string.proactive_remove_custom_target, item)
-                            InputChip(
-                                selected = false,
-                                onClick = { customTargets = customTargets - item },
-                                label = { Text(item) },
-                                trailingIcon = {
-                                    Icon(
-                                        imageVector = Icons.Filled.Close,
-                                        contentDescription = removeDesc,
-                                        modifier = Modifier.size(16.dp)
-                                    )
-                                },
-                                modifier = Modifier.fillMaxWidth()
+                        Text(
+                            text = stringResource(R.string.proactive_section_custom),
+                            style = MaterialTheme.typography.titleMedium,
+                            fontWeight = FontWeight.Bold,
+                            color = MaterialTheme.colorScheme.primary
+                        )
+
+                        Row(
+                            modifier = Modifier.fillMaxWidth(),
+                            verticalAlignment = Alignment.CenterVertically
+                        ) {
+                            OutlinedTextField(
+                                value = newCustomInput,
+                                onValueChange = { newCustomInput = it },
+                                placeholder = { Text(stringResource(R.string.proactive_preset_custom_target_placeholder)) },
+                                modifier = Modifier.weight(1f),
+                                singleLine = true
                             )
+                            Spacer(Modifier.width(8.dp))
+                            Button(
+                                onClick = {
+                                    val trimmed = newCustomInput.trim()
+                                    if (trimmed.isNotBlank() && !customTargets.contains(trimmed)) {
+                                        customTargets = customTargets + trimmed
+                                        newCustomInput = ""
+                                        validationError = null
+                                    }
+                                },
+                                shape = RoundedCornerShape(12.dp)
+                            ) {
+                                Text(stringResource(R.string.proactive_preset_add_target_btn))
+                            }
+                        }
+
+                        // Lista de chips de objetos adicionales agregados
+                        if (customTargets.isNotEmpty()) {
+                            Column(
+                                modifier = Modifier.fillMaxWidth(),
+                                verticalArrangement = Arrangement.spacedBy(6.dp)
+                            ) {
+                                customTargets.forEach { item ->
+                                    val removeDesc = stringResource(R.string.proactive_remove_custom_target, item)
+                                    InputChip(
+                                        selected = false,
+                                        onClick = { customTargets = customTargets - item },
+                                        label = { Text(item) },
+                                        trailingIcon = {
+                                            Icon(
+                                                imageVector = Icons.Filled.Close,
+                                                contentDescription = removeDesc,
+                                                modifier = Modifier.size(16.dp)
+                                            )
+                                        },
+                                        modifier = Modifier.fillMaxWidth()
+                                    )
+                                }
+                            }
                         }
                     }
                 }

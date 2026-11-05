@@ -567,6 +567,17 @@ Tarjeta: 4152314082325278</string>
     <string name="proactive_preset_open_manager">Presets guardados</string>
     <string name="proactive_preset_open_manager_desc">Abrir ventana de presets para configurar o activar perfiles</string>
     <string name="proactive_mode_free_label">Búsqueda directa</string>
+    <string name="proactive_tab_quick">Rápido</string>
+    <string name="proactive_tab_personal">Mis Objetos</string>
+    <string name="proactive_tab_presets">Presets</string>
+    <string name="proactive_personal_empty_prompt">No tienes objetos personales guardados aún.</string>
+    <string name="proactive_target_ready_header">Objetivo preparado</string>
+    <string name="proactive_voice_target_prefix">Voz</string>
+    <string name="proactive_section_environment">Objetivos del Entorno</string>
+    <string name="proactive_section_personal">Mis Objetos Personales</string>
+    <string name="proactive_section_custom">Objetos Adicionales</string>
+    <string name="proactive_manage_objects_btn">Gestionar objetos</string>
+    <string name="proactive_quick_targets_header">Categorías inmediatas</string>
     <string name="proactive_preset_street_title">Calle y Tránsito</string>
 
     <!-- Modo Centinela - Objetos Personales con Foto de Referencia -->

@@ -558,6 +558,17 @@ Card: 4152314082325278</string>
     <string name="proactive_preset_open_manager">Saved presets</string>
     <string name="proactive_preset_open_manager_desc">Open presets window to configure or activate profiles</string>
     <string name="proactive_mode_free_label">Direct search</string>
+    <string name="proactive_tab_quick">Quick</string>
+    <string name="proactive_tab_personal">My Objects</string>
+    <string name="proactive_tab_presets">Presets</string>
+    <string name="proactive_personal_empty_prompt">No personal objects saved yet.</string>
+    <string name="proactive_target_ready_header">Prepared target</string>
+    <string name="proactive_voice_target_prefix">Voice</string>
+    <string name="proactive_section_environment">Environment Targets</string>
+    <string name="proactive_section_personal">My Personal Objects</string>
+    <string name="proactive_section_custom">Additional Targets</string>
+    <string name="proactive_manage_objects_btn">Manage objects</string>
+    <string name="proactive_quick_targets_header">Immediate categories</string>
     <string name="proactive_preset_street_title">Street &amp; Traffic</string>
 
     <!-- Proactive Sentinel - Personal Objects with Reference Photos -->
