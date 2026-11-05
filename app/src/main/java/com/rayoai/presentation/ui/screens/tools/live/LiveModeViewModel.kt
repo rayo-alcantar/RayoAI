@@ -57,9 +57,6 @@ class LiveModeViewModel @Inject constructor(
     val liveAudioOutput: StateFlow<String> = userPreferencesRepository.liveAudioOutput
         .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), "speaker")
 
-    val liveVolume: StateFlow<Float> = userPreferencesRepository.liveVolume
-        .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), 1.0f)
-
     val liveDontAskScreenShareConfirm: StateFlow<Boolean> = userPreferencesRepository.liveDontAskScreenShareConfirm
         .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), false)
 
@@ -153,11 +150,6 @@ class LiveModeViewModel @Inject constructor(
     fun setAudioOutput(output: String) {
         liveManager.setAudioOutput(output)
         viewModelScope.launch { userPreferencesRepository.saveLiveAudioOutput(output) }
-    }
-
-    fun setLiveVolume(volume: Float) {
-        liveManager.setVolume(volume)
-        viewModelScope.launch { userPreferencesRepository.saveLiveVolume(volume) }
     }
 
     fun saveLiveDontAskScreenShareConfirm(dontAsk: Boolean) {

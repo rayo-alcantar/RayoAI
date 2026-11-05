@@ -477,7 +477,6 @@ Card: 4152314082325278</string>
     <string name="live_mode_audio_output_action_earpiece">Current output: Speaker. Tap to switch to earpiece</string>
     <string name="live_mode_audio_output_action_muted">Current output: Earpiece. Tap to mute</string>
     <string name="live_mode_audio_output_action_speaker">Current output: Muted. Tap to activate speaker</string>
-    <string name="live_mode_volume_label">RayoAI voice volume</string>
     <string name="live_mode_stop_screen_share">Stop screen share</string>
     <string name="live_mode_tap_to_change">Tap to change</string>
     <string name="live_mode_tap_to_interrupt">Tap to interrupt response</string>

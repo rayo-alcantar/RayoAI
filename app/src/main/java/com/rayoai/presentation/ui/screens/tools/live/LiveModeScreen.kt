@@ -11,7 +11,6 @@ import android.content.Context
 import android.content.Intent
 import android.content.pm.PackageManager
 import android.graphics.drawable.Drawable
-import android.media.AudioManager
 import android.media.projection.MediaProjectionManager
 import android.os.Build
 import android.os.SystemClock
@@ -167,7 +166,6 @@ fun LiveModeScreen(
     val livePushToTalk by viewModel.livePushToTalk.collectAsState()
     val liveCaptureIntervalSeconds by viewModel.liveCaptureIntervalSeconds.collectAsState()
     val liveAudioOutput by viewModel.liveAudioOutput.collectAsState()
-    val liveVolume by viewModel.liveVolume.collectAsState()
     val liveDontAskScreenShareConfirm by viewModel.liveDontAskScreenShareConfirm.collectAsState()
     val liveRecentSharedApps by viewModel.liveRecentSharedApps.collectAsState()
 
@@ -296,10 +294,6 @@ fun LiveModeScreen(
         }
     }
 
-    LaunchedEffect(liveVolume) {
-        viewModel.setLiveVolume(liveVolume)
-    }
-
     // Apagar la linterna automáticamente si se cambia de fuente, se pausa el video o se pasa a cámara frontal
     LaunchedEffect(visualSource, isVideoPaused, isFrontCamera) {
         if (visualSource != VisualSource.CAMERA || isVideoPaused || isFrontCamera) {
@@ -307,13 +301,8 @@ fun LiveModeScreen(
         }
     }
 
-    // Vincular teclas físicas de volumen del dispositivo al canal de llamada/comunicación en vivo
-    val activity = context as? Activity
     DisposableEffect(Unit) {
-        val originalStream = activity?.volumeControlStream ?: AudioManager.USE_DEFAULT_STREAM_TYPE
-        activity?.volumeControlStream = AudioManager.STREAM_VOICE_CALL
         onDispose {
-            activity?.volumeControlStream = originalStream
             feedbackHelper.release()
             LiveSessionForegroundService.stopScreenCapture(context)
         }
@@ -909,7 +898,6 @@ fun LiveModeScreen(
             currentPtt = livePushToTalk,
             currentInterval = liveCaptureIntervalSeconds,
             currentAudioOutput = liveAudioOutput,
-            currentVolume = liveVolume,
             onDismiss = { showConfigSheet = false },
             onSaveModel = { viewModel.saveLiveModel(it) },
             onSaveVoice = { viewModel.saveLiveVoice(it) },
@@ -917,8 +905,7 @@ fun LiveModeScreen(
             onSaveVad = { viewModel.saveLiveVadSensitivity(it) },
             onSavePtt = { viewModel.saveLivePushToTalk(it) },
             onSaveInterval = { viewModel.saveLiveCaptureIntervalSeconds(it) },
-            onSaveAudioOutput = { viewModel.setAudioOutput(it) },
-            onSaveVolume = { viewModel.setLiveVolume(it) }
+            onSaveAudioOutput = { viewModel.setAudioOutput(it) }
         )
     }
 
@@ -1307,7 +1294,6 @@ private fun LiveSettingsSheet(
     currentPtt: Boolean,
     currentInterval: Float,
     currentAudioOutput: String,
-    currentVolume: Float,
     onDismiss: () -> Unit,
     onSaveModel: (String) -> Unit,
     onSaveVoice: (String) -> Unit,
@@ -1315,8 +1301,7 @@ private fun LiveSettingsSheet(
     onSaveVad: (String) -> Unit,
     onSavePtt: (Boolean) -> Unit,
     onSaveInterval: (Float) -> Unit,
-    onSaveAudioOutput: (String) -> Unit,
-    onSaveVolume: (Float) -> Unit
+    onSaveAudioOutput: (String) -> Unit
 ) {
     val sheetState = rememberModalBottomSheetState(skipPartiallyExpanded = true)
 
@@ -1544,21 +1529,6 @@ private fun LiveSettingsSheet(
                         currentValue = currentOutputText,
                         icon = outputIcon,
                         onClick = { onSaveAudioOutput(nextOutputMode) }
-                    )
-
-                    // Botón conmutador: Volumen de Voz de RayoAI (100% -> 75% -> 50% -> 25% -> 100%)
-                    val currentVolumePercent = "${(currentVolume * 100).toInt()}%"
-                    val nextVolume = when {
-                        currentVolume >= 0.95f -> 0.75f
-                        currentVolume >= 0.70f -> 0.50f
-                        currentVolume >= 0.45f -> 0.25f
-                        else -> 1.0f
-                    }
-                    CyclingSettingButton(
-                        title = stringResource(R.string.live_mode_volume_label),
-                        currentValue = currentVolumePercent,
-                        icon = Icons.AutoMirrored.Filled.VolumeUp,
-                        onClick = { onSaveVolume(nextVolume) }
                     )
                 }
             }

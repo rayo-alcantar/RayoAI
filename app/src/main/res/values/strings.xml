@@ -486,7 +486,6 @@ Tarjeta: 4152314082325278</string>
     <string name="live_mode_audio_output_action_earpiece">Salida actual: Altavoz. Toca para cambiar a auricular</string>
     <string name="live_mode_audio_output_action_muted">Salida actual: Auricular. Toca para silenciar</string>
     <string name="live_mode_audio_output_action_speaker">Salida actual: Silenciado. Toca para activar altavoz</string>
-    <string name="live_mode_volume_label">Volumen de voz de RayoAI</string>
     <string name="live_mode_stop_screen_share">Detener compartir pantalla</string>
     <string name="live_mode_tap_to_change">Toca para cambiar</string>
     <string name="live_mode_tap_to_interrupt">Toca para interrumpir la respuesta</string>

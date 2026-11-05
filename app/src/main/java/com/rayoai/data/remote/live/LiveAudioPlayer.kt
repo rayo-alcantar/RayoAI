@@ -41,8 +41,6 @@ class LiveAudioPlayer(
     private val isSpeaking = AtomicBoolean(false)
     private val isMuted = AtomicBoolean(initialOutputMode == "muted")
     private var currentMode: String = initialOutputMode
-    @Volatile
-    private var currentVolume: Float = 1.0f
 
     private val audioManager = context.getSystemService(Context.AUDIO_SERVICE) as AudioManager
     private var audioTrack: AudioTrack? = null
@@ -111,7 +109,6 @@ class LiveAudioPlayer(
                 .setTransferMode(AudioTrack.MODE_STREAM)
                 .build()
 
-            audioTrack?.setVolume(currentVolume)
             audioTrack?.play()
         } catch (e: Exception) {
             Log.e(TAG, "Error inicializando AudioTrack en modo $mode", e)
@@ -172,14 +169,6 @@ class LiveAudioPlayer(
             createTrack(mode)
             applyRouting(mode)
         }
-    }
-
-    fun setVolume(volume: Float) {
-        val clamped = volume.coerceIn(0.0f, 1.0f)
-        currentVolume = clamped
-        try {
-            audioTrack?.setVolume(clamped)
-        } catch (_: Exception) {}
     }
 
     fun enqueueAudio(pcmData: ByteArray) {

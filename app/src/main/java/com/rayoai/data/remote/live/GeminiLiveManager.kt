@@ -152,10 +152,6 @@ class GeminiLiveManager @Inject constructor(
         player?.setAudioOutput(output)
     }
 
-    fun setVolume(volume: Float) {
-        player?.setVolume(volume)
-    }
-
     fun setPushToTalkState(talking: Boolean) {
         if (_isTalking.value == talking) return
         _isTalking.value = talking
