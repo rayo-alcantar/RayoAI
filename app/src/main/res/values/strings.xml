@@ -555,5 +555,55 @@ Tarjeta: 4152314082325278</string>
     <string name="proactive_searching_label">Buscando: %1$s</string>
     <string name="proactive_detected_prefix">¡Localizado!</string>
     <string name="proactive_api_key_required">Configura tu clave de API de Gemini en Ajustes para usar el Centinela Proactivo.</string>
+
+    <!-- Modo Centinela - Sistema de Presets -->
+    <string name="proactive_presets_label">Modos predefinidos</string>
+    <string name="proactive_preset_street_title">Calle y Tránsito</string>
+    <string name="proactive_preset_street_desc">Autos, semáforos, personas, cruces y obstáculos</string>
+    <string name="proactive_preset_indoor_title">Hogar e Interiores</string>
+    <string name="proactive_preset_indoor_desc">Puertas, asientos, objetos personales y obstáculos</string>
+    <string name="proactive_preset_transit_title">Transporte</string>
+    <string name="proactive_preset_transit_desc">Asientos, puertas, personas y vehículos</string>
+    <string name="proactive_new_preset_btn">Nuevo preset</string>
+    <string name="proactive_new_preset_desc">Crear un nuevo modo de vigilancia personalizado</string>
+    <string name="proactive_edit_preset_btn">Editar preset</string>
+    <string name="proactive_dialog_new_title">Crear nuevo preset</string>
+    <string name="proactive_dialog_edit_title">Editar preset: %1$s</string>
+    <string name="proactive_preset_name_label">Nombre del preset</string>
+    <string name="proactive_preset_name_placeholder">Ej: Calle, Supermercado, Oficina...</string>
+    <string name="proactive_preset_standard_targets_header">Casillas de objetos a vigilar:</string>
+    <string name="proactive_preset_custom_targets_header">Objetos adicionales escritos por ti:</string>
+    <string name="proactive_preset_custom_target_placeholder">¿Qué otro objeto vigilar? (ej: bastón, bache, perro)</string>
+    <string name="proactive_preset_add_target_btn">Añadir</string>
+    <string name="proactive_preset_save_btn">Guardar preset</string>
+    <string name="proactive_preset_delete_btn">Eliminar preset</string>
+    <string name="proactive_preset_delete_confirm_title">¿Eliminar este preset?</string>
+    <string name="proactive_preset_delete_confirm_desc">El preset \"%1$s\" se eliminará permanentemente.</string>
+    <string name="proactive_preset_empty_targets_error">Selecciona al menos una casilla o añade un objeto.</string>
+    <string name="proactive_preset_empty_name_error">Ingresa un nombre para el preset.</string>
+    <string name="proactive_preset_active_summary">Vigilando en %1$s: %2$s</string>
+    <string name="proactive_preset_selected_announcement">Preset %1$s seleccionado</string>
+    <string name="proactive_preset_item_count">%1$d elementos activos</string>
+    <string name="proactive_remove_custom_target">Eliminar objeto %1$s</string>
+    <string name="proactive_clear_voice_target">Descartar objetivo de voz</string>
+    <string name="proactive_preset_edit_button_desc">Editar la configuración de los objetos de este preset</string>
+
+    <!-- Objetos estándar para casillas -->
+    <string name="proactive_target_people">Personas</string>
+    <string name="proactive_target_people_desc">Personas visibles o acercándose</string>
+    <string name="proactive_target_vehicles">Autos y vehículos</string>
+    <string name="proactive_target_vehicles_desc">Autos, colectivos, motos, bicicletas</string>
+    <string name="proactive_target_traffic_lights">Semáforos</string>
+    <string name="proactive_target_traffic_lights_desc">Semáforos peatonales y vehiculares</string>
+    <string name="proactive_target_crossings">Calles y cruces</string>
+    <string name="proactive_target_crossings_desc">Bordes de acera, cruces, sendas peatonales</string>
+    <string name="proactive_target_obstacles">Obstáculos y baches</string>
+    <string name="proactive_target_obstacles_desc">Baches, desniveles, pozos, postes o ramas</string>
+    <string name="proactive_target_doors">Puertas y accesos</string>
+    <string name="proactive_target_doors_desc">Puertas abiertas o cerradas, entradas</string>
+    <string name="proactive_target_seats">Asientos libres</string>
+    <string name="proactive_target_seats_desc">Sillas, bancos o asientos disponibles</string>
+    <string name="proactive_target_objects">Objetos personales</string>
+    <string name="proactive_target_objects_desc">Llaves, celular, billetera, bastón, lentes</string>
 </resources>
 

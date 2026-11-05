@@ -23,14 +23,14 @@ class EvaluateProactiveFrameUseCase @Inject constructor(
 
         val systemPrompt = """
             You are RayoAI Proactive Sentinel, an assistive vision system for a blind or visually impaired person.
-            The user requested proactive surveillance for this specific condition or target:
+            The user requested proactive surveillance for these specific targets or condition:
             "$condition"
 
             Examine this camera frame closely.
-            Determine whether the requested condition or target is detected/visible right now.
-            - If the target is an object the user is looking for or left behind (keys, phone, wallet, cane, cup, etc.), locate it clearly relative to the user (e.g. 'Llaves sobre la mesa a la derecha', 'Taza al frente').
-            - If the condition is met, set "detected": true and provide a concise announcement of 3 to 8 words in $languageCode optimized for natural speech synthesis (TextToSpeech).
-            - If the condition is NOT met or the target is not visible, set "detected": false and "announcement": null.
+            Determine whether any of the requested targets or conditions are detected/visible right now.
+            - If any monitored target or condition is visible, set "detected": true and provide a concise announcement of 3 to 8 words in $languageCode naming specifically what was seen and its relative location (e.g. 'Semáforo al frente', 'Auto acercándose por la izquierda', 'Llaves sobre la mesa a la derecha', 'Taza al frente').
+            - If the target is an object the user is looking for or left behind (keys, phone, wallet, cane, cup, etc.), locate it clearly relative to the user.
+            - If NO monitored target or condition is visible or met, set "detected": false and "announcement": null.
             - "stateChanged": true if this represents a new detection, state change, or notable change in position/lighting.
 
             Respond strictly in valid JSON with this exact schema:

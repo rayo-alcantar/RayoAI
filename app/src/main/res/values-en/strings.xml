@@ -546,4 +546,54 @@ Card: 4152314082325278</string>
     <string name="proactive_searching_label">Watching for: %1$s</string>
     <string name="proactive_detected_prefix">Located!</string>
     <string name="proactive_api_key_required">Configure your Gemini API key in Settings to use the Proactive Sentinel.</string>
+
+    <!-- Proactive Sentinel - Presets System -->
+    <string name="proactive_presets_label">Presets</string>
+    <string name="proactive_preset_street_title">Street &amp; Traffic</string>
+    <string name="proactive_preset_street_desc">Cars, traffic lights, people, crosswalks and obstacles</string>
+    <string name="proactive_preset_indoor_title">Home &amp; Indoors</string>
+    <string name="proactive_preset_indoor_desc">Doors, seats, personal items and obstacles</string>
+    <string name="proactive_preset_transit_title">Public Transit</string>
+    <string name="proactive_preset_transit_desc">Seats, doors, people and vehicles</string>
+    <string name="proactive_new_preset_btn">New preset</string>
+    <string name="proactive_new_preset_desc">Create a new custom surveillance preset</string>
+    <string name="proactive_edit_preset_btn">Edit preset</string>
+    <string name="proactive_dialog_new_title">Create new preset</string>
+    <string name="proactive_dialog_edit_title">Edit preset: %1$s</string>
+    <string name="proactive_preset_name_label">Preset name</string>
+    <string name="proactive_preset_name_placeholder">E.g., Street, Supermarket, Office...</string>
+    <string name="proactive_preset_standard_targets_header">Objects to watch for:</string>
+    <string name="proactive_preset_custom_targets_header">Additional objects written by you:</string>
+    <string name="proactive_preset_custom_target_placeholder">What other object to watch for? (e.g., cane, pothole, dog)</string>
+    <string name="proactive_preset_add_target_btn">Add</string>
+    <string name="proactive_preset_save_btn">Save preset</string>
+    <string name="proactive_preset_delete_btn">Delete preset</string>
+    <string name="proactive_preset_delete_confirm_title">Delete this preset?</string>
+    <string name="proactive_preset_delete_confirm_desc">The preset \"%1$s\" will be permanently deleted.</string>
+    <string name="proactive_preset_empty_targets_error">Select at least one checkbox or add an object.</string>
+    <string name="proactive_preset_empty_name_error">Enter a name for the preset.</string>
+    <string name="proactive_preset_active_summary">Watching in %1$s: %2$s</string>
+    <string name="proactive_preset_selected_announcement">Preset %1$s selected</string>
+    <string name="proactive_preset_item_count">%1$d active targets</string>
+    <string name="proactive_remove_custom_target">Remove object %1$s</string>
+    <string name="proactive_clear_voice_target">Dismiss voice target</string>
+    <string name="proactive_preset_edit_button_desc">Edit targets configuration for this preset</string>
+
+    <!-- Standard targets for checkboxes -->
+    <string name="proactive_target_people">People</string>
+    <string name="proactive_target_people_desc">People in view or approaching</string>
+    <string name="proactive_target_vehicles">Cars &amp; vehicles</string>
+    <string name="proactive_target_vehicles_desc">Cars, buses, motorcycles, bicycles</string>
+    <string name="proactive_target_traffic_lights">Traffic lights</string>
+    <string name="proactive_target_traffic_lights_desc">Pedestrian and traffic signals</string>
+    <string name="proactive_target_crossings">Streets &amp; crossings</string>
+    <string name="proactive_target_crossings_desc">Curbs, crossings, crosswalks</string>
+    <string name="proactive_target_obstacles">Obstacles &amp; potholes</string>
+    <string name="proactive_target_obstacles_desc">Potholes, steps, poles, low branches</string>
+    <string name="proactive_target_doors">Doors &amp; entrances</string>
+    <string name="proactive_target_doors_desc">Open or closed doors, entrances</string>
+    <string name="proactive_target_seats">Available seats</string>
+    <string name="proactive_target_seats_desc">Chairs, benches or available seats</string>
+    <string name="proactive_target_objects">Personal items</string>
+    <string name="proactive_target_objects_desc">Keys, phone, wallet, cane, glasses</string>
 </resources>

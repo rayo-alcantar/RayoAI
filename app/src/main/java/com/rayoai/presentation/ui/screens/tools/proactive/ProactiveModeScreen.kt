@@ -23,7 +23,6 @@ import androidx.camera.core.ImageProxy
 import androidx.camera.view.CameraController
 import androidx.camera.view.LifecycleCameraController
 import androidx.camera.view.PreviewView
-import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.horizontalScroll
@@ -39,37 +38,47 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.selection.toggleable
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
+import androidx.compose.material.icons.filled.Add
 import androidx.compose.material.icons.filled.Cameraswitch
 import androidx.compose.material.icons.filled.CheckCircle
+import androidx.compose.material.icons.filled.Close
+import androidx.compose.material.icons.filled.Delete
 import androidx.compose.material.icons.filled.FlashOff
 import androidx.compose.material.icons.filled.FlashOn
 import androidx.compose.material.icons.filled.Mic
 import androidx.compose.material.icons.filled.PlayArrow
 import androidx.compose.material.icons.filled.Stop
 import androidx.compose.material.icons.filled.Timer
+import androidx.compose.material.icons.filled.Tune
 import androidx.compose.material.icons.filled.Visibility
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Button
 import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
+import androidx.compose.material3.Checkbox
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.FilterChip
 import androidx.compose.material3.FilterChipDefaults
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
+import androidx.compose.material3.InputChip
 import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.material3.TopAppBar
+import androidx.compose.material3.surfaceColorAtElevation
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.LaunchedEffect
@@ -100,10 +109,12 @@ import com.google.accompanist.permissions.ExperimentalPermissionsApi
 import com.google.accompanist.permissions.rememberMultiplePermissionsState
 import com.rayoai.R
 import com.rayoai.domain.model.AudioRecording
-import com.rayoai.domain.model.proactive.ProactivePreset
+import com.rayoai.domain.model.proactive.ProactivePresetModel
+import com.rayoai.domain.model.proactive.StandardProactiveTarget
 import com.rayoai.presentation.ui.LocalTextToSpeech
 import com.rayoai.presentation.voice.VoiceRecorder
 import kotlinx.coroutines.launch
+import java.util.UUID
 import java.util.concurrent.Executors
 
 @OptIn(ExperimentalMaterial3Api::class, ExperimentalPermissionsApi::class)
@@ -114,14 +125,14 @@ fun ProactiveModeScreen(
     viewModel: ProactiveModeViewModel = hiltViewModel()
 ) {
     val context = LocalContext.current
-    val lifecycleOwner = LocalLifecycleOwner.current
     val textToSpeech = LocalTextToSpeech.current
 
     val isMonitoring by viewModel.isMonitoring.collectAsState()
     val isAnalyzing by viewModel.isAnalyzing.collectAsState()
     val isTranscribingAudio by viewModel.isTranscribingAudio.collectAsState()
-    val selectedPreset by viewModel.selectedPreset.collectAsState()
-    val customCondition by viewModel.customCondition.collectAsState()
+    val presets by viewModel.presets.collectAsState()
+    val activePreset by viewModel.activePreset.collectAsState()
+    val temporaryVoiceCondition by viewModel.temporaryVoiceCondition.collectAsState()
     val intervalSeconds by viewModel.intervalSeconds.collectAsState()
     val isTorchOn by viewModel.isTorchOn.collectAsState()
     val isFrontCamera by viewModel.isFrontCamera.collectAsState()
@@ -129,6 +140,9 @@ fun ProactiveModeScreen(
     val errorMessage by viewModel.errorMessage.collectAsState()
 
     var showApiKeyDialog by remember { mutableStateOf(false) }
+    var showPresetEditor by remember { mutableStateOf(false) }
+    var presetToEdit by remember { mutableStateOf<ProactivePresetModel?>(null) }
+    var isCreatingNewPreset by remember { mutableStateOf(false) }
 
     // Textos accesibles resueltos en alcance Composable
     val screenTitle = stringResource(R.string.proactive_mode_title)
@@ -137,7 +151,6 @@ fun ProactiveModeScreen(
     val stopMonitoringText = stringResource(R.string.proactive_mode_stop)
     val monitoringActiveText = stringResource(R.string.proactive_mode_monitoring_active)
     val monitoringIdleText = stringResource(R.string.proactive_mode_monitoring_idle)
-    val customHintText = stringResource(R.string.proactive_custom_hint)
     val silenceHint = stringResource(R.string.proactive_silence_hint)
     val cameraTouchToSilenceDesc = stringResource(R.string.proactive_camera_touch_to_silence)
     val apiKeyRequiredText = stringResource(R.string.proactive_api_key_required)
@@ -147,16 +160,24 @@ fun ProactiveModeScreen(
     val changeTargetBtnText = stringResource(R.string.proactive_change_target_btn)
     val dictateTargetBtnText = stringResource(R.string.proactive_dictate_target_btn)
     val detectedPrefixText = stringResource(R.string.proactive_detected_prefix)
+    val editPresetBtnDesc = stringResource(R.string.proactive_preset_edit_button_desc)
+    val newPresetBtnText = stringResource(R.string.proactive_new_preset_btn)
 
     val torchDesc = if (isTorchOn) stringResource(R.string.live_mode_torch_off)
     else stringResource(R.string.live_mode_torch_on)
 
-    val presetCondition = stringResource(selectedPreset.promptConditionRes)
+    val currentTargetDisplay = when {
+        !temporaryVoiceCondition.isNullOrBlank() -> temporaryVoiceCondition!!
+        else -> activePreset.getDisplayName(context)
+    }
 
-    val currentTargetDisplay = if (selectedPreset == ProactivePreset.CUSTOM && customCondition.isNotBlank()) {
-        customCondition
+    val activeTargets = activePreset.getActiveTargetNames(context)
+    val searchingTargetsSummary = if (!temporaryVoiceCondition.isNullOrBlank()) {
+        temporaryVoiceCondition!!
+    } else if (activeTargets.isNotEmpty()) {
+        activeTargets.joinToString(", ")
     } else {
-        stringResource(selectedPreset.titleRes)
+        stringResource(R.string.proactive_target_obstacles)
     }
 
     val permissionsState = rememberMultiplePermissionsState(
@@ -337,7 +358,7 @@ fun ProactiveModeScreen(
                         isAnalyzing = isAnalyzing,
                         intervalSeconds = intervalSeconds,
                         onFrameToAnalyze = { bitmap ->
-                            viewModel.evaluateFrame(bitmap, presetCondition)
+                            viewModel.evaluateFrame(bitmap)
                         }
                     )
 
@@ -378,7 +399,7 @@ fun ProactiveModeScreen(
                     }
                 }
 
-                // Panel Inferior: Información Limpia y Controles Robustos
+                // Panel Inferior: Información Limpia, Presets Accesibles y Controles
                 Surface(
                     color = MaterialTheme.colorScheme.surface,
                     tonalElevation = 8.dp,
@@ -388,7 +409,7 @@ fun ProactiveModeScreen(
                         modifier = Modifier
                             .fillMaxWidth()
                             .padding(horizontal = 16.dp, vertical = 14.dp),
-                        verticalArrangement = Arrangement.spacedBy(12.dp)
+                        verticalArrangement = Arrangement.spacedBy(10.dp)
                     ) {
                         // Tarjeta de Estado/Localización (SIN liveRegion para eliminar el spam en TalkBack)
                         val detection = latestDetection
@@ -464,7 +485,7 @@ fun ProactiveModeScreen(
                                     text = if (isDetected) {
                                         detection?.announcement ?: ""
                                     } else if (isMonitoring) {
-                                        stringResource(R.string.proactive_searching_label, currentTargetDisplay)
+                                        stringResource(R.string.proactive_searching_label, searchingTargetsSummary)
                                     } else {
                                         monitoringIdleText
                                     },
@@ -475,38 +496,155 @@ fun ProactiveModeScreen(
                             }
                         }
 
-                        // Presets para selección rápida cuando no está en ejecución
+                        // Selector de Presets y Configuración cuando no está vigilando
                         if (!isMonitoring) {
+                            // Carrusel horizontal de Presets
                             Row(
                                 modifier = Modifier
                                     .fillMaxWidth()
                                     .horizontalScroll(rememberScrollState()),
-                                horizontalArrangement = Arrangement.spacedBy(8.dp)
+                                horizontalArrangement = Arrangement.spacedBy(8.dp),
+                                verticalAlignment = Alignment.CenterVertically
                             ) {
-                                ProactivePreset.entries.forEach { preset ->
-                                    val isSelected = selectedPreset == preset
-                                    val title = stringResource(preset.titleRes)
+                                presets.forEach { preset ->
+                                    val isSelected = activePreset.id == preset.id
+                                    val displayName = preset.getDisplayName(context)
                                     FilterChip(
                                         selected = isSelected,
-                                        onClick = { viewModel.setPreset(preset) },
-                                        label = { Text(title, fontWeight = if (isSelected) FontWeight.Bold else FontWeight.Normal) },
+                                        onClick = { viewModel.selectPreset(preset.id) },
+                                        label = {
+                                            Text(
+                                                text = displayName,
+                                                fontWeight = if (isSelected) FontWeight.Bold else FontWeight.Normal
+                                            )
+                                        },
+                                        leadingIcon = if (isSelected) {
+                                            {
+                                                Icon(
+                                                    imageVector = Icons.Filled.CheckCircle,
+                                                    contentDescription = null,
+                                                    modifier = Modifier.size(16.dp)
+                                                )
+                                            }
+                                        } else null,
                                         colors = FilterChipDefaults.filterChipColors(
                                             selectedContainerColor = MaterialTheme.colorScheme.primaryContainer,
                                             selectedLabelColor = MaterialTheme.colorScheme.onPrimaryContainer
                                         )
                                     )
                                 }
+
+                                // Botón para crear un nuevo preset
+                                FilterChip(
+                                    selected = false,
+                                    onClick = {
+                                        presetToEdit = null
+                                        isCreatingNewPreset = true
+                                        showPresetEditor = true
+                                    },
+                                    label = {
+                                        Text(
+                                            text = newPresetBtnText,
+                                            fontWeight = FontWeight.Bold
+                                        )
+                                    },
+                                    leadingIcon = {
+                                        Icon(
+                                            imageVector = Icons.Filled.Add,
+                                            contentDescription = null,
+                                            modifier = Modifier.size(16.dp)
+                                        )
+                                    },
+                                    colors = FilterChipDefaults.filterChipColors(
+                                        containerColor = MaterialTheme.colorScheme.secondaryContainer.copy(alpha = 0.7f),
+                                        labelColor = MaterialTheme.colorScheme.onSecondaryContainer
+                                    )
+                                )
                             }
 
-                            // Campo de texto personalizado si el preset es CUSTOM
-                            AnimatedVisibility(visible = selectedPreset == ProactivePreset.CUSTOM) {
-                                OutlinedTextField(
-                                    value = customCondition,
-                                    onValueChange = { viewModel.setCustomCondition(it) },
-                                    modifier = Modifier.fillMaxWidth(),
-                                    placeholder = { Text(customHintText) },
-                                    singleLine = true
-                                )
+                            // Tarjeta de resumen de objetos del preset activo con botón de edición rápida
+                            Card(
+                                colors = CardDefaults.cardColors(
+                                    containerColor = MaterialTheme.colorScheme.surfaceColorAtElevation(1.dp)
+                                ),
+                                shape = RoundedCornerShape(12.dp),
+                                modifier = Modifier.fillMaxWidth()
+                            ) {
+                                Row(
+                                    modifier = Modifier
+                                        .fillMaxWidth()
+                                        .padding(horizontal = 12.dp, vertical = 8.dp),
+                                    verticalAlignment = Alignment.CenterVertically,
+                                    horizontalArrangement = Arrangement.SpaceBetween
+                                ) {
+                                    Column(modifier = Modifier.weight(1f)) {
+                                        val count = activeTargets.size
+                                        Text(
+                                            text = activePreset.getDisplayName(context) + " • " +
+                                                    stringResource(R.string.proactive_preset_item_count, count),
+                                            style = MaterialTheme.typography.labelLarge,
+                                            fontWeight = FontWeight.Bold,
+                                            color = MaterialTheme.colorScheme.primary
+                                        )
+                                        Spacer(Modifier.height(2.dp))
+                                        Text(
+                                            text = if (activeTargets.isNotEmpty()) activeTargets.joinToString(", ")
+                                            else stringResource(R.string.proactive_target_obstacles),
+                                            style = MaterialTheme.typography.bodySmall,
+                                            color = MaterialTheme.colorScheme.onSurfaceVariant,
+                                            maxLines = 2
+                                        )
+                                    }
+
+                                    IconButton(
+                                        onClick = {
+                                            presetToEdit = activePreset
+                                            isCreatingNewPreset = false
+                                            showPresetEditor = true
+                                        },
+                                        modifier = Modifier.semantics {
+                                            contentDescription = editPresetBtnDesc
+                                            role = Role.Button
+                                        }
+                                    ) {
+                                        Icon(
+                                            imageVector = Icons.Filled.Tune,
+                                            contentDescription = null,
+                                            tint = MaterialTheme.colorScheme.primary
+                                        )
+                                    }
+                                }
+                            }
+
+                            // Aviso de objetivo dictado por voz temporal si existe
+                            if (!temporaryVoiceCondition.isNullOrBlank()) {
+                                Row(
+                                    modifier = Modifier
+                                        .fillMaxWidth()
+                                        .clip(RoundedCornerShape(8.dp))
+                                        .background(MaterialTheme.colorScheme.tertiaryContainer)
+                                        .padding(horizontal = 10.dp, vertical = 6.dp),
+                                    verticalAlignment = Alignment.CenterVertically,
+                                    horizontalArrangement = Arrangement.SpaceBetween
+                                ) {
+                                    Text(
+                                        text = "Voz: $temporaryVoiceCondition",
+                                        style = MaterialTheme.typography.labelMedium,
+                                        color = MaterialTheme.colorScheme.onTertiaryContainer,
+                                        modifier = Modifier.weight(1f),
+                                        maxLines = 1
+                                    )
+                                    IconButton(
+                                        onClick = { viewModel.clearTemporaryVoiceCondition() },
+                                        modifier = Modifier.size(24.dp)
+                                    ) {
+                                        Icon(
+                                            imageVector = Icons.Filled.Close,
+                                            contentDescription = stringResource(R.string.proactive_clear_voice_target),
+                                            tint = MaterialTheme.colorScheme.onTertiaryContainer
+                                        )
+                                    }
+                                }
                             }
                         }
 
@@ -603,6 +741,30 @@ fun ProactiveModeScreen(
         }
     }
 
+    // Diálogo / Editor de Presets
+    if (showPresetEditor) {
+        ProactivePresetEditorDialog(
+            preset = presetToEdit,
+            isCreatingNew = isCreatingNewPreset,
+            onSavePreset = { updatedPreset ->
+                viewModel.savePreset(updatedPreset)
+                showPresetEditor = false
+                presetToEdit = null
+            },
+            onDeletePreset = if (presetToEdit != null && !presetToEdit!!.isDefault) {
+                { presetId ->
+                    viewModel.deletePreset(presetId)
+                    showPresetEditor = false
+                    presetToEdit = null
+                }
+            } else null,
+            onDismiss = {
+                showPresetEditor = false
+                presetToEdit = null
+            }
+        )
+    }
+
     // Diálogo Clave API ausente
     if (showApiKeyDialog) {
         AlertDialog(
@@ -643,6 +805,282 @@ fun ProactiveModeScreen(
 }
 
 /**
+ * Diálogo accesible para crear o editar presets del Modo Centinela.
+ */
+@Composable
+private fun ProactivePresetEditorDialog(
+    preset: ProactivePresetModel?,
+    isCreatingNew: Boolean,
+    onSavePreset: (ProactivePresetModel) -> Unit,
+    onDeletePreset: ((String) -> Unit)?,
+    onDismiss: () -> Unit
+) {
+    val context = LocalContext.current
+    var name by remember(preset) {
+        mutableStateOf(preset?.name ?: "")
+    }
+    var selectedStandardKeys by remember(preset) {
+        mutableStateOf(
+            preset?.standardTargetKeys ?: setOf(
+                StandardProactiveTarget.VEHICLES.key,
+                StandardProactiveTarget.TRAFFIC_LIGHTS.key,
+                StandardProactiveTarget.PEOPLE.key
+            )
+        )
+    }
+    var customTargets by remember(preset) {
+        mutableStateOf(preset?.customTargets ?: emptyList())
+    }
+    var newCustomInput by remember { mutableStateOf("") }
+    var validationError by remember { mutableStateOf<String?>(null) }
+    var showDeleteConfirmDialog by remember { mutableStateOf(false) }
+
+    val dialogTitle = if (isCreatingNew || preset == null) {
+        stringResource(R.string.proactive_dialog_new_title)
+    } else {
+        stringResource(R.string.proactive_dialog_edit_title, preset.getDisplayName(context))
+    }
+
+    val emptyNameError = stringResource(R.string.proactive_preset_empty_name_error)
+    val emptyTargetsError = stringResource(R.string.proactive_preset_empty_targets_error)
+
+    AlertDialog(
+        onDismissRequest = onDismiss,
+        title = {
+            Text(
+                text = dialogTitle,
+                style = MaterialTheme.typography.titleLarge,
+                fontWeight = FontWeight.Bold
+            )
+        },
+        text = {
+            Column(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .verticalScroll(rememberScrollState()),
+                verticalArrangement = Arrangement.spacedBy(14.dp)
+            ) {
+                // Campo de nombre del preset
+                OutlinedTextField(
+                    value = name,
+                    onValueChange = {
+                        name = it
+                        validationError = null
+                    },
+                    label = { Text(stringResource(R.string.proactive_preset_name_label)) },
+                    placeholder = { Text(stringResource(R.string.proactive_preset_name_placeholder)) },
+                    singleLine = true,
+                    modifier = Modifier.fillMaxWidth()
+                )
+
+                if (validationError != null) {
+                    Text(
+                        text = validationError!!,
+                        color = MaterialTheme.colorScheme.error,
+                        style = MaterialTheme.typography.bodySmall
+                    )
+                }
+
+                // Sección de Casillas Estándar
+                Text(
+                    text = stringResource(R.string.proactive_preset_standard_targets_header),
+                    style = MaterialTheme.typography.titleMedium,
+                    fontWeight = FontWeight.Bold,
+                    color = MaterialTheme.colorScheme.primary
+                )
+
+                StandardProactiveTarget.entries.forEach { target ->
+                    val isChecked = selectedStandardKeys.contains(target.key)
+                    val title = stringResource(target.titleRes)
+                    val desc = stringResource(target.descriptionRes)
+
+                    Row(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .clip(RoundedCornerShape(8.dp))
+                            .toggleable(
+                                value = isChecked,
+                                role = Role.Checkbox,
+                                onValueChange = { checked ->
+                                    selectedStandardKeys = if (checked) {
+                                        selectedStandardKeys + target.key
+                                    } else {
+                                        selectedStandardKeys - target.key
+                                    }
+                                    validationError = null
+                                }
+                            )
+                            .padding(vertical = 8.dp, horizontal = 4.dp),
+                        verticalAlignment = Alignment.CenterVertically
+                    ) {
+                        Checkbox(
+                            checked = isChecked,
+                            onCheckedChange = null // Manejado por toggleable del Row
+                        )
+                        Spacer(Modifier.width(12.dp))
+                        Column(modifier = Modifier.weight(1f)) {
+                            Text(
+                                text = title,
+                                style = MaterialTheme.typography.bodyLarge,
+                                fontWeight = FontWeight.Bold
+                            )
+                            Text(
+                                text = desc,
+                                style = MaterialTheme.typography.bodySmall,
+                                color = MaterialTheme.colorScheme.onSurfaceVariant
+                            )
+                        }
+                    }
+                }
+
+                Spacer(Modifier.height(4.dp))
+
+                // Sección de Objetos Adicionales escritos por el usuario
+                Text(
+                    text = stringResource(R.string.proactive_preset_custom_targets_header),
+                    style = MaterialTheme.typography.titleMedium,
+                    fontWeight = FontWeight.Bold,
+                    color = MaterialTheme.colorScheme.primary
+                )
+
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    OutlinedTextField(
+                        value = newCustomInput,
+                        onValueChange = { newCustomInput = it },
+                        placeholder = { Text(stringResource(R.string.proactive_preset_custom_target_placeholder)) },
+                        modifier = Modifier.weight(1f),
+                        singleLine = true
+                    )
+                    Spacer(Modifier.width(8.dp))
+                    Button(
+                        onClick = {
+                            val trimmed = newCustomInput.trim()
+                            if (trimmed.isNotBlank() && !customTargets.contains(trimmed)) {
+                                customTargets = customTargets + trimmed
+                                newCustomInput = ""
+                                validationError = null
+                            }
+                        },
+                        shape = RoundedCornerShape(12.dp)
+                    ) {
+                        Text(stringResource(R.string.proactive_preset_add_target_btn))
+                    }
+                }
+
+                // Lista de chips de objetos adicionales agregados
+                if (customTargets.isNotEmpty()) {
+                    Column(
+                        modifier = Modifier.fillMaxWidth(),
+                        verticalArrangement = Arrangement.spacedBy(6.dp)
+                    ) {
+                        customTargets.forEach { item ->
+                            val removeDesc = stringResource(R.string.proactive_remove_custom_target, item)
+                            InputChip(
+                                selected = false,
+                                onClick = { customTargets = customTargets - item },
+                                label = { Text(item) },
+                                trailingIcon = {
+                                    Icon(
+                                        imageVector = Icons.Filled.Close,
+                                        contentDescription = removeDesc,
+                                        modifier = Modifier.size(16.dp)
+                                    )
+                                },
+                                modifier = Modifier.fillMaxWidth()
+                            )
+                        }
+                    }
+                }
+            }
+        },
+        confirmButton = {
+            Button(
+                onClick = {
+                    if (name.isBlank()) {
+                        validationError = emptyNameError
+                        return@Button
+                    }
+                    if (selectedStandardKeys.isEmpty() && customTargets.isEmpty()) {
+                        validationError = emptyTargetsError
+                        return@Button
+                    }
+
+                    val idToSave = if (isCreatingNew || preset == null) {
+                        "preset_" + UUID.randomUUID().toString().take(8)
+                    } else {
+                        preset.id
+                    }
+
+                    val isDefault = preset?.isDefault ?: false
+                    val defaultNameRes = if (!isCreatingNew) preset?.defaultNameRes else null
+
+                    val updatedPreset = ProactivePresetModel(
+                        id = idToSave,
+                        name = name.trim(),
+                        defaultNameRes = defaultNameRes,
+                        isDefault = isDefault,
+                        standardTargetKeys = selectedStandardKeys,
+                        customTargets = customTargets
+                    )
+                    onSavePreset(updatedPreset)
+                },
+                modifier = Modifier.height(48.dp)
+            ) {
+                Text(
+                    text = stringResource(R.string.proactive_preset_save_btn),
+                    fontWeight = FontWeight.Bold
+                )
+            }
+        },
+        dismissButton = {
+            Row(verticalAlignment = Alignment.CenterVertically) {
+                if (onDeletePreset != null && preset != null && !preset.isDefault) {
+                    TextButton(
+                        onClick = { showDeleteConfirmDialog = true },
+                        colors = ButtonDefaults.textButtonColors(contentColor = MaterialTheme.colorScheme.error)
+                    ) {
+                        Icon(Icons.Filled.Delete, contentDescription = null, modifier = Modifier.size(18.dp))
+                        Spacer(Modifier.width(4.dp))
+                        Text(stringResource(R.string.proactive_preset_delete_btn))
+                    }
+                }
+                TextButton(onClick = onDismiss) {
+                    Text(stringResource(android.R.string.cancel))
+                }
+            }
+        }
+    )
+
+    // Confirmación para eliminar preset
+    if (showDeleteConfirmDialog && preset != null) {
+        AlertDialog(
+            onDismissRequest = { showDeleteConfirmDialog = false },
+            title = { Text(stringResource(R.string.proactive_preset_delete_confirm_title)) },
+            text = { Text(stringResource(R.string.proactive_preset_delete_confirm_desc, preset.getDisplayName(context))) },
+            confirmButton = {
+                Button(
+                    onClick = {
+                        showDeleteConfirmDialog = false
+                        onDeletePreset?.invoke(preset.id)
+                    },
+                    colors = ButtonDefaults.buttonColors(containerColor = MaterialTheme.colorScheme.error)
+                ) {
+                    Text(stringResource(R.string.proactive_preset_delete_btn))
+                }
+            },
+            dismissButton = {
+                TextButton(onClick = { showDeleteConfirmDialog = false }) {
+                    Text(stringResource(android.R.string.cancel))
+                }
+            }
+        )
+    }
+}
+
+/**
  * Botón accesible de dictado por voz en lenguaje natural, utilizable tanto antes como durante la vigilancia.
  */
 @Composable
@@ -658,7 +1096,6 @@ private fun ProactiveVoiceActionButton(
     val textToSpeech = LocalTextToSpeech.current
     var isRecording by remember { mutableStateOf(false) }
 
-    val startRecordingLabel = stringResource(R.string.voice_record_start)
     val stopRecordingLabel = stringResource(R.string.voice_record_stop)
     val transcribingLabel = stringResource(R.string.voice_record_transcribing)
 

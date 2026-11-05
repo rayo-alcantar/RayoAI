@@ -8,7 +8,8 @@ import com.rayoai.core.ResultWrapper
 import com.rayoai.domain.model.AudioRecording
 import com.rayoai.domain.model.GeminiModelConfig
 import com.rayoai.domain.model.proactive.ProactiveDetection
-import com.rayoai.domain.model.proactive.ProactivePreset
+import com.rayoai.domain.model.proactive.ProactivePresetModel
+import com.rayoai.domain.repository.ProactivePresetRepository
 import com.rayoai.domain.repository.UserPreferencesRepository
 import com.rayoai.domain.usecase.TranscribeAudioUseCase
 import com.rayoai.domain.usecase.proactive.EvaluateProactiveFrameUseCase
@@ -21,6 +22,7 @@ import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asSharedFlow
 import kotlinx.coroutines.flow.asStateFlow
+import kotlinx.coroutines.flow.combine
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.launch
@@ -31,7 +33,8 @@ import javax.inject.Inject
 class ProactiveModeViewModel @Inject constructor(
     private val evaluateProactiveFrameUseCase: EvaluateProactiveFrameUseCase,
     private val transcribeAudioUseCase: TranscribeAudioUseCase,
-    private val userPreferencesRepository: UserPreferencesRepository
+    private val userPreferencesRepository: UserPreferencesRepository,
+    private val proactivePresetRepository: ProactivePresetRepository
 ) : ViewModel() {
 
     private val _isMonitoring = MutableStateFlow(false)
@@ -43,11 +46,32 @@ class ProactiveModeViewModel @Inject constructor(
     private val _isTranscribingAudio = MutableStateFlow(false)
     val isTranscribingAudio: StateFlow<Boolean> = _isTranscribingAudio.asStateFlow()
 
-    private val _selectedPreset = MutableStateFlow(ProactivePreset.OBJECT)
-    val selectedPreset: StateFlow<ProactivePreset> = _selectedPreset.asStateFlow()
+    val presets: StateFlow<List<ProactivePresetModel>> = proactivePresetRepository.presets
+        .stateIn(
+            viewModelScope,
+            SharingStarted.Eagerly,
+            ProactivePresetModel.getDefaultPresets()
+        )
 
-    private val _customCondition = MutableStateFlow("")
-    val customCondition: StateFlow<String> = _customCondition.asStateFlow()
+    val activePresetId: StateFlow<String> = proactivePresetRepository.activePresetId
+        .stateIn(
+            viewModelScope,
+            SharingStarted.Eagerly,
+            ProactivePresetModel.PRESET_STREET_ID
+        )
+
+    val activePreset: StateFlow<ProactivePresetModel> = combine(presets, activePresetId) { list, id ->
+        list.find { it.id == id }
+            ?: list.firstOrNull()
+            ?: ProactivePresetModel.createDefaultStreetPreset()
+    }.stateIn(
+        viewModelScope,
+        SharingStarted.Eagerly,
+        ProactivePresetModel.createDefaultStreetPreset()
+    )
+
+    private val _temporaryVoiceCondition = MutableStateFlow<String?>(null)
+    val temporaryVoiceCondition: StateFlow<String?> = _temporaryVoiceCondition.asStateFlow()
 
     private val _intervalSeconds = MutableStateFlow(2)
     val intervalSeconds: StateFlow<Int> = _intervalSeconds.asStateFlow()
@@ -114,17 +138,32 @@ class ProactiveModeViewModel @Inject constructor(
         consecutiveNonDetectionFrames = 0
     }
 
-    fun setPreset(preset: ProactivePreset) {
-        _selectedPreset.value = preset
-        _latestDetection.value = null
-        _lastAnnouncedPhrase.value = null
-        lastAnnouncementTimeMs = 0L
-        wasDetected = false
-        consecutiveNonDetectionFrames = 0
+    fun selectPreset(presetId: String) {
+        viewModelScope.launch {
+            _temporaryVoiceCondition.value = null
+            _latestDetection.value = null
+            _lastAnnouncedPhrase.value = null
+            lastAnnouncementTimeMs = 0L
+            wasDetected = false
+            consecutiveNonDetectionFrames = 0
+            proactivePresetRepository.setActivePresetId(presetId)
+        }
     }
 
-    fun setCustomCondition(condition: String) {
-        _customCondition.value = condition
+    fun savePreset(preset: ProactivePresetModel) {
+        viewModelScope.launch {
+            proactivePresetRepository.savePreset(preset)
+        }
+    }
+
+    fun deletePreset(presetId: String) {
+        viewModelScope.launch {
+            proactivePresetRepository.deletePreset(presetId)
+        }
+    }
+
+    fun clearTemporaryVoiceCondition() {
+        _temporaryVoiceCondition.value = null
         _latestDetection.value = null
         _lastAnnouncedPhrase.value = null
         lastAnnouncementTimeMs = 0L
@@ -218,8 +257,7 @@ class ProactiveModeViewModel @Inject constructor(
                     val rawSpoken = text.trim()
                     val cleanTarget = extractNaturalLanguageTarget(rawSpoken)
 
-                    _customCondition.value = cleanTarget
-                    _selectedPreset.value = ProactivePreset.CUSTOM
+                    _temporaryVoiceCondition.value = cleanTarget
                     _latestDetection.value = null
                     _lastAnnouncedPhrase.value = null
                     lastAnnouncementTimeMs = 0L
@@ -241,16 +279,19 @@ class ProactiveModeViewModel @Inject constructor(
         runCatching { recording.wavFile.delete() }
     }
 
-    fun evaluateFrame(bitmap: Bitmap, promptCondition: String) {
+    fun evaluateFrame(bitmap: Bitmap, fallbackCondition: String = "") {
         if (!_isMonitoring.value || _isAnalyzing.value) {
             bitmap.recycle()
             return
         }
 
-        val effectiveCondition = if (_selectedPreset.value == ProactivePreset.CUSTOM && _customCondition.value.isNotBlank()) {
-            _customCondition.value.trim()
+        val voiceOverride = _temporaryVoiceCondition.value
+        val lang = Locale.getDefault().language
+        val effectiveCondition = if (!voiceOverride.isNullOrBlank()) {
+            voiceOverride.trim()
         } else {
-            promptCondition
+            val presetPrompt = activePreset.value.buildConditionPrompt(lang)
+            if (presetPrompt.isNotBlank()) presetPrompt else fallbackCondition
         }
 
         viewModelScope.launch {
@@ -280,7 +321,6 @@ class ProactiveModeViewModel @Inject constructor(
                     }
                 }
 
-                val lang = Locale.getDefault().language
                 val model = GeminiModelConfig.DEFAULT_MODEL
 
                 evaluateProactiveFrameUseCase(
@@ -325,7 +365,7 @@ class ProactiveModeViewModel @Inject constructor(
                         }
                     }
                 }
-            } catch (e: Exception) {
+            } catch (_: Exception) {
                 // Mantener vigilancia activa en silencio
             } finally {
                 frameToProcess.recycle()
