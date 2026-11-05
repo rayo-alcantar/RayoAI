@@ -439,8 +439,12 @@ Tarjeta: 4152314082325278</string>
     <string name="live_mode_pause_video">Pausar video</string>
     <string name="live_mode_resume_video">Reanudar video</string>
     <string name="live_mode_flip_camera">Cambiar cámara</string>
+    <string name="live_mode_camera_back_desc">Cámara trasera en uso. Toca para cambiar a frontal</string>
+    <string name="live_mode_camera_front_desc">Cámara frontal en uso. Toca para cambiar a trasera</string>
     <string name="live_mode_torch_on">Activar linterna</string>
     <string name="live_mode_torch_off">Desactivar linterna</string>
+    <string name="live_mode_torch_on_desc">Linterna apagada. Toca para encender</string>
+    <string name="live_mode_torch_off_desc">Linterna encendida. Toca para apagar</string>
     <string name="live_mode_mic_muted">Micrófono silenciado</string>
     <string name="live_mode_mic_unmuted">Micrófono activo</string>
     <string name="live_mode_ptt_button">Pulsar para hablar</string>
@@ -479,6 +483,11 @@ Tarjeta: 4152314082325278</string>
     <string name="live_mode_audio_output_earpiece">Auricular de llamada</string>
     <string name="live_mode_audio_output_muted">Silenciado</string>
     <string name="live_mode_audio_output_toggle">Cambiar salida de audio</string>
+    <string name="live_mode_audio_output_action_earpiece">Salida actual: Altavoz. Toca para cambiar a auricular</string>
+    <string name="live_mode_audio_output_action_muted">Salida actual: Auricular. Toca para silenciar</string>
+    <string name="live_mode_audio_output_action_speaker">Salida actual: Silenciado. Toca para activar altavoz</string>
+    <string name="live_mode_volume_label">Volumen de voz de RayoAI</string>
+    <string name="live_mode_stop_screen_share">Detener compartir pantalla</string>
     <string name="live_mode_tap_to_change">Toca para cambiar</string>
     <string name="live_mode_tap_to_interrupt">Toca para interrumpir la respuesta</string>
     <string name="live_mode_interrupt_button">Interrumpir a RayoAI</string>

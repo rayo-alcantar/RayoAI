@@ -430,8 +430,12 @@ Card: 4152314082325278</string>
     <string name="live_mode_pause_video">Pause video</string>
     <string name="live_mode_resume_video">Resume video</string>
     <string name="live_mode_flip_camera">Flip camera</string>
+    <string name="live_mode_camera_back_desc">Back camera in use. Tap to switch to front</string>
+    <string name="live_mode_camera_front_desc">Front camera in use. Tap to switch to back</string>
     <string name="live_mode_torch_on">Turn torch on</string>
     <string name="live_mode_torch_off">Turn torch off</string>
+    <string name="live_mode_torch_on_desc">Flashlight off. Tap to turn on</string>
+    <string name="live_mode_torch_off_desc">Flashlight on. Tap to turn off</string>
     <string name="live_mode_mic_muted">Microphone muted</string>
     <string name="live_mode_mic_unmuted">Microphone active</string>
     <string name="live_mode_ptt_button">Push to talk</string>
@@ -470,6 +474,11 @@ Card: 4152314082325278</string>
     <string name="live_mode_audio_output_earpiece">Earpiece</string>
     <string name="live_mode_audio_output_muted">Muted</string>
     <string name="live_mode_audio_output_toggle">Toggle audio output</string>
+    <string name="live_mode_audio_output_action_earpiece">Current output: Speaker. Tap to switch to earpiece</string>
+    <string name="live_mode_audio_output_action_muted">Current output: Earpiece. Tap to mute</string>
+    <string name="live_mode_audio_output_action_speaker">Current output: Muted. Tap to activate speaker</string>
+    <string name="live_mode_volume_label">RayoAI voice volume</string>
+    <string name="live_mode_stop_screen_share">Stop screen share</string>
     <string name="live_mode_tap_to_change">Tap to change</string>
     <string name="live_mode_tap_to_interrupt">Tap to interrupt response</string>
     <string name="live_mode_interrupt_button">Interrupt RayoAI</string>

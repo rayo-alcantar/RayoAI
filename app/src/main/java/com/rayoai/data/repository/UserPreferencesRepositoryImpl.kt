@@ -44,6 +44,7 @@ class UserPreferencesRepositoryImpl @Inject constructor(
         val LIVE_PUSH_TO_TALK = booleanPreferencesKey("live_push_to_talk")
         val LIVE_CAPTURE_INTERVAL_SECONDS = floatPreferencesKey("live_capture_interval_seconds")
         val LIVE_AUDIO_OUTPUT = stringPreferencesKey("live_audio_output")
+        val LIVE_VOLUME = floatPreferencesKey("live_volume")
         val LIVE_DONT_ASK_SCREEN_SHARE_CONFIRM = booleanPreferencesKey("live_dont_ask_screen_share_confirm")
         val LIVE_RECENT_SHARED_APPS = stringPreferencesKey("live_recent_shared_apps")
     }
@@ -150,6 +151,10 @@ class UserPreferencesRepositoryImpl @Inject constructor(
 
     override val liveAudioOutput: Flow<String> = dataStore.data.map {
         it[PreferencesKeys.LIVE_AUDIO_OUTPUT] ?: "speaker"
+    }
+
+    override val liveVolume: Flow<Float> = dataStore.data.map {
+        it[PreferencesKeys.LIVE_VOLUME] ?: 1.0f
     }
 
     override val liveDontAskScreenShareConfirm: Flow<Boolean> = dataStore.data.map {
@@ -297,6 +302,12 @@ class UserPreferencesRepositoryImpl @Inject constructor(
     override suspend fun saveLiveAudioOutput(output: String) {
         dataStore.edit {
             it[PreferencesKeys.LIVE_AUDIO_OUTPUT] = output
+        }
+    }
+
+    override suspend fun saveLiveVolume(volume: Float) {
+        dataStore.edit {
+            it[PreferencesKeys.LIVE_VOLUME] = volume.coerceIn(0.0f, 1.0f)
         }
     }
 

@@ -11,6 +11,7 @@ import android.content.Context
 import android.content.Intent
 import android.content.pm.PackageManager
 import android.graphics.drawable.Drawable
+import android.media.AudioManager
 import android.media.projection.MediaProjectionManager
 import android.os.Build
 import android.os.SystemClock
@@ -166,6 +167,7 @@ fun LiveModeScreen(
     val livePushToTalk by viewModel.livePushToTalk.collectAsState()
     val liveCaptureIntervalSeconds by viewModel.liveCaptureIntervalSeconds.collectAsState()
     val liveAudioOutput by viewModel.liveAudioOutput.collectAsState()
+    val liveVolume by viewModel.liveVolume.collectAsState()
     val liveDontAskScreenShareConfirm by viewModel.liveDontAskScreenShareConfirm.collectAsState()
     val liveRecentSharedApps by viewModel.liveRecentSharedApps.collectAsState()
 
@@ -294,8 +296,24 @@ fun LiveModeScreen(
         }
     }
 
+    LaunchedEffect(liveVolume) {
+        viewModel.setLiveVolume(liveVolume)
+    }
+
+    // Apagar la linterna automáticamente si se cambia de fuente, se pausa el video o se pasa a cámara frontal
+    LaunchedEffect(visualSource, isVideoPaused, isFrontCamera) {
+        if (visualSource != VisualSource.CAMERA || isVideoPaused || isFrontCamera) {
+            isTorchOn = false
+        }
+    }
+
+    // Vincular teclas físicas de volumen del dispositivo al canal de llamada/comunicación en vivo
+    val activity = context as? Activity
     DisposableEffect(Unit) {
+        val originalStream = activity?.volumeControlStream ?: AudioManager.USE_DEFAULT_STREAM_TYPE
+        activity?.volumeControlStream = AudioManager.STREAM_VOICE_CALL
         onDispose {
+            activity?.volumeControlStream = originalStream
             feedbackHelper.release()
             LiveSessionForegroundService.stopScreenCapture(context)
         }
@@ -403,27 +421,32 @@ fun LiveModeScreen(
                                     .padding(16.dp),
                                 horizontalArrangement = Arrangement.spacedBy(10.dp)
                             ) {
-                                val torchDesc = if (isTorchOn) stringResource(R.string.live_mode_torch_off)
-                                else stringResource(R.string.live_mode_torch_on)
+                                // Linterna: solo si es cámara trasera (la frontal no tiene flash)
+                                if (!isFrontCamera) {
+                                    val torchDesc = if (isTorchOn) stringResource(R.string.live_mode_torch_off_desc)
+                                    else stringResource(R.string.live_mode_torch_on_desc)
 
-                                IconButton(
-                                    onClick = { isTorchOn = !isTorchOn },
-                                    modifier = Modifier
-                                        .size(48.dp)
-                                        .background(Color.Black.copy(alpha = 0.65f), CircleShape)
-                                        .semantics {
-                                            role = Role.Button
-                                            contentDescription = torchDesc
-                                        }
-                                ) {
-                                    Icon(
-                                        imageVector = if (isTorchOn) Icons.Filled.FlashOn else Icons.Filled.FlashOff,
-                                        contentDescription = null,
-                                        tint = if (isTorchOn) Color(0xFFFFD600) else Color.White
-                                    )
+                                    IconButton(
+                                        onClick = { isTorchOn = !isTorchOn },
+                                        modifier = Modifier
+                                            .size(48.dp)
+                                            .background(Color.Black.copy(alpha = 0.65f), CircleShape)
+                                            .semantics {
+                                                role = Role.Button
+                                                contentDescription = torchDesc
+                                            }
+                                    ) {
+                                        Icon(
+                                            imageVector = if (isTorchOn) Icons.Filled.FlashOn else Icons.Filled.FlashOff,
+                                            contentDescription = null,
+                                            tint = if (isTorchOn) Color(0xFFFFD600) else Color.White
+                                        )
+                                    }
                                 }
 
-                                val flipDesc = stringResource(R.string.live_mode_flip_camera)
+                                val flipDesc = if (isFrontCamera) stringResource(R.string.live_mode_camera_front_desc)
+                                else stringResource(R.string.live_mode_camera_back_desc)
+
                                 IconButton(
                                     onClick = { isFrontCamera = !isFrontCamera },
                                     modifier = Modifier
@@ -659,8 +682,9 @@ fun LiveModeScreen(
                                     horizontalArrangement = Arrangement.spacedBy(10.dp),
                                     verticalAlignment = Alignment.CenterVertically
                                 ) {
-                                    // Pausar / Reanudar Video si la fuente no es solo audio
-                                    if (visualSource != VisualSource.NONE) {
+                                    // Control de video: solo en modo CÁMARA (pausar/reanudar)
+                                    // En modo Pantalla/App: botón para detener la captura de pantalla
+                                    if (visualSource == VisualSource.CAMERA) {
                                         val pauseDesc = if (isVideoPaused) stringResource(R.string.live_mode_resume_video)
                                         else stringResource(R.string.live_mode_pause_video)
 
@@ -681,6 +705,32 @@ fun LiveModeScreen(
                                                 contentDescription = null
                                             )
                                         }
+                                    } else if (visualSource == VisualSource.SCREEN || visualSource == VisualSource.APP) {
+                                        val stopShareDesc = stringResource(R.string.live_mode_stop_screen_share)
+                                        FilledTonalIconButton(
+                                            onClick = {
+                                                LiveSessionForegroundService.stopScreenCapture(context)
+                                                pendingAppPackage = null
+                                                pendingAppName = null
+                                                currentActiveAppName = null
+                                                viewModel.setVisualSource(VisualSource.CAMERA)
+                                            },
+                                            modifier = Modifier
+                                                .size(52.dp)
+                                                .semantics {
+                                                    role = Role.Button
+                                                    contentDescription = stopShareDesc
+                                                },
+                                            colors = IconButtonDefaults.filledTonalIconButtonColors(
+                                                containerColor = MaterialTheme.colorScheme.errorContainer
+                                            )
+                                        ) {
+                                            Icon(
+                                                imageVector = Icons.Filled.Stop,
+                                                contentDescription = null,
+                                                tint = MaterialTheme.colorScheme.error
+                                            )
+                                        }
                                     }
 
                                     // Conmutador Rápido de Salida de Audio (Altavoz / Auricular / Silenciado)
@@ -694,12 +744,16 @@ fun LiveModeScreen(
                                         "muted" -> Icons.AutoMirrored.Filled.VolumeOff
                                         else -> Icons.AutoMirrored.Filled.VolumeUp
                                     }
-                                    val outputDesc = when (liveAudioOutput) {
+                                    val outputActionHint = when (liveAudioOutput) {
+                                        "earpiece" -> stringResource(R.string.live_mode_audio_output_action_muted)
+                                        "muted" -> stringResource(R.string.live_mode_audio_output_action_speaker)
+                                        else -> stringResource(R.string.live_mode_audio_output_action_earpiece)
+                                    }
+                                    val outputCurrentDesc = when (liveAudioOutput) {
                                         "earpiece" -> stringResource(R.string.live_mode_audio_output_earpiece)
                                         "muted" -> stringResource(R.string.live_mode_audio_output_muted)
                                         else -> stringResource(R.string.live_mode_audio_output_speaker)
                                     }
-                                    val outputLabel = stringResource(R.string.live_mode_audio_output_label) + ": " + outputDesc
 
                                     FilledTonalIconButton(
                                         onClick = { viewModel.setAudioOutput(nextOutput) },
@@ -707,7 +761,8 @@ fun LiveModeScreen(
                                             .size(52.dp)
                                             .semantics {
                                                 role = Role.Button
-                                                contentDescription = outputLabel
+                                                stateDescription = outputCurrentDesc
+                                                contentDescription = outputActionHint
                                             },
                                         colors = IconButtonDefaults.filledTonalIconButtonColors(
                                             containerColor = if (liveAudioOutput == "muted") MaterialTheme.colorScheme.errorContainer else MaterialTheme.colorScheme.surfaceVariant
@@ -854,6 +909,7 @@ fun LiveModeScreen(
             currentPtt = livePushToTalk,
             currentInterval = liveCaptureIntervalSeconds,
             currentAudioOutput = liveAudioOutput,
+            currentVolume = liveVolume,
             onDismiss = { showConfigSheet = false },
             onSaveModel = { viewModel.saveLiveModel(it) },
             onSaveVoice = { viewModel.saveLiveVoice(it) },
@@ -861,7 +917,8 @@ fun LiveModeScreen(
             onSaveVad = { viewModel.saveLiveVadSensitivity(it) },
             onSavePtt = { viewModel.saveLivePushToTalk(it) },
             onSaveInterval = { viewModel.saveLiveCaptureIntervalSeconds(it) },
-            onSaveAudioOutput = { viewModel.setAudioOutput(it) }
+            onSaveAudioOutput = { viewModel.setAudioOutput(it) },
+            onSaveVolume = { viewModel.setLiveVolume(it) }
         )
     }
 
@@ -1250,6 +1307,7 @@ private fun LiveSettingsSheet(
     currentPtt: Boolean,
     currentInterval: Float,
     currentAudioOutput: String,
+    currentVolume: Float,
     onDismiss: () -> Unit,
     onSaveModel: (String) -> Unit,
     onSaveVoice: (String) -> Unit,
@@ -1257,7 +1315,8 @@ private fun LiveSettingsSheet(
     onSaveVad: (String) -> Unit,
     onSavePtt: (Boolean) -> Unit,
     onSaveInterval: (Float) -> Unit,
-    onSaveAudioOutput: (String) -> Unit
+    onSaveAudioOutput: (String) -> Unit,
+    onSaveVolume: (Float) -> Unit
 ) {
     val sheetState = rememberModalBottomSheetState(skipPartiallyExpanded = true)
 
@@ -1485,6 +1544,21 @@ private fun LiveSettingsSheet(
                         currentValue = currentOutputText,
                         icon = outputIcon,
                         onClick = { onSaveAudioOutput(nextOutputMode) }
+                    )
+
+                    // Botón conmutador: Volumen de Voz de RayoAI (100% -> 75% -> 50% -> 25% -> 100%)
+                    val currentVolumePercent = "${(currentVolume * 100).toInt()}%"
+                    val nextVolume = when {
+                        currentVolume >= 0.95f -> 0.75f
+                        currentVolume >= 0.70f -> 0.50f
+                        currentVolume >= 0.45f -> 0.25f
+                        else -> 1.0f
+                    }
+                    CyclingSettingButton(
+                        title = stringResource(R.string.live_mode_volume_label),
+                        currentValue = currentVolumePercent,
+                        icon = Icons.AutoMirrored.Filled.VolumeUp,
+                        onClick = { onSaveVolume(nextVolume) }
                     )
                 }
             }

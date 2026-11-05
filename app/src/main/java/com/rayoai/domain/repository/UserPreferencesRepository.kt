@@ -29,6 +29,7 @@ interface UserPreferencesRepository {
     val livePushToTalk: Flow<Boolean>
     val liveCaptureIntervalSeconds: Flow<Float>
     val liveAudioOutput: Flow<String>
+    val liveVolume: Flow<Float>
     val liveDontAskScreenShareConfirm: Flow<Boolean>
     val liveRecentSharedApps: Flow<List<String>>
 
@@ -55,6 +56,7 @@ interface UserPreferencesRepository {
     suspend fun saveLivePushToTalk(enabled: Boolean)
     suspend fun saveLiveCaptureIntervalSeconds(interval: Float)
     suspend fun saveLiveAudioOutput(output: String)
+    suspend fun saveLiveVolume(volume: Float)
     suspend fun saveLiveDontAskScreenShareConfirm(dontAsk: Boolean)
     suspend fun addRecentSharedApp(packageName: String)
 }
