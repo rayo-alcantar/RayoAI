@@ -37,6 +37,8 @@ enum class ProactivePreset(
     )
 }
 
+typealias ProactiveQuickTarget = ProactivePreset
+
 data class ProactiveDetection(
     val detected: Boolean,
     val stateChanged: Boolean,

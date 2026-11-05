@@ -558,6 +558,15 @@ Tarjeta: 4152314082325278</string>
 
     <!-- Modo Centinela - Sistema de Presets -->
     <string name="proactive_presets_label">Modos predefinidos</string>
+    <string name="proactive_presets_manage_btn">Gestionar presets</string>
+    <string name="proactive_presets_manage_title">Presets de vigilancia</string>
+    <string name="proactive_presets_manage_subtitle">Perfiles guardados para buscar varios objetos a la vez</string>
+    <string name="proactive_preset_activate_btn">Usar este preset</string>
+    <string name="proactive_preset_active_badge">Preset activo: %1$s</string>
+    <string name="proactive_preset_unload_btn">Volver a modo simple</string>
+    <string name="proactive_preset_open_manager">Presets guardados</string>
+    <string name="proactive_preset_open_manager_desc">Abrir ventana de presets para configurar o activar perfiles</string>
+    <string name="proactive_mode_free_label">Búsqueda directa</string>
     <string name="proactive_preset_street_title">Calle y Tránsito</string>
     <string name="proactive_preset_street_desc">Autos, semáforos, personas, cruces y obstáculos</string>
     <string name="proactive_preset_indoor_title">Hogar e Interiores</string>

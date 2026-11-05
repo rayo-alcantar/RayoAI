@@ -23,6 +23,7 @@ import androidx.camera.core.ImageProxy
 import androidx.camera.view.CameraController
 import androidx.camera.view.LifecycleCameraController
 import androidx.camera.view.PreviewView
+import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.horizontalScroll
@@ -45,17 +46,19 @@ import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material.icons.filled.Add
+import androidx.compose.material.icons.filled.Bookmarks
 import androidx.compose.material.icons.filled.Cameraswitch
+import androidx.compose.material.icons.filled.Check
 import androidx.compose.material.icons.filled.CheckCircle
 import androidx.compose.material.icons.filled.Close
 import androidx.compose.material.icons.filled.Delete
+import androidx.compose.material.icons.filled.Edit
 import androidx.compose.material.icons.filled.FlashOff
 import androidx.compose.material.icons.filled.FlashOn
 import androidx.compose.material.icons.filled.Mic
 import androidx.compose.material.icons.filled.PlayArrow
 import androidx.compose.material.icons.filled.Stop
 import androidx.compose.material.icons.filled.Timer
-import androidx.compose.material.icons.filled.Tune
 import androidx.compose.material.icons.filled.Visibility
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Button
@@ -109,6 +112,7 @@ import com.google.accompanist.permissions.ExperimentalPermissionsApi
 import com.google.accompanist.permissions.rememberMultiplePermissionsState
 import com.rayoai.R
 import com.rayoai.domain.model.AudioRecording
+import com.rayoai.domain.model.proactive.ProactivePreset
 import com.rayoai.domain.model.proactive.ProactivePresetModel
 import com.rayoai.domain.model.proactive.StandardProactiveTarget
 import com.rayoai.presentation.ui.LocalTextToSpeech
@@ -130,8 +134,10 @@ fun ProactiveModeScreen(
     val isMonitoring by viewModel.isMonitoring.collectAsState()
     val isAnalyzing by viewModel.isAnalyzing.collectAsState()
     val isTranscribingAudio by viewModel.isTranscribingAudio.collectAsState()
-    val presets by viewModel.presets.collectAsState()
+    val selectedQuickTarget by viewModel.selectedQuickTarget.collectAsState()
+    val customCondition by viewModel.customCondition.collectAsState()
     val activePreset by viewModel.activePreset.collectAsState()
+    val presets by viewModel.presets.collectAsState()
     val temporaryVoiceCondition by viewModel.temporaryVoiceCondition.collectAsState()
     val intervalSeconds by viewModel.intervalSeconds.collectAsState()
     val isTorchOn by viewModel.isTorchOn.collectAsState()
@@ -140,7 +146,8 @@ fun ProactiveModeScreen(
     val errorMessage by viewModel.errorMessage.collectAsState()
 
     var showApiKeyDialog by remember { mutableStateOf(false) }
-    var showPresetEditor by remember { mutableStateOf(false) }
+    var showPresetsManagerDialog by remember { mutableStateOf(false) }
+    var showPresetEditorDialog by remember { mutableStateOf(false) }
     var presetToEdit by remember { mutableStateOf<ProactivePresetModel?>(null) }
     var isCreatingNewPreset by remember { mutableStateOf(false) }
 
@@ -151,6 +158,7 @@ fun ProactiveModeScreen(
     val stopMonitoringText = stringResource(R.string.proactive_mode_stop)
     val monitoringActiveText = stringResource(R.string.proactive_mode_monitoring_active)
     val monitoringIdleText = stringResource(R.string.proactive_mode_monitoring_idle)
+    val customHintText = stringResource(R.string.proactive_custom_hint)
     val silenceHint = stringResource(R.string.proactive_silence_hint)
     val cameraTouchToSilenceDesc = stringResource(R.string.proactive_camera_touch_to_silence)
     val apiKeyRequiredText = stringResource(R.string.proactive_api_key_required)
@@ -160,24 +168,30 @@ fun ProactiveModeScreen(
     val changeTargetBtnText = stringResource(R.string.proactive_change_target_btn)
     val dictateTargetBtnText = stringResource(R.string.proactive_dictate_target_btn)
     val detectedPrefixText = stringResource(R.string.proactive_detected_prefix)
-    val editPresetBtnDesc = stringResource(R.string.proactive_preset_edit_button_desc)
-    val newPresetBtnText = stringResource(R.string.proactive_new_preset_btn)
+    val presetsManageBtnDesc = stringResource(R.string.proactive_preset_open_manager_desc)
+    val presetsManageLabel = stringResource(R.string.proactive_preset_open_manager)
 
     val torchDesc = if (isTorchOn) stringResource(R.string.live_mode_torch_off)
     else stringResource(R.string.live_mode_torch_on)
 
+    val quickTargetPromptCondition = stringResource(selectedQuickTarget.promptConditionRes)
+
+    // Título y resumen del objetivo actual
     val currentTargetDisplay = when {
         !temporaryVoiceCondition.isNullOrBlank() -> temporaryVoiceCondition!!
-        else -> activePreset.getDisplayName(context)
+        activePreset != null -> activePreset!!.getDisplayName(context)
+        selectedQuickTarget == ProactivePreset.CUSTOM && customCondition.isNotBlank() -> customCondition
+        else -> stringResource(selectedQuickTarget.titleRes)
     }
 
-    val activeTargets = activePreset.getActiveTargetNames(context)
-    val searchingTargetsSummary = if (!temporaryVoiceCondition.isNullOrBlank()) {
-        temporaryVoiceCondition!!
-    } else if (activeTargets.isNotEmpty()) {
-        activeTargets.joinToString(", ")
-    } else {
-        stringResource(R.string.proactive_target_obstacles)
+    val searchingTargetsSummary = when {
+        !temporaryVoiceCondition.isNullOrBlank() -> temporaryVoiceCondition!!
+        activePreset != null -> {
+            val names = activePreset!!.getActiveTargetNames(context)
+            if (names.isNotEmpty()) names.joinToString(", ") else stringResource(R.string.proactive_target_obstacles)
+        }
+        selectedQuickTarget == ProactivePreset.CUSTOM && customCondition.isNotBlank() -> customCondition
+        else -> stringResource(selectedQuickTarget.titleRes)
     }
 
     val permissionsState = rememberMultiplePermissionsState(
@@ -267,6 +281,22 @@ fun ProactiveModeScreen(
                     }
                 },
                 actions = {
+                    // Botón para abrir la ventana de Presets
+                    IconButton(
+                        onClick = { showPresetsManagerDialog = true },
+                        modifier = Modifier.semantics {
+                            role = Role.Button
+                            contentDescription = presetsManageBtnDesc
+                        }
+                    ) {
+                        Icon(
+                            imageVector = Icons.Filled.Bookmarks,
+                            contentDescription = null,
+                            tint = if (activePreset != null) MaterialTheme.colorScheme.primary
+                            else MaterialTheme.colorScheme.onSurface
+                        )
+                    }
+
                     // Linterna (cámara trasera)
                     if (!isFrontCamera) {
                         IconButton(
@@ -358,7 +388,7 @@ fun ProactiveModeScreen(
                         isAnalyzing = isAnalyzing,
                         intervalSeconds = intervalSeconds,
                         onFrameToAnalyze = { bitmap ->
-                            viewModel.evaluateFrame(bitmap)
+                            viewModel.evaluateFrame(bitmap, quickTargetPromptCondition)
                         }
                     )
 
@@ -399,7 +429,7 @@ fun ProactiveModeScreen(
                     }
                 }
 
-                // Panel Inferior: Información Limpia, Presets Accesibles y Controles
+                // Panel Inferior: Modo Directo Predeterminado y Entrada a Presets
                 Surface(
                     color = MaterialTheme.colorScheme.surface,
                     tonalElevation = 8.dp,
@@ -496,127 +526,136 @@ fun ProactiveModeScreen(
                             }
                         }
 
-                        // Selector de Presets y Configuración cuando no está vigilando
+                        // Configuración del objetivo cuando no está vigilando
                         if (!isMonitoring) {
-                            // Carrusel horizontal de Presets
-                            Row(
-                                modifier = Modifier
-                                    .fillMaxWidth()
-                                    .horizontalScroll(rememberScrollState()),
-                                horizontalArrangement = Arrangement.spacedBy(8.dp),
-                                verticalAlignment = Alignment.CenterVertically
-                            ) {
-                                presets.forEach { preset ->
-                                    val isSelected = activePreset.id == preset.id
-                                    val displayName = preset.getDisplayName(context)
-                                    FilterChip(
-                                        selected = isSelected,
-                                        onClick = { viewModel.selectPreset(preset.id) },
-                                        label = {
-                                            Text(
-                                                text = displayName,
-                                                fontWeight = if (isSelected) FontWeight.Bold else FontWeight.Normal
-                                            )
-                                        },
-                                        leadingIcon = if (isSelected) {
-                                            {
+                            val presetLoaded = activePreset
+                            if (presetLoaded != null) {
+                                // MODO PRESET ACTIVO: Banner claro con opción para volver al modo simple o cambiar preset
+                                Card(
+                                    colors = CardDefaults.cardColors(
+                                        containerColor = MaterialTheme.colorScheme.primaryContainer.copy(alpha = 0.7f)
+                                    ),
+                                    shape = RoundedCornerShape(14.dp),
+                                    modifier = Modifier.fillMaxWidth()
+                                ) {
+                                    Column(
+                                        modifier = Modifier
+                                            .fillMaxWidth()
+                                            .padding(12.dp),
+                                        verticalArrangement = Arrangement.spacedBy(8.dp)
+                                    ) {
+                                        Row(
+                                            modifier = Modifier.fillMaxWidth(),
+                                            horizontalArrangement = Arrangement.SpaceBetween,
+                                            verticalAlignment = Alignment.CenterVertically
+                                        ) {
+                                            Row(verticalAlignment = Alignment.CenterVertically) {
                                                 Icon(
-                                                    imageVector = Icons.Filled.CheckCircle,
+                                                    imageVector = Icons.Filled.Bookmarks,
                                                     contentDescription = null,
-                                                    modifier = Modifier.size(16.dp)
+                                                    tint = MaterialTheme.colorScheme.onPrimaryContainer,
+                                                    modifier = Modifier.size(20.dp)
+                                                )
+                                                Spacer(Modifier.width(8.dp))
+                                                Text(
+                                                    text = stringResource(R.string.proactive_preset_active_badge, presetLoaded.getDisplayName(context)),
+                                                    style = MaterialTheme.typography.titleSmall,
+                                                    fontWeight = FontWeight.Bold,
+                                                    color = MaterialTheme.colorScheme.onPrimaryContainer
                                                 )
                                             }
-                                        } else null,
-                                        colors = FilterChipDefaults.filterChipColors(
-                                            selectedContainerColor = MaterialTheme.colorScheme.primaryContainer,
-                                            selectedLabelColor = MaterialTheme.colorScheme.onPrimaryContainer
-                                        )
-                                    )
-                                }
+                                        }
 
-                                // Botón para crear un nuevo preset
-                                FilterChip(
-                                    selected = false,
-                                    onClick = {
-                                        presetToEdit = null
-                                        isCreatingNewPreset = true
-                                        showPresetEditor = true
-                                    },
-                                    label = {
+                                        val targetNames = presetLoaded.getActiveTargetNames(context)
                                         Text(
-                                            text = newPresetBtnText,
-                                            fontWeight = FontWeight.Bold
+                                            text = if (targetNames.isNotEmpty()) targetNames.joinToString(", ")
+                                            else stringResource(R.string.proactive_target_obstacles),
+                                            style = MaterialTheme.typography.bodySmall,
+                                            color = MaterialTheme.colorScheme.onPrimaryContainer.copy(alpha = 0.85f),
+                                            maxLines = 2
                                         )
-                                    },
-                                    leadingIcon = {
-                                        Icon(
-                                            imageVector = Icons.Filled.Add,
-                                            contentDescription = null,
-                                            modifier = Modifier.size(16.dp)
-                                        )
-                                    },
-                                    colors = FilterChipDefaults.filterChipColors(
-                                        containerColor = MaterialTheme.colorScheme.secondaryContainer.copy(alpha = 0.7f),
-                                        labelColor = MaterialTheme.colorScheme.onSecondaryContainer
-                                    )
-                                )
-                            }
 
-                            // Tarjeta de resumen de objetos del preset activo con botón de edición rápida
-                            Card(
-                                colors = CardDefaults.cardColors(
-                                    containerColor = MaterialTheme.colorScheme.surfaceColorAtElevation(1.dp)
-                                ),
-                                shape = RoundedCornerShape(12.dp),
-                                modifier = Modifier.fillMaxWidth()
-                            ) {
+                                        Row(
+                                            modifier = Modifier.fillMaxWidth(),
+                                            horizontalArrangement = Arrangement.spacedBy(8.dp)
+                                        ) {
+                                            OutlinedButton(
+                                                onClick = { viewModel.unloadPreset() },
+                                                modifier = Modifier.weight(1f)
+                                            ) {
+                                                Icon(Icons.Filled.Close, contentDescription = null, modifier = Modifier.size(16.dp))
+                                                Spacer(Modifier.width(4.dp))
+                                                Text(stringResource(R.string.proactive_preset_unload_btn), style = MaterialTheme.typography.labelMedium)
+                                            }
+
+                                            Button(
+                                                onClick = { showPresetsManagerDialog = true },
+                                                modifier = Modifier.weight(1f),
+                                                colors = ButtonDefaults.buttonColors(
+                                                    containerColor = MaterialTheme.colorScheme.primary
+                                                )
+                                            ) {
+                                                Text(stringResource(R.string.proactive_presets_manage_btn), style = MaterialTheme.typography.labelMedium)
+                                            }
+                                        }
+                                    }
+                                }
+                            } else {
+                                // MODO PREDETERMINADO: Búsqueda directa (categorías rápidas + escribir + botón a presets)
                                 Row(
                                     modifier = Modifier
                                         .fillMaxWidth()
-                                        .padding(horizontal = 12.dp, vertical = 8.dp),
-                                    verticalAlignment = Alignment.CenterVertically,
-                                    horizontalArrangement = Arrangement.SpaceBetween
+                                        .horizontalScroll(rememberScrollState()),
+                                    horizontalArrangement = Arrangement.spacedBy(8.dp),
+                                    verticalAlignment = Alignment.CenterVertically
                                 ) {
-                                    Column(modifier = Modifier.weight(1f)) {
-                                        val count = activeTargets.size
-                                        Text(
-                                            text = activePreset.getDisplayName(context) + " • " +
-                                                    stringResource(R.string.proactive_preset_item_count, count),
-                                            style = MaterialTheme.typography.labelLarge,
-                                            fontWeight = FontWeight.Bold,
-                                            color = MaterialTheme.colorScheme.primary
-                                        )
-                                        Spacer(Modifier.height(2.dp))
-                                        Text(
-                                            text = if (activeTargets.isNotEmpty()) activeTargets.joinToString(", ")
-                                            else stringResource(R.string.proactive_target_obstacles),
-                                            style = MaterialTheme.typography.bodySmall,
-                                            color = MaterialTheme.colorScheme.onSurfaceVariant,
-                                            maxLines = 2
+                                    // Chips de categorías simples estándar
+                                    ProactivePreset.entries.forEach { target ->
+                                        val isSelected = selectedQuickTarget == target
+                                        val title = stringResource(target.titleRes)
+                                        FilterChip(
+                                            selected = isSelected,
+                                            onClick = { viewModel.setQuickTarget(target) },
+                                            label = { Text(title, fontWeight = if (isSelected) FontWeight.Bold else FontWeight.Normal) },
+                                            colors = FilterChipDefaults.filterChipColors(
+                                                selectedContainerColor = MaterialTheme.colorScheme.primaryContainer,
+                                                selectedLabelColor = MaterialTheme.colorScheme.onPrimaryContainer
+                                            )
                                         )
                                     }
 
-                                    IconButton(
-                                        onClick = {
-                                            presetToEdit = activePreset
-                                            isCreatingNewPreset = false
-                                            showPresetEditor = true
+                                    // Botón para acceder a la ventana de Presets
+                                    FilterChip(
+                                        selected = false,
+                                        onClick = { showPresetsManagerDialog = true },
+                                        label = { Text(presetsManageLabel, fontWeight = FontWeight.Bold) },
+                                        leadingIcon = {
+                                            Icon(
+                                                imageVector = Icons.Filled.Bookmarks,
+                                                contentDescription = null,
+                                                modifier = Modifier.size(16.dp)
+                                            )
                                         },
-                                        modifier = Modifier.semantics {
-                                            contentDescription = editPresetBtnDesc
-                                            role = Role.Button
-                                        }
-                                    ) {
-                                        Icon(
-                                            imageVector = Icons.Filled.Tune,
-                                            contentDescription = null,
-                                            tint = MaterialTheme.colorScheme.primary
+                                        colors = FilterChipDefaults.filterChipColors(
+                                            containerColor = MaterialTheme.colorScheme.secondaryContainer.copy(alpha = 0.8f),
+                                            labelColor = MaterialTheme.colorScheme.onSecondaryContainer
                                         )
-                                    }
+                                    )
+                                }
+
+                                // Campo de texto si seleccionó Personalizado
+                                AnimatedVisibility(visible = selectedQuickTarget == ProactivePreset.CUSTOM) {
+                                    OutlinedTextField(
+                                        value = customCondition,
+                                        onValueChange = { viewModel.setCustomCondition(it) },
+                                        modifier = Modifier.fillMaxWidth(),
+                                        placeholder = { Text(customHintText) },
+                                        singleLine = true
+                                    )
                                 }
                             }
 
-                            // Aviso de objetivo dictado por voz temporal si existe
+                            // Aviso de objetivo dictado por voz si existe
                             if (!temporaryVoiceCondition.isNullOrBlank()) {
                                 Row(
                                     modifier = Modifier
@@ -741,25 +780,48 @@ fun ProactiveModeScreen(
         }
     }
 
-    // Diálogo / Editor de Presets
-    if (showPresetEditor) {
+    // Ventana / Diálogo independiente para Gestionar Presets
+    if (showPresetsManagerDialog) {
+        ProactivePresetsManageDialog(
+            presets = presets,
+            activePresetId = activePreset?.id,
+            onSelectPreset = { preset ->
+                viewModel.loadPreset(preset)
+                showPresetsManagerDialog = false
+            },
+            onEditPreset = { preset ->
+                presetToEdit = preset
+                isCreatingNewPreset = false
+                showPresetEditorDialog = true
+            },
+            onCreateNewPreset = {
+                presetToEdit = null
+                isCreatingNewPreset = true
+                showPresetEditorDialog = true
+            },
+            onDismiss = { showPresetsManagerDialog = false }
+        )
+    }
+
+    // Ventana / Diálogo para Crear o Editar un Preset
+    if (showPresetEditorDialog) {
         ProactivePresetEditorDialog(
             preset = presetToEdit,
             isCreatingNew = isCreatingNewPreset,
             onSavePreset = { updatedPreset ->
                 viewModel.savePreset(updatedPreset)
-                showPresetEditor = false
+                showPresetEditorDialog = false
                 presetToEdit = null
             },
             onDeletePreset = if (presetToEdit != null && !presetToEdit!!.isDefault) {
                 { presetId ->
                     viewModel.deletePreset(presetId)
-                    showPresetEditor = false
+                    showPresetEditorDialog = false
                     presetToEdit = null
                 }
             } else null,
             onDismiss = {
-                showPresetEditor = false
+                showPresetEditorDialog = false
                 presetToEdit = null
             }
         )
@@ -805,7 +867,157 @@ fun ProactiveModeScreen(
 }
 
 /**
- * Diálogo accesible para crear o editar presets del Modo Centinela.
+ * Ventana independiente para gestionar, ver, activar y editar los Presets de vigilancia.
+ */
+@Composable
+private fun ProactivePresetsManageDialog(
+    presets: List<ProactivePresetModel>,
+    activePresetId: String?,
+    onSelectPreset: (ProactivePresetModel) -> Unit,
+    onEditPreset: (ProactivePresetModel) -> Unit,
+    onCreateNewPreset: () -> Unit,
+    onDismiss: () -> Unit
+) {
+    val context = LocalContext.current
+
+    AlertDialog(
+        onDismissRequest = onDismiss,
+        title = {
+            Column {
+                Text(
+                    text = stringResource(R.string.proactive_presets_manage_title),
+                    style = MaterialTheme.typography.titleLarge,
+                    fontWeight = FontWeight.Bold
+                )
+                Spacer(Modifier.height(4.dp))
+                Text(
+                    text = stringResource(R.string.proactive_presets_manage_subtitle),
+                    style = MaterialTheme.typography.bodySmall,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                )
+            }
+        },
+        text = {
+            Column(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .verticalScroll(rememberScrollState()),
+                verticalArrangement = Arrangement.spacedBy(12.dp)
+            ) {
+                presets.forEach { preset ->
+                    val isCurrent = preset.id == activePresetId
+                    val displayName = preset.getDisplayName(context)
+                    val targetNames = preset.getActiveTargetNames(context)
+
+                    Card(
+                        colors = CardDefaults.cardColors(
+                            containerColor = if (isCurrent) MaterialTheme.colorScheme.primaryContainer
+                            else MaterialTheme.colorScheme.surfaceColorAtElevation(2.dp)
+                        ),
+                        shape = RoundedCornerShape(14.dp),
+                        modifier = Modifier.fillMaxWidth()
+                    ) {
+                        Column(
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .padding(12.dp),
+                            verticalArrangement = Arrangement.spacedBy(6.dp)
+                        ) {
+                            Row(
+                                modifier = Modifier.fillMaxWidth(),
+                                horizontalArrangement = Arrangement.SpaceBetween,
+                                verticalAlignment = Alignment.CenterVertically
+                            ) {
+                                Text(
+                                    text = displayName,
+                                    style = MaterialTheme.typography.titleMedium,
+                                    fontWeight = FontWeight.Bold,
+                                    color = if (isCurrent) MaterialTheme.colorScheme.onPrimaryContainer
+                                    else MaterialTheme.colorScheme.onSurface
+                                )
+
+                                if (isCurrent) {
+                                    Text(
+                                        text = stringResource(R.string.proactive_mode_monitoring_active),
+                                        style = MaterialTheme.typography.labelSmall,
+                                        fontWeight = FontWeight.Bold,
+                                        color = MaterialTheme.colorScheme.primary
+                                    )
+                                }
+                            }
+
+                            Text(
+                                text = if (targetNames.isNotEmpty()) targetNames.joinToString(", ")
+                                else stringResource(R.string.proactive_target_obstacles),
+                                style = MaterialTheme.typography.bodySmall,
+                                color = if (isCurrent) MaterialTheme.colorScheme.onPrimaryContainer.copy(alpha = 0.85f)
+                                else MaterialTheme.colorScheme.onSurfaceVariant,
+                                maxLines = 2
+                            )
+
+                            Row(
+                                modifier = Modifier.fillMaxWidth(),
+                                horizontalArrangement = Arrangement.spacedBy(8.dp)
+                            ) {
+                                Button(
+                                    onClick = { onSelectPreset(preset) },
+                                    modifier = Modifier.weight(1f),
+                                    colors = ButtonDefaults.buttonColors(
+                                        containerColor = if (isCurrent) MaterialTheme.colorScheme.primary
+                                        else MaterialTheme.colorScheme.secondary
+                                    )
+                                ) {
+                                    Icon(Icons.Filled.Check, contentDescription = null, modifier = Modifier.size(16.dp))
+                                    Spacer(Modifier.width(4.dp))
+                                    Text(stringResource(R.string.proactive_preset_activate_btn), style = MaterialTheme.typography.labelMedium)
+                                }
+
+                                OutlinedButton(
+                                    onClick = { onEditPreset(preset) },
+                                    modifier = Modifier.weight(0.8f)
+                                ) {
+                                    Icon(Icons.Filled.Edit, contentDescription = null, modifier = Modifier.size(16.dp))
+                                    Spacer(Modifier.width(4.dp))
+                                    Text(stringResource(R.string.proactive_edit_preset_btn), style = MaterialTheme.typography.labelMedium)
+                                }
+                            }
+                        }
+                    }
+                }
+
+                Spacer(Modifier.height(4.dp))
+
+                // Botón grande para crear un nuevo preset
+                Button(
+                    onClick = onCreateNewPreset,
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .height(48.dp),
+                    colors = ButtonDefaults.buttonColors(
+                        containerColor = MaterialTheme.colorScheme.tertiary
+                    ),
+                    shape = RoundedCornerShape(12.dp)
+                ) {
+                    Icon(Icons.Filled.Add, contentDescription = null, modifier = Modifier.size(20.dp))
+                    Spacer(Modifier.width(8.dp))
+                    Text(
+                        text = stringResource(R.string.proactive_new_preset_btn),
+                        style = MaterialTheme.typography.titleSmall,
+                        fontWeight = FontWeight.Bold
+                    )
+                }
+            }
+        },
+        confirmButton = {
+            TextButton(onClick = onDismiss) {
+                Text(stringResource(android.R.string.ok))
+            }
+        }
+    )
+}
+
+/**
+ * Diálogo accesible para crear o editar presets del Modo Centinela con casillas y objetos propios.
  */
 @Composable
 private fun ProactivePresetEditorDialog(

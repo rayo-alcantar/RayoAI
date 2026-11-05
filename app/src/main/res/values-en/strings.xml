@@ -549,6 +549,15 @@ Card: 4152314082325278</string>
 
     <!-- Proactive Sentinel - Presets System -->
     <string name="proactive_presets_label">Presets</string>
+    <string name="proactive_presets_manage_btn">Manage presets</string>
+    <string name="proactive_presets_manage_title">Surveillance presets</string>
+    <string name="proactive_presets_manage_subtitle">Saved profiles to watch for multiple objects at once</string>
+    <string name="proactive_preset_activate_btn">Use this preset</string>
+    <string name="proactive_preset_active_badge">Active preset: %1$s</string>
+    <string name="proactive_preset_unload_btn">Return to simple mode</string>
+    <string name="proactive_preset_open_manager">Saved presets</string>
+    <string name="proactive_preset_open_manager_desc">Open presets window to configure or activate profiles</string>
+    <string name="proactive_mode_free_label">Direct search</string>
     <string name="proactive_preset_street_title">Street &amp; Traffic</string>
     <string name="proactive_preset_street_desc">Cars, traffic lights, people, crosswalks and obstacles</string>
     <string name="proactive_preset_indoor_title">Home &amp; Indoors</string>
