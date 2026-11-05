@@ -193,7 +193,15 @@ fun HomeScreen(
             onDispose { sharedTts.stop() }
         } else {
             var localEngine: TextToSpeech? = null
-            localEngine = TextToSpeech(context) { status ->
+            val googleEngine = "com.google.android.tts"
+            val isGoogleTtsAvailable = try {
+                context.packageManager.getPackageInfo(googleEngine, 0) != null
+            } catch (_: Exception) {
+                false
+            }
+            val targetEngine = if (isGoogleTtsAvailable) googleEngine else null
+
+            localEngine = TextToSpeech(context, { status ->
                 if (status == TextToSpeech.SUCCESS) {
                     val preferredLocale = Locale.getDefault().takeIf { it.language.isNotBlank() } ?: Locale("es", "ES")
                     val result = localEngine?.setLanguage(preferredLocale)
@@ -205,7 +213,7 @@ fun HomeScreen(
                     Log.e("HomeScreen", "TTS initialization failed with status: $status")
                     viewModel.setError(context.getString(R.string.tts_init_error))
                 }
-            }
+            }, targetEngine)
             fallbackTts = localEngine
             onDispose {
                 localEngine?.stop()

@@ -10,7 +10,6 @@ import android.media.ToneGenerator
 import android.os.Build
 import android.os.VibrationEffect
 import android.os.Vibrator
-import android.os.VibratorManager
 import android.speech.tts.TextToSpeech
 import android.view.ViewGroup
 import androidx.activity.compose.BackHandler
@@ -90,7 +89,6 @@ import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.viewinterop.AndroidView
-import androidx.core.content.ContextCompat
 import androidx.hilt.navigation.compose.hiltViewModel
 import com.google.accompanist.permissions.ExperimentalPermissionsApi
 import com.google.accompanist.permissions.rememberMultiplePermissionsState
@@ -113,6 +111,7 @@ fun ProactiveModeScreen(
 
     val isMonitoring by viewModel.isMonitoring.collectAsState()
     val isAnalyzing by viewModel.isAnalyzing.collectAsState()
+    val isTranscribingAudio by viewModel.isTranscribingAudio.collectAsState()
     val selectedPreset by viewModel.selectedPreset.collectAsState()
     val customCondition by viewModel.customCondition.collectAsState()
     val intervalSeconds by viewModel.intervalSeconds.collectAsState()
@@ -134,10 +133,16 @@ fun ProactiveModeScreen(
     val detectedBadgeText = stringResource(R.string.proactive_mode_detected)
     val customHintText = stringResource(R.string.proactive_custom_hint)
     val silenceHint = stringResource(R.string.proactive_silence_hint)
+    val cameraTouchToSilenceDesc = stringResource(R.string.proactive_camera_touch_to_silence)
     val apiKeyRequiredText = stringResource(R.string.proactive_api_key_required)
     val openSettingsText = stringResource(R.string.live_mode_open_settings)
     val flipCameraDesc = stringResource(R.string.live_mode_flip_camera)
     val intervalLabel = stringResource(R.string.proactive_interval_label)
+    val voiceTargetFeedbackTemplate = if (isMonitoring) {
+        stringResource(R.string.proactive_voice_target_feedback)
+    } else {
+        stringResource(R.string.proactive_voice_target_set)
+    }
 
     val torchDesc = if (isTorchOn) stringResource(R.string.live_mode_torch_off)
     else stringResource(R.string.live_mode_torch_on)
@@ -168,12 +173,22 @@ fun ProactiveModeScreen(
         }
     }
 
+    // Anuncio vocal por Google TTS cuando se detecta el objetivo
     LaunchedEffect(viewModel.alertTrigger) {
         viewModel.alertTrigger.collect { announcement ->
             try {
                 toneGen?.startTone(ToneGenerator.TONE_PROP_BEEP2, 180)
             } catch (_: Exception) {}
+            textToSpeech?.stop()
             textToSpeech?.speak(announcement, TextToSpeech.QUEUE_FLUSH, null, "proactive_alert")
+        }
+    }
+
+    // Confirmación vocal por Google TTS cuando se dicta un objetivo por voz
+    LaunchedEffect(viewModel.speechFeedbackTrigger) {
+        viewModel.speechFeedbackTrigger.collect { feedback ->
+            textToSpeech?.stop()
+            textToSpeech?.speak(feedback, TextToSpeech.QUEUE_FLUSH, null, "proactive_feedback")
         }
     }
 
@@ -239,7 +254,7 @@ fun ProactiveModeScreen(
                         Icon(Icons.Filled.Cameraswitch, contentDescription = null)
                     }
 
-                    // Botón Selector de Intervalo (Ciclo rápido)
+                    // Botón Selector de Intervalo (Ciclo rápido 1s, 2s, 3s, 5s)
                     val intervalText = "$intervalLabel: ${intervalSeconds}s"
                     TextButton(
                         onClick = { viewModel.cycleInterval() },
@@ -281,17 +296,25 @@ fun ProactiveModeScreen(
                     .fillMaxSize()
                     .padding(innerPadding)
             ) {
-                // Escenario de Cámara Central con Análisis Periódico
+                // Escenario de Cámara Central con Toque para Silenciar Anuncios
                 Box(
                     modifier = Modifier
                         .weight(1f)
                         .fillMaxWidth()
                         .background(Color.Black)
+                        .clickable {
+                            textToSpeech?.stop()
+                        }
+                        .semantics {
+                            role = Role.Button
+                            contentDescription = cameraTouchToSilenceDesc
+                        }
                 ) {
                     ProactiveCameraPreview(
                         isFrontCamera = isFrontCamera,
                         isTorchOn = isTorchOn,
                         isMonitoring = isMonitoring,
+                        isAnalyzing = isAnalyzing,
                         intervalSeconds = intervalSeconds,
                         onFrameToAnalyze = { bitmap ->
                             viewModel.evaluateFrame(bitmap, presetCondition)
@@ -362,7 +385,7 @@ fun ProactiveModeScreen(
                             }
                         }
 
-                        // Campo personalizado si el preset es CUSTOM
+                        // Campo personalizado si el preset es CUSTOM con dictado por voz integrado
                         AnimatedVisibility(visible = selectedPreset == ProactivePreset.CUSTOM) {
                             Row(
                                 modifier = Modifier.fillMaxWidth(),
@@ -377,10 +400,14 @@ fun ProactiveModeScreen(
                                 )
                                 Spacer(Modifier.width(8.dp))
                                 VoiceInputButton(
-                                    enabled = true,
-                                    isTranscribingAudio = false,
+                                    enabled = !isTranscribingAudio,
+                                    isTranscribingAudio = isTranscribingAudio,
                                     onRecordingReady = { recording ->
-                                        // Texto de voz integrado
+                                        viewModel.transcribeVoiceAndSetCustomCondition(
+                                            context = context,
+                                            recording = recording,
+                                            feedbackTemplate = voiceTargetFeedbackTemplate
+                                        )
                                     },
                                     onError = {}
                                 )
@@ -461,40 +488,62 @@ fun ProactiveModeScreen(
                             }
                         }
 
-                        // Botón Gigante Principal de Iniciar / Detener Vigilancia
+                        // Botones de Acción: Iniciar / Detener Vigilancia y Dictado de Voz en Vivo
                         val actionButtonText = if (isMonitoring) stopMonitoringText else startMonitoringText
-                        Button(
-                            onClick = {
-                                if (isMonitoring) {
-                                    textToSpeech?.stop()
-                                }
-                                viewModel.toggleMonitoring(
-                                    onMissingApiKey = { showApiKeyDialog = true }
-                                )
-                            },
-                            modifier = Modifier
-                                .fillMaxWidth()
-                                .height(56.dp)
-                                .semantics {
-                                    role = Role.Button
-                                    contentDescription = actionButtonText
-                                },
-                            colors = ButtonDefaults.buttonColors(
-                                containerColor = if (isMonitoring) MaterialTheme.colorScheme.error else MaterialTheme.colorScheme.primary
-                            ),
-                            shape = RoundedCornerShape(28.dp)
+                        Row(
+                            modifier = Modifier.fillMaxWidth(),
+                            verticalAlignment = Alignment.CenterVertically,
+                            horizontalArrangement = Arrangement.spacedBy(10.dp)
                         ) {
-                            Icon(
-                                imageVector = if (isMonitoring) Icons.Filled.Stop else Icons.Filled.PlayArrow,
-                                contentDescription = null,
-                                modifier = Modifier.size(24.dp)
-                            )
-                            Spacer(Modifier.width(10.dp))
-                            Text(
-                                text = actionButtonText,
-                                style = MaterialTheme.typography.titleMedium,
-                                fontWeight = FontWeight.Bold
-                            )
+                            Button(
+                                onClick = {
+                                    if (isMonitoring) {
+                                        textToSpeech?.stop()
+                                    }
+                                    viewModel.toggleMonitoring(
+                                        onMissingApiKey = { showApiKeyDialog = true }
+                                    )
+                                },
+                                modifier = Modifier
+                                    .weight(1f)
+                                    .height(56.dp)
+                                    .semantics {
+                                        role = Role.Button
+                                        contentDescription = actionButtonText
+                                    },
+                                colors = ButtonDefaults.buttonColors(
+                                    containerColor = if (isMonitoring) MaterialTheme.colorScheme.error else MaterialTheme.colorScheme.primary
+                                ),
+                                shape = RoundedCornerShape(28.dp)
+                            ) {
+                                Icon(
+                                    imageVector = if (isMonitoring) Icons.Filled.Stop else Icons.Filled.PlayArrow,
+                                    contentDescription = null,
+                                    modifier = Modifier.size(24.dp)
+                                )
+                                Spacer(Modifier.width(10.dp))
+                                Text(
+                                    text = actionButtonText,
+                                    style = MaterialTheme.typography.titleMedium,
+                                    fontWeight = FontWeight.Bold
+                                )
+                            }
+
+                            // Botón de voz en vivo durante vigilancia para cambiar objetivo al vuelo
+                            if (isMonitoring) {
+                                VoiceInputButton(
+                                    enabled = !isTranscribingAudio,
+                                    isTranscribingAudio = isTranscribingAudio,
+                                    onRecordingReady = { recording ->
+                                        viewModel.transcribeVoiceAndSetCustomCondition(
+                                            context = context,
+                                            recording = recording,
+                                            feedbackTemplate = voiceTargetFeedbackTemplate
+                                        )
+                                    },
+                                    onError = {}
+                                )
+                            }
                         }
                     }
                 }
@@ -547,6 +596,7 @@ private fun ProactiveCameraPreview(
     isFrontCamera: Boolean,
     isTorchOn: Boolean,
     isMonitoring: Boolean,
+    isAnalyzing: Boolean,
     intervalSeconds: Int,
     onFrameToAnalyze: (Bitmap) -> Unit
 ) {
@@ -562,6 +612,7 @@ private fun ProactiveCameraPreview(
 
     var lastFrameTimeMs by remember { mutableLongStateOf(0L) }
     val intervalMs = intervalSeconds * 1000L
+    val canAnalyze = isMonitoring && !isAnalyzing
 
     LaunchedEffect(isFrontCamera) {
         cameraController.cameraSelector = if (isFrontCamera) {
@@ -577,12 +628,12 @@ private fun ProactiveCameraPreview(
         }
     }
 
-    DisposableEffect(cameraController, lifecycleOwner, isMonitoring, intervalMs) {
+    DisposableEffect(cameraController, lifecycleOwner, canAnalyze, intervalMs) {
         val executor = Executors.newSingleThreadExecutor()
 
         cameraController.setImageAnalysisAnalyzer(executor) { imageProxy ->
             val now = System.currentTimeMillis()
-            if (isMonitoring && (now - lastFrameTimeMs >= intervalMs)) {
+            if (canAnalyze && (now - lastFrameTimeMs >= intervalMs)) {
                 lastFrameTimeMs = now
                 val bitmap = imageProxyToBitmap(imageProxy)
                 if (bitmap != null) {
@@ -614,23 +665,43 @@ private fun ProactiveCameraPreview(
     )
 }
 
-private fun imageProxyToBitmap(image: ImageProxy): Bitmap? {
-    val planeProxy = image.planes.getOrNull(0) ?: return null
-    val buffer = planeProxy.buffer
-    val bytes = ByteArray(buffer.remaining())
-    buffer.get(bytes)
-
-    val bitmap = image.toBitmap()
-    val rotation = image.imageInfo.rotationDegrees
-    if (rotation != 0) {
-        val matrix = Matrix().apply { postRotate(rotation.toFloat()) }
-        val rotated = Bitmap.createBitmap(bitmap, 0, 0, bitmap.width, bitmap.height, matrix, true)
-        if (rotated != bitmap) {
-            bitmap.recycle()
-        }
-        return rotated
+/**
+ * Convierte y redimensiona eficientemente el fotograma de CameraX para inferencia en tiempo real.
+ * Aplica rotación y escalado a 768px en una sola transformación para reducir payload y latencia.
+ */
+private fun imageProxyToBitmap(image: ImageProxy, maxDim: Int = 768): Bitmap? {
+    val original = try {
+        image.toBitmap()
+    } catch (_: Exception) {
+        return null
     }
-    return bitmap
+
+    val rotation = image.imageInfo.rotationDegrees
+    val matrix = Matrix()
+    if (rotation != 0) {
+        matrix.postRotate(rotation.toFloat())
+    }
+
+    val largestSide = maxOf(original.width, original.height)
+    if (largestSide > maxDim) {
+        val scale = maxDim.toFloat() / largestSide
+        matrix.postScale(scale, scale)
+    }
+
+    val processed = Bitmap.createBitmap(
+        original,
+        0,
+        0,
+        original.width,
+        original.height,
+        matrix,
+        true
+    )
+
+    if (processed != original) {
+        original.recycle()
+    }
+    return processed
 }
 
 private fun vibrateDetection(context: Context, vibrator: Vibrator?) {

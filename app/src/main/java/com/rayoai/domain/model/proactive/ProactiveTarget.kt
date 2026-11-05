@@ -27,6 +27,10 @@ enum class ProactivePreset(
         R.string.proactive_preset_obstacle_title,
         R.string.proactive_preset_obstacle_condition
     ),
+    OBJECT(
+        R.string.proactive_preset_object_title,
+        R.string.proactive_preset_object_condition
+    ),
     CUSTOM(
         R.string.proactive_preset_custom_title,
         R.string.proactive_preset_custom_condition

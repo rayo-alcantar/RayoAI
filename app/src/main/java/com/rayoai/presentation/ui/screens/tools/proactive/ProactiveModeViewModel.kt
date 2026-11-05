@@ -1,14 +1,18 @@
 package com.rayoai.presentation.ui.screens.tools.proactive
 
+import android.content.Context
 import android.graphics.Bitmap
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.rayoai.core.ResultWrapper
+import com.rayoai.domain.model.AudioRecording
 import com.rayoai.domain.model.GeminiModelConfig
 import com.rayoai.domain.model.proactive.ProactiveDetection
 import com.rayoai.domain.model.proactive.ProactivePreset
 import com.rayoai.domain.repository.UserPreferencesRepository
+import com.rayoai.domain.usecase.TranscribeAudioUseCase
 import com.rayoai.domain.usecase.proactive.EvaluateProactiveFrameUseCase
+import com.rayoai.presentation.voice.AndroidSpeechFileTranscriber
 import dagger.hilt.android.lifecycle.HiltViewModel
 import kotlinx.coroutines.flow.MutableSharedFlow
 import kotlinx.coroutines.flow.MutableStateFlow
@@ -26,6 +30,7 @@ import javax.inject.Inject
 @HiltViewModel
 class ProactiveModeViewModel @Inject constructor(
     private val evaluateProactiveFrameUseCase: EvaluateProactiveFrameUseCase,
+    private val transcribeAudioUseCase: TranscribeAudioUseCase,
     private val userPreferencesRepository: UserPreferencesRepository
 ) : ViewModel() {
 
@@ -35,13 +40,16 @@ class ProactiveModeViewModel @Inject constructor(
     private val _isAnalyzing = MutableStateFlow(false)
     val isAnalyzing: StateFlow<Boolean> = _isAnalyzing.asStateFlow()
 
+    private val _isTranscribingAudio = MutableStateFlow(false)
+    val isTranscribingAudio: StateFlow<Boolean> = _isTranscribingAudio.asStateFlow()
+
     private val _selectedPreset = MutableStateFlow(ProactivePreset.LIGHT)
     val selectedPreset: StateFlow<ProactivePreset> = _selectedPreset.asStateFlow()
 
     private val _customCondition = MutableStateFlow("")
     val customCondition: StateFlow<String> = _customCondition.asStateFlow()
 
-    private val _intervalSeconds = MutableStateFlow(3)
+    private val _intervalSeconds = MutableStateFlow(2)
     val intervalSeconds: StateFlow<Int> = _intervalSeconds.asStateFlow()
 
     private val _isTorchOn = MutableStateFlow(false)
@@ -59,6 +67,9 @@ class ProactiveModeViewModel @Inject constructor(
     private val _alertTrigger = MutableSharedFlow<String>(extraBufferCapacity = 1)
     val alertTrigger: SharedFlow<String> = _alertTrigger.asSharedFlow()
 
+    private val _speechFeedbackTrigger = MutableSharedFlow<String>(extraBufferCapacity = 1)
+    val speechFeedbackTrigger: SharedFlow<String> = _speechFeedbackTrigger.asSharedFlow()
+
     private val _hapticTrigger = MutableSharedFlow<Unit>(extraBufferCapacity = 1)
     val hapticTrigger: SharedFlow<Unit> = _hapticTrigger.asSharedFlow()
 
@@ -69,6 +80,7 @@ class ProactiveModeViewModel @Inject constructor(
         .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), null)
 
     private var lastAnnouncementTimeMs: Long = 0L
+    private var wasDetected: Boolean = false
 
     fun toggleMonitoring(onMissingApiKey: () -> Unit) {
         if (_isMonitoring.value) {
@@ -89,12 +101,14 @@ class ProactiveModeViewModel @Inject constructor(
             _latestDetection.value = null
             _lastAnnouncedPhrase.value = null
             lastAnnouncementTimeMs = 0L
+            wasDetected = false
         }
     }
 
     fun stopMonitoring() {
         _isMonitoring.value = false
         _isAnalyzing.value = false
+        wasDetected = false
     }
 
     fun setPreset(preset: ProactivePreset) {
@@ -102,17 +116,23 @@ class ProactiveModeViewModel @Inject constructor(
         _latestDetection.value = null
         _lastAnnouncedPhrase.value = null
         lastAnnouncementTimeMs = 0L
+        wasDetected = false
     }
 
     fun setCustomCondition(condition: String) {
         _customCondition.value = condition
+        _latestDetection.value = null
+        _lastAnnouncedPhrase.value = null
+        lastAnnouncementTimeMs = 0L
+        wasDetected = false
     }
 
     fun cycleInterval() {
         _intervalSeconds.value = when (_intervalSeconds.value) {
+            1 -> 2
             2 -> 3
             3 -> 5
-            else -> 2
+            else -> 1
         }
     }
 
@@ -126,6 +146,57 @@ class ProactiveModeViewModel @Inject constructor(
 
     fun clearError() {
         _errorMessage.value = null
+    }
+
+    fun transcribeVoiceAndSetCustomCondition(
+        context: Context,
+        recording: AudioRecording,
+        feedbackTemplate: String
+    ) {
+        viewModelScope.launch {
+            val key = apiKey.value ?: userPreferencesRepository.apiKey.first()
+            if (key.isNullOrBlank()) {
+                _errorMessage.value = "Clave de API no configurada."
+                cleanupRecording(recording)
+                return@launch
+            }
+
+            _isTranscribingAudio.value = true
+            try {
+                val model = GeminiModelConfig.DEFAULT_MODEL
+                val text = when (val result = transcribeAudioUseCase(key, recording.wavFile, model)) {
+                    is ResultWrapper.Success -> result.data
+                    is ResultWrapper.Error -> {
+                        AndroidSpeechFileTranscriber(context.applicationContext)
+                            .transcribe(recording)
+                            .getOrNull()
+                    }
+                    ResultWrapper.Loading -> null
+                }
+
+                if (!text.isNullOrBlank()) {
+                    val cleanText = text.trim()
+                    _customCondition.value = cleanText
+                    _selectedPreset.value = ProactivePreset.CUSTOM
+                    _latestDetection.value = null
+                    _lastAnnouncedPhrase.value = null
+                    lastAnnouncementTimeMs = 0L
+                    wasDetected = false
+
+                    val feedback = String.format(feedbackTemplate, cleanText)
+                    _speechFeedbackTrigger.tryEmit(feedback)
+                }
+            } catch (e: Exception) {
+                _errorMessage.value = e.localizedMessage ?: "Error al transcribir voz"
+            } finally {
+                cleanupRecording(recording)
+                _isTranscribingAudio.value = false
+            }
+        }
+    }
+
+    private fun cleanupRecording(recording: AudioRecording) {
+        runCatching { recording.wavFile.delete() }
     }
 
     fun evaluateFrame(bitmap: Bitmap, promptCondition: String) {
@@ -142,6 +213,7 @@ class ProactiveModeViewModel @Inject constructor(
 
         viewModelScope.launch {
             _isAnalyzing.value = true
+            var frameToProcess = bitmap
             try {
                 val key = apiKey.value ?: userPreferencesRepository.apiKey.first()
                 if (key.isNullOrBlank()) {
@@ -150,12 +222,28 @@ class ProactiveModeViewModel @Inject constructor(
                     return@launch
                 }
 
+                // Asegurar escala óptima (máximo 768px) para baja latencia en tiempo real
+                val maxDim = 768
+                if (bitmap.width > maxDim || bitmap.height > maxDim) {
+                    val scale = maxDim.toFloat() / maxOf(bitmap.width, bitmap.height)
+                    val scaled = Bitmap.createScaledBitmap(
+                        bitmap,
+                        (bitmap.width * scale).toInt(),
+                        (bitmap.height * scale).toInt(),
+                        true
+                    )
+                    if (scaled != bitmap) {
+                        bitmap.recycle()
+                        frameToProcess = scaled
+                    }
+                }
+
                 val lang = Locale.getDefault().language
                 val model = GeminiModelConfig.DEFAULT_MODEL
 
                 evaluateProactiveFrameUseCase(
                     apiKey = key,
-                    image = bitmap,
+                    image = frameToProcess,
                     condition = effectiveCondition,
                     languageCode = lang,
                     model = model
@@ -163,7 +251,7 @@ class ProactiveModeViewModel @Inject constructor(
                     when (result) {
                         is ResultWrapper.Loading -> Unit
                         is ResultWrapper.Error -> {
-                            // Log error silently so surveillance continues seamlessly
+                            // Ignorar error transitorio para mantener la vigilancia en tiempo real
                         }
                         is ResultWrapper.Success -> {
                             val detection = result.data
@@ -173,23 +261,27 @@ class ProactiveModeViewModel @Inject constructor(
                             val phrase = detection.announcement
 
                             if (detection.detected && !phrase.isNullOrBlank()) {
-                                val isDifferent = phrase != _lastAnnouncedPhrase.value
-                                val isExpired = (now - lastAnnouncementTimeMs) > 18_000L
+                                val isFreshDetection = !wasDetected
+                                val isPhraseChanged = phrase != _lastAnnouncedPhrase.value
+                                val isRepeatedCooldownExpired = (now - lastAnnouncementTimeMs) > 12_000L
 
-                                if (isDifferent || isExpired) {
+                                if (isFreshDetection || isPhraseChanged || isRepeatedCooldownExpired) {
                                     _lastAnnouncedPhrase.value = phrase
                                     lastAnnouncementTimeMs = now
                                     _alertTrigger.tryEmit(phrase)
                                     _hapticTrigger.tryEmit(Unit)
                                 }
+                                wasDetected = true
+                            } else {
+                                wasDetected = false
                             }
                         }
                     }
                 }
             } catch (e: Exception) {
-                // Keep surveillance running even if one frame fails
+                // Mantener vigilancia activa ante errores transitorios
             } finally {
-                bitmap.recycle()
+                frameToProcess.recycle()
                 _isAnalyzing.value = false
             }
         }

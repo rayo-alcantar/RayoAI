@@ -524,13 +524,21 @@ Card: 4152314082325278</string>
     <string name="proactive_preset_seat_condition">Detect chairs, benches, or available seats.</string>
     <string name="proactive_preset_obstacle_title">🚶 Obstacles</string>
     <string name="proactive_preset_obstacle_condition">Detect stairs (up or down), steps, curbs, or obstacles ahead.</string>
+    <string name="proactive_preset_object_title">🔍 Objects</string>
+    <string name="proactive_preset_object_condition">Detects and locates everyday objects the user left or is looking for (keys, phone, wallet, glasses, cane, cup, remote).</string>
     <string name="proactive_preset_custom_title">✍️ Custom</string>
     <string name="proactive_preset_custom_condition">Detect the target specified by the user.</string>
     <string name="proactive_custom_hint">What do you want it to watch for? (e.g., tell me when you see a window)</string>
     <string name="proactive_interval_label">Frequency</string>
+    <string name="proactive_interval_1s">1s (real time)</string>
     <string name="proactive_interval_2s">2s (fast)</string>
     <string name="proactive_interval_3s">3s (optimal)</string>
     <string name="proactive_interval_5s">5s (saver)</string>
     <string name="proactive_silence_hint">Tap to silence current alert</string>
+    <string name="proactive_camera_touch_to_silence">Camera preview. Tap screen to silence current announcement</string>
+    <string name="proactive_voice_target_feedback">Sentinel watching for: %1$s</string>
+    <string name="proactive_voice_target_set">Target set: %1$s</string>
+    <string name="proactive_voice_button_desc">Dictate sentinel target by voice</string>
+    <string name="proactive_voice_live_button_desc">Change sentinel target by voice while monitoring</string>
     <string name="proactive_api_key_required">Configure your Gemini API key in Settings to use the Proactive Sentinel.</string>
 </resources>

@@ -46,6 +46,7 @@ class MainActivity : ComponentActivity() {
     lateinit var userPreferencesRepository: UserPreferencesRepository
 
     private var textToSpeech: TextToSpeech? = null
+    private var textToSpeechState by mutableStateOf<TextToSpeech?>(null)
 
     /**
      * Helper function para obtener Parcelable de manera compatible con todas las versiones de Android.
@@ -79,20 +80,50 @@ class MainActivity : ComponentActivity() {
         }
     }
 
-    override fun onCreate(savedInstanceState: Bundle?) {
-        super.onCreate(savedInstanceState)
+    private fun initGoogleTextToSpeech() {
+        val googleEngine = "com.google.android.tts"
+        val isGoogleTtsAvailable = try {
+            packageManager.getPackageInfo(googleEngine, 0) != null
+        } catch (_: Exception) {
+            false
+        }
+        val targetEngine = if (isGoogleTtsAvailable) googleEngine else null
 
-        textToSpeech = TextToSpeech(this) {
-            if (it == TextToSpeech.SUCCESS) {
+        textToSpeech = TextToSpeech(this, { status ->
+            if (status == TextToSpeech.SUCCESS) {
                 val preferredLocale = Locale.getDefault().takeIf { loc -> loc.language.isNotBlank() } ?: Locale("es", "ES")
                 val result = textToSpeech?.setLanguage(preferredLocale)
                 if (result == TextToSpeech.LANG_MISSING_DATA || result == TextToSpeech.LANG_NOT_SUPPORTED) {
                     textToSpeech?.setLanguage(Locale("es", "ES"))
                 }
-            } else {
-                Log.e("TTS", "Fallo en la inicialización de TTS.")
+                try {
+                    textToSpeech?.voices?.firstOrNull { voice ->
+                        voice.locale.language == preferredLocale.language && !voice.isNetworkConnectionRequired && !voice.features.contains("notInstalled")
+                    }?.let { voice ->
+                        textToSpeech?.voice = voice
+                    }
+                } catch (_: Exception) {}
+                textToSpeechState = textToSpeech
+            } else if (targetEngine != null) {
+                Log.w("TTS", "No se pudo iniciar motor Google TTS ($targetEngine). Reintentando con motor por defecto.")
+                textToSpeech = TextToSpeech(this) { fallbackStatus ->
+                    if (fallbackStatus == TextToSpeech.SUCCESS) {
+                        val preferredLocale = Locale.getDefault().takeIf { loc -> loc.language.isNotBlank() } ?: Locale("es", "ES")
+                        val result = textToSpeech?.setLanguage(preferredLocale)
+                        if (result == TextToSpeech.LANG_MISSING_DATA || result == TextToSpeech.LANG_NOT_SUPPORTED) {
+                            textToSpeech?.setLanguage(Locale("es", "ES"))
+                        }
+                        textToSpeechState = textToSpeech
+                    }
+                }
             }
-        }
+        }, targetEngine)
+    }
+
+    override fun onCreate(savedInstanceState: Bundle?) {
+        super.onCreate(savedInstanceState)
+
+        initGoogleTextToSpeech()
 
         // Obtener URIs de manera segura usando la función helper compatible
         val isPdf = intent?.getBooleanExtra("EXTRA_IS_PDF", false) == true
@@ -114,7 +145,7 @@ class MainActivity : ComponentActivity() {
         val videoUrl = if (isVideoUrl) intent?.getStringExtra(EXTRA_VIDEO_URL) else null
 
         setContent {
-            val tts = remember { textToSpeech }
+            val tts = textToSpeechState ?: textToSpeech
             CompositionLocalProvider(LocalTextToSpeech provides tts) {
                 RayoAITheme {
                     Surface(
