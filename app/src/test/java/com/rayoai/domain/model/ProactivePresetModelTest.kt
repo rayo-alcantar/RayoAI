@@ -1,5 +1,6 @@
 package com.rayoai.domain.model
 
+import com.rayoai.domain.model.proactive.PersonalObject
 import com.rayoai.domain.model.proactive.ProactivePresetModel
 import com.rayoai.domain.model.proactive.StandardProactiveTarget
 import org.junit.Assert.assertEquals
@@ -19,6 +20,27 @@ class ProactivePresetModelTest {
         assertTrue(street.standardTargetKeys.contains(StandardProactiveTarget.PEOPLE.key))
         assertTrue(street.standardTargetKeys.contains(StandardProactiveTarget.CROSSINGS.key))
         assertTrue(street.standardTargetKeys.contains(StandardProactiveTarget.OBSTACLES.key))
+    }
+
+    @Test
+    fun buildConditionPrompt_withPersonalObjects_includesVisualProfiles() {
+        val personalObj = PersonalObject(
+            id = "obj_1",
+            name = "Mis llaves",
+            visualDescription = "Llavero azul con argolla plateada"
+        )
+        val model = ProactivePresetModel(
+            id = "preset_keys",
+            name = "Objetos personales",
+            isDefault = false,
+            standardTargetKeys = emptySet(),
+            customTargets = emptyList(),
+            personalObjectIds = setOf("obj_1")
+        )
+
+        val prompt = model.buildConditionPrompt("es", listOf(personalObj))
+        assertTrue(prompt.contains("Mis llaves"))
+        assertTrue(prompt.contains("Llavero azul con argolla plateada"))
     }
 
     @Test

@@ -20,10 +20,13 @@ import com.rayoai.data.local.videodb.VideoChatDao
 import com.rayoai.data.local.videodb.VIDEO_MIGRATION_1_2
 import com.rayoai.data.remote.GeminiFilesApiService
 import com.rayoai.data.remote.GithubApiService
+import com.rayoai.data.local.ImageStorageManager
+import com.rayoai.data.repository.PersonalObjectRepositoryImpl
 import com.rayoai.data.repository.ProactivePresetRepositoryImpl
 import com.rayoai.data.repository.UserPreferencesRepositoryImpl
 import com.rayoai.data.repository.VideoRepositoryImpl
 import com.rayoai.data.repository.VisionRepositoryImpl
+import com.rayoai.domain.repository.PersonalObjectRepository
 import com.rayoai.domain.repository.ProactivePresetRepository
 import com.rayoai.domain.repository.UserPreferencesRepository
 import com.rayoai.domain.repository.VideoRepository
@@ -88,6 +91,15 @@ object AppModule {
     @Singleton
     fun provideProactivePresetRepository(dataStore: DataStore<Preferences>): ProactivePresetRepository {
         return ProactivePresetRepositoryImpl(dataStore)
+    }
+
+    @Provides
+    @Singleton
+    fun providePersonalObjectRepository(
+        dataStore: DataStore<Preferences>,
+        imageStorageManager: ImageStorageManager
+    ): PersonalObjectRepository {
+        return PersonalObjectRepositoryImpl(dataStore, imageStorageManager)
     }
 
     @Provides

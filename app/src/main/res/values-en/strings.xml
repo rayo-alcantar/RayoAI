@@ -559,6 +559,36 @@ Card: 4152314082325278</string>
     <string name="proactive_preset_open_manager_desc">Open presets window to configure or activate profiles</string>
     <string name="proactive_mode_free_label">Direct search</string>
     <string name="proactive_preset_street_title">Street &amp; Traffic</string>
+
+    <!-- Proactive Sentinel - Personal Objects with Reference Photos -->
+    <string name="personal_objects_title">Personal objects</string>
+    <string name="personal_objects_manager_title">Personal objects manager</string>
+    <string name="personal_objects_manager_subtitle">Save reference photos so RayoAI can identify them with high accuracy</string>
+    <string name="personal_objects_empty">No personal objects saved yet. Tap the button below to register one.</string>
+    <string name="personal_object_new_btn">Register new object</string>
+    <string name="personal_object_edit_title">Edit object: %1$s</string>
+    <string name="personal_object_new_title">Register personal object</string>
+    <string name="personal_object_name_label">Object name</string>
+    <string name="personal_object_name_placeholder">E.g., My keys, My mug, My cane...</string>
+    <string name="personal_object_photos_header">Reference photos (1 or 2 photos):</string>
+    <string name="personal_object_take_photo">Take photo</string>
+    <string name="personal_object_pick_photo">Gallery</string>
+    <string name="personal_object_generate_profile_btn">Analyze photos with AI</string>
+    <string name="personal_object_generating_profile">Analyzing visual features with AI…</string>
+    <string name="personal_object_description_label">Distinctive visual description</string>
+    <string name="personal_object_description_placeholder">Details like exact color, shape, logos, keychains or marks...</string>
+    <string name="personal_object_save_btn">Save object</string>
+    <string name="personal_object_delete_btn">Delete object</string>
+    <string name="personal_object_delete_confirm_title">Delete this object?</string>
+    <string name="personal_object_delete_confirm_desc">\"%1$s\" and its associated reference photos will be deleted.</string>
+    <string name="personal_object_search_now_btn">Search this object</string>
+    <string name="personal_objects_in_presets_header">Your saved personal objects:</string>
+    <string name="personal_object_requires_name_error">Enter a name for the object.</string>
+    <string name="personal_object_requires_description_error">Enter or generate a visual description for the object.</string>
+    <string name="personal_object_requires_photos_to_analyze">Add at least one photo to analyze with AI.</string>
+    <string name="personal_object_active_badge">Searching personal object: %1$s</string>
+    <string name="edit">Edit</string>
+    <string name="remove">Remove</string>
     <string name="proactive_preset_street_desc">Cars, traffic lights, people, crosswalks and obstacles</string>
     <string name="proactive_preset_indoor_title">Home &amp; Indoors</string>
     <string name="proactive_preset_indoor_desc">Doors, seats, personal items and obstacles</string>

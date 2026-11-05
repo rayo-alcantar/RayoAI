@@ -2,19 +2,24 @@ package com.rayoai.presentation.ui.screens.tools.proactive
 
 import android.content.Context
 import android.graphics.Bitmap
+import android.net.Uri
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.rayoai.core.ResultWrapper
+import com.rayoai.data.local.ImageStorageManager
 import com.rayoai.domain.model.AudioRecording
 import com.rayoai.domain.model.GeminiModelConfig
+import com.rayoai.domain.model.proactive.PersonalObject
 import com.rayoai.domain.model.proactive.ProactiveDetection
 import com.rayoai.domain.model.proactive.ProactivePreset
 import com.rayoai.domain.model.proactive.ProactivePresetModel
 import com.rayoai.domain.model.proactive.ProactiveQuickTarget
+import com.rayoai.domain.repository.PersonalObjectRepository
 import com.rayoai.domain.repository.ProactivePresetRepository
 import com.rayoai.domain.repository.UserPreferencesRepository
 import com.rayoai.domain.usecase.TranscribeAudioUseCase
 import com.rayoai.domain.usecase.proactive.EvaluateProactiveFrameUseCase
+import com.rayoai.domain.usecase.proactive.GenerateVisualProfileUseCase
 import com.rayoai.presentation.voice.AndroidSpeechFileTranscriber
 import dagger.hilt.android.lifecycle.HiltViewModel
 import kotlinx.coroutines.flow.MutableSharedFlow
@@ -35,7 +40,10 @@ class ProactiveModeViewModel @Inject constructor(
     private val evaluateProactiveFrameUseCase: EvaluateProactiveFrameUseCase,
     private val transcribeAudioUseCase: TranscribeAudioUseCase,
     private val userPreferencesRepository: UserPreferencesRepository,
-    private val proactivePresetRepository: ProactivePresetRepository
+    private val proactivePresetRepository: ProactivePresetRepository,
+    private val personalObjectRepository: PersonalObjectRepository,
+    private val generateVisualProfileUseCase: GenerateVisualProfileUseCase,
+    val imageStorageManager: ImageStorageManager
 ) : ViewModel() {
 
     private val _isMonitoring = MutableStateFlow(false)
@@ -54,10 +62,11 @@ class ProactiveModeViewModel @Inject constructor(
     private val _customCondition = MutableStateFlow("")
     val customCondition: StateFlow<String> = _customCondition.asStateFlow()
 
-    // Preset activo (null = Modo de búsqueda directa / simple predeterminado)
-    private val _activePreset = MutableStateFlow<ProactivePresetModel?>(null)
-    val activePreset: StateFlow<ProactivePresetModel?> = _activePreset.asStateFlow()
+    // Objeto personal seleccionado en modo directo (null = ninguna selección de objeto personal)
+    private val _selectedPersonalObject = MutableStateFlow<PersonalObject?>(null)
+    val selectedPersonalObject: StateFlow<PersonalObject?> = _selectedPersonalObject.asStateFlow()
 
+    // Presets y Objetos Personales reactivos
     val presets: StateFlow<List<ProactivePresetModel>> = proactivePresetRepository.presets
         .stateIn(
             viewModelScope,
@@ -65,8 +74,22 @@ class ProactiveModeViewModel @Inject constructor(
             ProactivePresetModel.getDefaultPresets()
         )
 
+    val personalObjects: StateFlow<List<PersonalObject>> = personalObjectRepository.personalObjects
+        .stateIn(
+            viewModelScope,
+            SharingStarted.Eagerly,
+            emptyList()
+        )
+
+    // Preset activo (null = Modo de búsqueda directa / simple predeterminado)
+    private val _activePreset = MutableStateFlow<ProactivePresetModel?>(null)
+    val activePreset: StateFlow<ProactivePresetModel?> = _activePreset.asStateFlow()
+
     private val _temporaryVoiceCondition = MutableStateFlow<String?>(null)
     val temporaryVoiceCondition: StateFlow<String?> = _temporaryVoiceCondition.asStateFlow()
+
+    private val _isGeneratingProfile = MutableStateFlow(false)
+    val isGeneratingProfile: StateFlow<Boolean> = _isGeneratingProfile.asStateFlow()
 
     private val _intervalSeconds = MutableStateFlow(2)
     val intervalSeconds: StateFlow<Int> = _intervalSeconds.asStateFlow()
@@ -139,6 +162,7 @@ class ProactiveModeViewModel @Inject constructor(
 
     fun setQuickTarget(target: ProactiveQuickTarget) {
         _selectedQuickTarget.value = target
+        _selectedPersonalObject.value = null
         _activePreset.value = null // Vuelve al modo directo
         _temporaryVoiceCondition.value = null
         resetDetectionState()
@@ -146,13 +170,27 @@ class ProactiveModeViewModel @Inject constructor(
 
     fun setCustomCondition(condition: String) {
         _customCondition.value = condition
+        _selectedPersonalObject.value = null
         _activePreset.value = null
         _temporaryVoiceCondition.value = null
         resetDetectionState()
     }
 
+    fun selectPersonalObject(personalObject: PersonalObject) {
+        _selectedPersonalObject.value = personalObject
+        _activePreset.value = null
+        _temporaryVoiceCondition.value = null
+        resetDetectionState()
+    }
+
+    fun clearSelectedPersonalObject() {
+        _selectedPersonalObject.value = null
+        resetDetectionState()
+    }
+
     fun loadPreset(preset: ProactivePresetModel) {
         _activePreset.value = preset
+        _selectedPersonalObject.value = null
         _temporaryVoiceCondition.value = null
         resetDetectionState()
     }
@@ -177,6 +215,79 @@ class ProactiveModeViewModel @Inject constructor(
             proactivePresetRepository.deletePreset(presetId)
             if (_activePreset.value?.id == presetId) {
                 _activePreset.value = null
+            }
+        }
+    }
+
+    fun savePersonalObject(personalObject: PersonalObject) {
+        viewModelScope.launch {
+            personalObjectRepository.savePersonalObject(personalObject)
+            if (_selectedPersonalObject.value?.id == personalObject.id) {
+                _selectedPersonalObject.value = personalObject
+            }
+        }
+    }
+
+    fun deletePersonalObject(id: String) {
+        viewModelScope.launch {
+            personalObjectRepository.deletePersonalObject(id)
+            if (_selectedPersonalObject.value?.id == id) {
+                _selectedPersonalObject.value = null
+            }
+        }
+    }
+
+    fun generateVisualProfile(
+        imageUris: List<Uri>,
+        objectName: String,
+        onSuccess: (String) -> Unit,
+        onError: (String) -> Unit
+    ) {
+        viewModelScope.launch {
+            val key = apiKey.value ?: userPreferencesRepository.apiKey.first()
+            if (key.isNullOrBlank()) {
+                onError("Clave de API no configurada.")
+                return@launch
+            }
+
+            val bitmaps = imageUris.mapNotNull { uri ->
+                imageStorageManager.getBitmapFromUri(uri)
+            }
+
+            if (bitmaps.isEmpty()) {
+                onError("No se pudieron cargar las fotos de referencia.")
+                return@launch
+            }
+
+            _isGeneratingProfile.value = true
+            try {
+                val lang = Locale.getDefault().language
+                val model = GeminiModelConfig.DEFAULT_MODEL
+
+                generateVisualProfileUseCase(
+                    apiKey = key,
+                    images = bitmaps,
+                    objectName = objectName,
+                    languageCode = lang,
+                    model = model
+                ).collect { result ->
+                    when (result) {
+                        is ResultWrapper.Loading -> Unit
+                        is ResultWrapper.Error -> {
+                            _isGeneratingProfile.value = false
+                            onError(result.message)
+                        }
+                        is ResultWrapper.Success -> {
+                            _isGeneratingProfile.value = false
+                            onSuccess(result.data.trim())
+                        }
+                    }
+                }
+            } catch (e: Exception) {
+                _isGeneratingProfile.value = false
+                onError(e.localizedMessage ?: "Error al analizar fotos")
+            } finally {
+                bitmaps.forEach { runCatching { it.recycle() } }
             }
         }
     }
@@ -276,6 +387,7 @@ class ProactiveModeViewModel @Inject constructor(
                     if (!_isMonitoring.value) {
                         _customCondition.value = cleanTarget
                         _selectedQuickTarget.value = ProactivePreset.CUSTOM
+                        _selectedPersonalObject.value = null
                         _activePreset.value = null
                     }
                     resetDetectionState()
@@ -302,14 +414,36 @@ class ProactiveModeViewModel @Inject constructor(
         }
 
         val voiceOverride = _temporaryVoiceCondition.value
+        val personalObj = _selectedPersonalObject.value
         val currentPreset = _activePreset.value
         val currentQuick = _selectedQuickTarget.value
         val customText = _customCondition.value
         val lang = Locale.getDefault().language
+        val allPersonalObjects = personalObjects.value
 
         val effectiveCondition = when {
             !voiceOverride.isNullOrBlank() -> voiceOverride.trim()
-            currentPreset != null -> currentPreset.buildConditionPrompt(lang)
+            personalObj != null -> {
+                val desc = personalObj.visualDescription.trim()
+                if (lang.startsWith("es", ignoreCase = true)) {
+                    """
+                    Objetivo prioritario de vigilancia:
+                    - ${personalObj.name} (perfil visual exacto: $desc)
+
+                    Instrucciones para el anuncio:
+                    Si detectas en el fotograma este objeto personal específico según sus características visuales distintivas, establece "detected": true y elabora una frase concisa de 3 a 8 palabras optimizada para TextToSpeech indicando que lo encontraste y su posición relativa (ejemplo: '${personalObj.name} sobre la mesa al frente'). Si no está visible, responde con "detected": false y "announcement": null.
+                    """.trimIndent()
+                } else {
+                    """
+                    Priority surveillance target:
+                    - ${personalObj.name} (exact visual profile: $desc)
+
+                    Alert instructions:
+                    If you detect this specific personal object in the frame according to its distinctive visual traits, set "detected": true and create a concise phrase of 3 to 8 words optimized for TextToSpeech stating that it was located and its relative location (e.g., '${personalObj.name} on the table ahead'). If not visible, set "detected": false and "announcement": null.
+                    """.trimIndent()
+                }
+            }
+            currentPreset != null -> currentPreset.buildConditionPrompt(lang, allPersonalObjects)
             currentQuick == ProactivePreset.CUSTOM && customText.isNotBlank() -> customText.trim()
             else -> defaultPromptCondition.ifBlank { "Objetos y cambios en el entorno" }
         }

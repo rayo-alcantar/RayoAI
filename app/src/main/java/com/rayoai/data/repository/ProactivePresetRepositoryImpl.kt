@@ -30,7 +30,8 @@ class ProactivePresetRepositoryImpl @Inject constructor(
         val defaultNameRes: Int? = null,
         val isDefault: Boolean = false,
         val standardTargetKeys: List<String> = emptyList(),
-        val customTargets: List<String> = emptyList()
+        val customTargets: List<String> = emptyList(),
+        val personalObjectIds: List<String> = emptyList()
     )
 
     override val presets: Flow<List<ProactivePresetModel>> = dataStore.data.map { preferences ->
@@ -51,7 +52,8 @@ class ProactivePresetRepositoryImpl @Inject constructor(
                             defaultNameRes = dto.defaultNameRes,
                             isDefault = dto.isDefault,
                             standardTargetKeys = dto.standardTargetKeys.toSet(),
-                            customTargets = dto.customTargets
+                            customTargets = dto.customTargets,
+                            personalObjectIds = dto.personalObjectIds.toSet()
                         )
                     }
                 }
@@ -88,7 +90,8 @@ class ProactivePresetRepositoryImpl @Inject constructor(
                             defaultNameRes = dto.defaultNameRes,
                             isDefault = dto.isDefault,
                             standardTargetKeys = dto.standardTargetKeys.toSet(),
-                            customTargets = dto.customTargets
+                            customTargets = dto.customTargets,
+                            personalObjectIds = dto.personalObjectIds.toSet()
                         )
                     }.toMutableList()
                 } catch (_: Exception) {
@@ -110,7 +113,8 @@ class ProactivePresetRepositoryImpl @Inject constructor(
                     defaultNameRes = model.defaultNameRes,
                     isDefault = model.isDefault,
                     standardTargetKeys = model.standardTargetKeys.toList(),
-                    customTargets = model.customTargets
+                    customTargets = model.customTargets,
+                    personalObjectIds = model.personalObjectIds.toList()
                 )
             }
 

@@ -568,6 +568,36 @@ Tarjeta: 4152314082325278</string>
     <string name="proactive_preset_open_manager_desc">Abrir ventana de presets para configurar o activar perfiles</string>
     <string name="proactive_mode_free_label">Búsqueda directa</string>
     <string name="proactive_preset_street_title">Calle y Tránsito</string>
+
+    <!-- Modo Centinela - Objetos Personales con Foto de Referencia -->
+    <string name="personal_objects_title">Objetos personales</string>
+    <string name="personal_objects_manager_title">Gestor de objetos personales</string>
+    <string name="personal_objects_manager_subtitle">Guarda fotos de referencia para que RayoAI los identifique con alta precisión</string>
+    <string name="personal_objects_empty">No tienes objetos personales guardados todavía. Pulsa el botón de abajo para registrar uno.</string>
+    <string name="personal_object_new_btn">Registrar nuevo objeto</string>
+    <string name="personal_object_edit_title">Editar objeto: %1$s</string>
+    <string name="personal_object_new_title">Registrar objeto personal</string>
+    <string name="personal_object_name_label">Nombre del objeto</string>
+    <string name="personal_object_name_placeholder">Ej: Mis llaves, Mi termo, Mi bastón...</string>
+    <string name="personal_object_photos_header">Fotos de referencia (1 o 2 fotos):</string>
+    <string name="personal_object_take_photo">Tomar foto</string>
+    <string name="personal_object_pick_photo">Galería</string>
+    <string name="personal_object_generate_profile_btn">Analizar fotos con IA</string>
+    <string name="personal_object_generating_profile">Analizando rasgos visuales con IA…</string>
+    <string name="personal_object_description_label">Descripción visual distintiva</string>
+    <string name="personal_object_description_placeholder">Detalles como color exacto, forma, logos, llaveros o marcas...</string>
+    <string name="personal_object_save_btn">Guardar objeto</string>
+    <string name="personal_object_delete_btn">Eliminar objeto</string>
+    <string name="personal_object_delete_confirm_title">¿Eliminar este objeto?</string>
+    <string name="personal_object_delete_confirm_desc">Se eliminará \"%1$s\" y sus fotos de referencia asociadas.</string>
+    <string name="personal_object_search_now_btn">Buscar este objeto</string>
+    <string name="personal_objects_in_presets_header">Tus objetos personales guardados:</string>
+    <string name="personal_object_requires_name_error">Ingresa un nombre para el objeto.</string>
+    <string name="personal_object_requires_description_error">Ingresa o genera una descripción visual para el objeto.</string>
+    <string name="personal_object_requires_photos_to_analyze">Agrega al menos una foto para analizar con IA.</string>
+    <string name="personal_object_active_badge">Buscando objeto personal: %1$s</string>
+    <string name="edit">Editar</string>
+    <string name="remove">Quitar</string>
     <string name="proactive_preset_street_desc">Autos, semáforos, personas, cruces y obstáculos</string>
     <string name="proactive_preset_indoor_title">Hogar e Interiores</string>
     <string name="proactive_preset_indoor_desc">Puertas, asientos, objetos personales y obstáculos</string>

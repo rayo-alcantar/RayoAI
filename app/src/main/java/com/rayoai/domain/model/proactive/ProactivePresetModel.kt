@@ -9,7 +9,8 @@ data class ProactivePresetModel(
     @StringRes val defaultNameRes: Int? = null,
     val isDefault: Boolean = false,
     val standardTargetKeys: Set<String> = emptySet(),
-    val customTargets: List<String> = emptyList()
+    val customTargets: List<String> = emptyList(),
+    val personalObjectIds: Set<String> = emptySet()
 ) {
     fun getDisplayName(context: Context): String {
         return if (isDefault && defaultNameRes != null) {
@@ -19,22 +20,34 @@ data class ProactivePresetModel(
         }
     }
 
-    fun getActiveTargetNames(context: Context): List<String> {
+    fun getActiveTargetNames(
+        context: Context,
+        personalObjects: List<PersonalObject> = emptyList()
+    ): List<String> {
         val standardNames = standardTargetKeys.mapNotNull { key ->
             StandardProactiveTarget.fromKey(key)?.let { target ->
                 context.getString(target.titleRes)
             }
         }
+        val personalNames = personalObjects.filter { it.id in personalObjectIds }.map { "⭐ ${it.name}" }
         val customNames = customTargets.filter { it.isNotBlank() }
-        return standardNames + customNames
+        return standardNames + personalNames + customNames
     }
 
-    fun buildConditionPrompt(languageCode: String): String {
+    fun buildConditionPrompt(
+        languageCode: String,
+        personalObjects: List<PersonalObject> = emptyList()
+    ): String {
         val isSpanish = languageCode.startsWith("es", ignoreCase = true)
         val targetsList = mutableListOf<String>()
 
         standardTargetKeys.mapNotNull { StandardProactiveTarget.fromKey(it) }.forEach { target ->
             targetsList.add(if (isSpanish) target.promptEs else target.promptEn)
+        }
+
+        personalObjects.filter { it.id in personalObjectIds }.forEach { obj ->
+            val desc = if (obj.visualDescription.isNotBlank()) " (perfil visual exacto: ${obj.visualDescription.trim()})" else ""
+            targetsList.add("${obj.name}$desc")
         }
 
         customTargets.filter { it.isNotBlank() }.forEach { custom ->
@@ -57,7 +70,7 @@ data class ProactivePresetModel(
             $formattedTargets
 
             Instrucciones para el anuncio:
-            Si detectas en el fotograma cualquiera de estos objetivos, establece "detected": true y elabora una frase concisa de 3 a 8 palabras optimizada para TextToSpeech indicando específicamente qué objetivo detectaste y su posición relativa (ejemplo: 'Auto aproximándose por la izquierda', 'Semáforo al frente', 'Persona adelante'). Si no hay ninguno de estos objetivos en la imagen, responde con "detected": false y "announcement": null.
+            Si detectas en el fotograma cualquiera de estos objetivos, establece "detected": true y elabora una frase concisa de 3 a 8 palabras optimizada para TextToSpeech indicando específicamente qué objetivo detectaste y su posición relativa (ejemplo: 'Auto aproximándose por la izquierda', 'Semáforo al frente', 'Persona adelante', 'Tus llaves sobre la mesa'). Si no hay ninguno de estos objetivos en la imagen, responde con "detected": false y "announcement": null.
             """.trimIndent()
         } else {
             """
@@ -65,7 +78,7 @@ data class ProactivePresetModel(
             $formattedTargets
 
             Alert instructions:
-            If you detect any of these targets in the frame, set "detected": true and create a concise phrase of 3 to 8 words optimized for TextToSpeech stating which target was found and its relative location (e.g., 'Car approaching on left', 'Traffic light ahead', 'Person in front'). If none of these targets are present in the image, set "detected": false and "announcement": null.
+            If you detect any of these targets in the frame, set "detected": true and create a concise phrase of 3 to 8 words optimized for TextToSpeech stating which target was found and its relative location (e.g., 'Car approaching on left', 'Traffic light ahead', 'Person in front', 'Your keys on table'). If none of these targets are present in the image, set "detected": false and "announcement": null.
             """.trimIndent()
         }
     }

@@ -8,6 +8,7 @@ import android.graphics.Bitmap
 import android.graphics.Matrix
 import android.media.AudioManager
 import android.media.ToneGenerator
+import android.net.Uri
 import android.os.Build
 import android.os.VibrationEffect
 import android.os.Vibrator
@@ -16,6 +17,7 @@ import android.speech.tts.TextToSpeech
 import android.view.ViewGroup
 import androidx.activity.compose.BackHandler
 import androidx.activity.compose.rememberLauncherForActivityResult
+import androidx.activity.result.PickVisualMediaRequest
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.camera.core.CameraSelector
 import androidx.camera.core.ImageAnalysis
@@ -46,6 +48,7 @@ import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material.icons.filled.Add
+import androidx.compose.material.icons.filled.AutoAwesome
 import androidx.compose.material.icons.filled.Bookmarks
 import androidx.compose.material.icons.filled.Cameraswitch
 import androidx.compose.material.icons.filled.Check
@@ -56,9 +59,14 @@ import androidx.compose.material.icons.filled.Edit
 import androidx.compose.material.icons.filled.FlashOff
 import androidx.compose.material.icons.filled.FlashOn
 import androidx.compose.material.icons.filled.Mic
+import androidx.compose.material.icons.filled.PhotoCamera
+import androidx.compose.material.icons.filled.PhotoLibrary
 import androidx.compose.material.icons.filled.PlayArrow
+import androidx.compose.material.icons.filled.Search
+import androidx.compose.material.icons.filled.Stars
 import androidx.compose.material.icons.filled.Stop
 import androidx.compose.material.icons.filled.Timer
+import androidx.compose.material.icons.filled.Tune
 import androidx.compose.material.icons.filled.Visibility
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Button
@@ -96,6 +104,7 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalLifecycleOwner
 import androidx.compose.ui.res.stringResource
@@ -108,10 +117,12 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.viewinterop.AndroidView
 import androidx.core.content.ContextCompat
 import androidx.hilt.navigation.compose.hiltViewModel
+import coil.compose.AsyncImage
 import com.google.accompanist.permissions.ExperimentalPermissionsApi
 import com.google.accompanist.permissions.rememberMultiplePermissionsState
 import com.rayoai.R
 import com.rayoai.domain.model.AudioRecording
+import com.rayoai.domain.model.proactive.PersonalObject
 import com.rayoai.domain.model.proactive.ProactivePreset
 import com.rayoai.domain.model.proactive.ProactivePresetModel
 import com.rayoai.domain.model.proactive.StandardProactiveTarget
@@ -136,8 +147,10 @@ fun ProactiveModeScreen(
     val isTranscribingAudio by viewModel.isTranscribingAudio.collectAsState()
     val selectedQuickTarget by viewModel.selectedQuickTarget.collectAsState()
     val customCondition by viewModel.customCondition.collectAsState()
+    val selectedPersonalObject by viewModel.selectedPersonalObject.collectAsState()
     val activePreset by viewModel.activePreset.collectAsState()
     val presets by viewModel.presets.collectAsState()
+    val personalObjects by viewModel.personalObjects.collectAsState()
     val temporaryVoiceCondition by viewModel.temporaryVoiceCondition.collectAsState()
     val intervalSeconds by viewModel.intervalSeconds.collectAsState()
     val isTorchOn by viewModel.isTorchOn.collectAsState()
@@ -148,7 +161,10 @@ fun ProactiveModeScreen(
     var showApiKeyDialog by remember { mutableStateOf(false) }
     var showPresetsManagerDialog by remember { mutableStateOf(false) }
     var showPresetEditorDialog by remember { mutableStateOf(false) }
+    var showPersonalObjectsManagerDialog by remember { mutableStateOf(false) }
+    var showPersonalObjectEditorDialog by remember { mutableStateOf(false) }
     var presetToEdit by remember { mutableStateOf<ProactivePresetModel?>(null) }
+    var personalObjectToEdit by remember { mutableStateOf<PersonalObject?>(null) }
     var isCreatingNewPreset by remember { mutableStateOf(false) }
 
     // Textos accesibles resueltos en alcance Composable
@@ -170,6 +186,7 @@ fun ProactiveModeScreen(
     val detectedPrefixText = stringResource(R.string.proactive_detected_prefix)
     val presetsManageBtnDesc = stringResource(R.string.proactive_preset_open_manager_desc)
     val presetsManageLabel = stringResource(R.string.proactive_preset_open_manager)
+    val personalObjectsManagerDesc = stringResource(R.string.personal_objects_manager_title)
 
     val torchDesc = if (isTorchOn) stringResource(R.string.live_mode_torch_off)
     else stringResource(R.string.live_mode_torch_on)
@@ -179,6 +196,7 @@ fun ProactiveModeScreen(
     // Título y resumen del objetivo actual
     val currentTargetDisplay = when {
         !temporaryVoiceCondition.isNullOrBlank() -> temporaryVoiceCondition!!
+        selectedPersonalObject != null -> "⭐ ${selectedPersonalObject!!.name}"
         activePreset != null -> activePreset!!.getDisplayName(context)
         selectedQuickTarget == ProactivePreset.CUSTOM && customCondition.isNotBlank() -> customCondition
         else -> stringResource(selectedQuickTarget.titleRes)
@@ -186,8 +204,9 @@ fun ProactiveModeScreen(
 
     val searchingTargetsSummary = when {
         !temporaryVoiceCondition.isNullOrBlank() -> temporaryVoiceCondition!!
+        selectedPersonalObject != null -> "${selectedPersonalObject!!.name}: ${selectedPersonalObject!!.visualDescription}"
         activePreset != null -> {
-            val names = activePreset!!.getActiveTargetNames(context)
+            val names = activePreset!!.getActiveTargetNames(context, personalObjects)
             if (names.isNotEmpty()) names.joinToString(", ") else stringResource(R.string.proactive_target_obstacles)
         }
         selectedQuickTarget == ProactivePreset.CUSTOM && customCondition.isNotBlank() -> customCondition
@@ -281,6 +300,22 @@ fun ProactiveModeScreen(
                     }
                 },
                 actions = {
+                    // Botón para abrir el Gestor de Objetos Personales con fotos
+                    IconButton(
+                        onClick = { showPersonalObjectsManagerDialog = true },
+                        modifier = Modifier.semantics {
+                            role = Role.Button
+                            contentDescription = personalObjectsManagerDesc
+                        }
+                    ) {
+                        Icon(
+                            imageVector = Icons.Filled.Stars,
+                            contentDescription = null,
+                            tint = if (selectedPersonalObject != null) MaterialTheme.colorScheme.primary
+                            else MaterialTheme.colorScheme.onSurface
+                        )
+                    }
+
                     // Botón para abrir la ventana de Presets
                     IconButton(
                         onClick = { showPresetsManagerDialog = true },
@@ -429,7 +464,7 @@ fun ProactiveModeScreen(
                     }
                 }
 
-                // Panel Inferior: Modo Directo Predeterminado y Entrada a Presets
+                // Panel Inferior: Modo Directo Predeterminado, Objetos Personales y Controles
                 Surface(
                     color = MaterialTheme.colorScheme.surface,
                     tonalElevation = 8.dp,
@@ -528,8 +563,87 @@ fun ProactiveModeScreen(
 
                         // Configuración del objetivo cuando no está vigilando
                         if (!isMonitoring) {
+                            val personalObj = selectedPersonalObject
                             val presetLoaded = activePreset
-                            if (presetLoaded != null) {
+
+                            if (personalObj != null) {
+                                // MODO OBJETO PERSONAL ACTIVO: Tarjeta destacada con foto y perfil visual
+                                Card(
+                                    colors = CardDefaults.cardColors(
+                                        containerColor = MaterialTheme.colorScheme.tertiaryContainer.copy(alpha = 0.8f)
+                                    ),
+                                    shape = RoundedCornerShape(14.dp),
+                                    modifier = Modifier.fillMaxWidth()
+                                ) {
+                                    Column(
+                                        modifier = Modifier
+                                            .fillMaxWidth()
+                                            .padding(12.dp),
+                                        verticalArrangement = Arrangement.spacedBy(8.dp)
+                                    ) {
+                                        Row(
+                                            modifier = Modifier.fillMaxWidth(),
+                                            verticalAlignment = Alignment.CenterVertically
+                                        ) {
+                                            if (personalObj.imageUris.isNotEmpty()) {
+                                                AsyncImage(
+                                                    model = Uri.parse(personalObj.imageUris.first()),
+                                                    contentDescription = null,
+                                                    contentScale = ContentScale.Crop,
+                                                    modifier = Modifier
+                                                        .size(44.dp)
+                                                        .clip(RoundedCornerShape(8.dp))
+                                                )
+                                                Spacer(Modifier.width(10.dp))
+                                            } else {
+                                                Icon(
+                                                    imageVector = Icons.Filled.Stars,
+                                                    contentDescription = null,
+                                                    tint = MaterialTheme.colorScheme.primary,
+                                                    modifier = Modifier.size(28.dp)
+                                                )
+                                                Spacer(Modifier.width(8.dp))
+                                            }
+
+                                            Column(modifier = Modifier.weight(1f)) {
+                                                Text(
+                                                    text = stringResource(R.string.personal_object_active_badge, personalObj.name),
+                                                    style = MaterialTheme.typography.titleSmall,
+                                                    fontWeight = FontWeight.Bold,
+                                                    color = MaterialTheme.colorScheme.onTertiaryContainer
+                                                )
+                                                Text(
+                                                    text = personalObj.visualDescription,
+                                                    style = MaterialTheme.typography.bodySmall,
+                                                    color = MaterialTheme.colorScheme.onTertiaryContainer.copy(alpha = 0.85f),
+                                                    maxLines = 2
+                                                )
+                                            }
+                                        }
+
+                                        Row(
+                                            modifier = Modifier.fillMaxWidth(),
+                                            horizontalArrangement = Arrangement.spacedBy(8.dp)
+                                        ) {
+                                            OutlinedButton(
+                                                onClick = { viewModel.clearSelectedPersonalObject() },
+                                                modifier = Modifier.weight(1f)
+                                            ) {
+                                                Icon(Icons.Filled.Close, contentDescription = null, modifier = Modifier.size(16.dp))
+                                                Spacer(Modifier.width(4.dp))
+                                                Text(stringResource(R.string.proactive_preset_unload_btn), style = MaterialTheme.typography.labelMedium)
+                                            }
+
+                                            Button(
+                                                onClick = { showPersonalObjectsManagerDialog = true },
+                                                modifier = Modifier.weight(1f)
+                                            ) {
+                                                Text(stringResource(R.string.personal_objects_title), style = MaterialTheme.typography.labelMedium)
+                                            }
+                                        }
+                                    }
+                                }
+                            } else if (presetLoaded != null) {
                                 // MODO PRESET ACTIVO: Banner claro con opción para volver al modo simple o cambiar preset
                                 Card(
                                     colors = CardDefaults.cardColors(
@@ -566,7 +680,7 @@ fun ProactiveModeScreen(
                                             }
                                         }
 
-                                        val targetNames = presetLoaded.getActiveTargetNames(context)
+                                        val targetNames = presetLoaded.getActiveTargetNames(context, personalObjects)
                                         Text(
                                             text = if (targetNames.isNotEmpty()) targetNames.joinToString(", ")
                                             else stringResource(R.string.proactive_target_obstacles),
@@ -601,7 +715,7 @@ fun ProactiveModeScreen(
                                     }
                                 }
                             } else {
-                                // MODO PREDETERMINADO: Búsqueda directa (categorías rápidas + escribir + botón a presets)
+                                // MODO PREDETERMINADO: Búsqueda directa (objetos personales + categorías rápidas + presets)
                                 Row(
                                     modifier = Modifier
                                         .fillMaxWidth()
@@ -609,6 +723,19 @@ fun ProactiveModeScreen(
                                     horizontalArrangement = Arrangement.spacedBy(8.dp),
                                     verticalAlignment = Alignment.CenterVertically
                                 ) {
+                                    // Chips para los objetos personales registrados
+                                    personalObjects.forEach { obj ->
+                                        FilterChip(
+                                            selected = false,
+                                            onClick = { viewModel.selectPersonalObject(obj) },
+                                            label = { Text("⭐ ${obj.name}", fontWeight = FontWeight.Bold) },
+                                            colors = FilterChipDefaults.filterChipColors(
+                                                containerColor = MaterialTheme.colorScheme.tertiaryContainer.copy(alpha = 0.7f),
+                                                labelColor = MaterialTheme.colorScheme.onTertiaryContainer
+                                            )
+                                        )
+                                    }
+
                                     // Chips de categorías simples estándar
                                     ProactivePreset.entries.forEach { target ->
                                         val isSelected = selectedQuickTarget == target
@@ -624,6 +751,33 @@ fun ProactiveModeScreen(
                                         )
                                     }
 
+                                    // Botón para acceder al Gestor de Objetos Personales
+                                    FilterChip(
+                                        selected = false,
+                                        onClick = { showPersonalObjectsManagerDialog = true },
+                                        label = {
+                                            Text(
+                                                text = if (personalObjects.isNotEmpty()) {
+                                                    "${stringResource(R.string.personal_objects_title)} (${personalObjects.size})"
+                                                } else {
+                                                    stringResource(R.string.personal_objects_title)
+                                                },
+                                                fontWeight = FontWeight.Bold
+                                            )
+                                        },
+                                        leadingIcon = {
+                                            Icon(
+                                                imageVector = Icons.Filled.Stars,
+                                                contentDescription = null,
+                                                modifier = Modifier.size(16.dp)
+                                            )
+                                        },
+                                        colors = FilterChipDefaults.filterChipColors(
+                                            containerColor = MaterialTheme.colorScheme.secondaryContainer.copy(alpha = 0.8f),
+                                            labelColor = MaterialTheme.colorScheme.onSecondaryContainer
+                                        )
+                                    )
+
                                     // Botón para acceder a la ventana de Presets
                                     FilterChip(
                                         selected = false,
@@ -637,7 +791,7 @@ fun ProactiveModeScreen(
                                             )
                                         },
                                         colors = FilterChipDefaults.filterChipColors(
-                                            containerColor = MaterialTheme.colorScheme.secondaryContainer.copy(alpha = 0.8f),
+                                            containerColor = MaterialTheme.colorScheme.secondaryContainer.copy(alpha = 0.6f),
                                             labelColor = MaterialTheme.colorScheme.onSecondaryContainer
                                         )
                                     )
@@ -780,10 +934,55 @@ fun ProactiveModeScreen(
         }
     }
 
+    // Ventana / Diálogo para Gestionar Objetos Personales con foto
+    if (showPersonalObjectsManagerDialog) {
+        PersonalObjectsManageDialog(
+            personalObjects = personalObjects,
+            onSelectObject = { obj ->
+                viewModel.selectPersonalObject(obj)
+                showPersonalObjectsManagerDialog = false
+            },
+            onEditObject = { obj ->
+                personalObjectToEdit = obj
+                showPersonalObjectEditorDialog = true
+            },
+            onCreateNewObject = {
+                personalObjectToEdit = null
+                showPersonalObjectEditorDialog = true
+            },
+            onDismiss = { showPersonalObjectsManagerDialog = false }
+        )
+    }
+
+    // Diálogo para Crear / Editar Objeto Personal con fotos y perfil IA
+    if (showPersonalObjectEditorDialog) {
+        PersonalObjectEditorDialog(
+            objectToEdit = personalObjectToEdit,
+            viewModel = viewModel,
+            onSave = { updatedObj ->
+                viewModel.savePersonalObject(updatedObj)
+                showPersonalObjectEditorDialog = false
+                personalObjectToEdit = null
+            },
+            onDelete = if (personalObjectToEdit != null) {
+                { id ->
+                    viewModel.deletePersonalObject(id)
+                    showPersonalObjectEditorDialog = false
+                    personalObjectToEdit = null
+                }
+            } else null,
+            onDismiss = {
+                showPersonalObjectEditorDialog = false
+                personalObjectToEdit = null
+            }
+        )
+    }
+
     // Ventana / Diálogo independiente para Gestionar Presets
     if (showPresetsManagerDialog) {
         ProactivePresetsManageDialog(
             presets = presets,
+            personalObjects = personalObjects,
             activePresetId = activePreset?.id,
             onSelectPreset = { preset ->
                 viewModel.loadPreset(preset)
@@ -807,6 +1006,7 @@ fun ProactiveModeScreen(
     if (showPresetEditorDialog) {
         ProactivePresetEditorDialog(
             preset = presetToEdit,
+            personalObjects = personalObjects,
             isCreatingNew = isCreatingNewPreset,
             onSavePreset = { updatedPreset ->
                 viewModel.savePreset(updatedPreset)
@@ -867,11 +1067,467 @@ fun ProactiveModeScreen(
 }
 
 /**
+ * Ventana para gestionar objetos personales con fotos de referencia.
+ */
+@Composable
+private fun PersonalObjectsManageDialog(
+    personalObjects: List<PersonalObject>,
+    onSelectObject: (PersonalObject) -> Unit,
+    onEditObject: (PersonalObject) -> Unit,
+    onCreateNewObject: () -> Unit,
+    onDismiss: () -> Unit
+) {
+    AlertDialog(
+        onDismissRequest = onDismiss,
+        title = {
+            Column {
+                Text(
+                    text = stringResource(R.string.personal_objects_manager_title),
+                    style = MaterialTheme.typography.titleLarge,
+                    fontWeight = FontWeight.Bold
+                )
+                Spacer(Modifier.height(4.dp))
+                Text(
+                    text = stringResource(R.string.personal_objects_manager_subtitle),
+                    style = MaterialTheme.typography.bodySmall,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                )
+            }
+        },
+        text = {
+            Column(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .verticalScroll(rememberScrollState()),
+                verticalArrangement = Arrangement.spacedBy(12.dp)
+            ) {
+                if (personalObjects.isEmpty()) {
+                    Text(
+                        text = stringResource(R.string.personal_objects_empty),
+                        style = MaterialTheme.typography.bodyMedium,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                        modifier = Modifier.padding(vertical = 12.dp)
+                    )
+                } else {
+                    personalObjects.forEach { obj ->
+                        Card(
+                            colors = CardDefaults.cardColors(
+                                containerColor = MaterialTheme.colorScheme.surfaceColorAtElevation(2.dp)
+                            ),
+                            shape = RoundedCornerShape(14.dp),
+                            modifier = Modifier.fillMaxWidth()
+                        ) {
+                            Column(
+                                modifier = Modifier
+                                    .fillMaxWidth()
+                                    .padding(12.dp),
+                                    verticalArrangement = Arrangement.spacedBy(8.dp)
+                            ) {
+                                Row(
+                                    modifier = Modifier.fillMaxWidth(),
+                                    verticalAlignment = Alignment.CenterVertically
+                                ) {
+                                    if (obj.imageUris.isNotEmpty()) {
+                                        AsyncImage(
+                                            model = Uri.parse(obj.imageUris.first()),
+                                            contentDescription = null,
+                                            contentScale = ContentScale.Crop,
+                                            modifier = Modifier
+                                                .size(52.dp)
+                                                .clip(RoundedCornerShape(8.dp))
+                                        )
+                                        Spacer(Modifier.width(10.dp))
+                                    } else {
+                                        Icon(
+                                            imageVector = Icons.Filled.Stars,
+                                            contentDescription = null,
+                                            tint = MaterialTheme.colorScheme.primary,
+                                            modifier = Modifier.size(32.dp)
+                                        )
+                                        Spacer(Modifier.width(10.dp))
+                                    }
+
+                                    Column(modifier = Modifier.weight(1f)) {
+                                        Text(
+                                            text = obj.name,
+                                            style = MaterialTheme.typography.titleMedium,
+                                            fontWeight = FontWeight.Bold
+                                        )
+                                        Text(
+                                            text = obj.visualDescription,
+                                            style = MaterialTheme.typography.bodySmall,
+                                            color = MaterialTheme.colorScheme.onSurfaceVariant,
+                                            maxLines = 2
+                                        )
+                                    }
+                                }
+
+                                Row(
+                                    modifier = Modifier.fillMaxWidth(),
+                                    horizontalArrangement = Arrangement.spacedBy(8.dp)
+                                ) {
+                                    Button(
+                                        onClick = { onSelectObject(obj) },
+                                        modifier = Modifier.weight(1f)
+                                    ) {
+                                        Icon(Icons.Filled.Search, contentDescription = null, modifier = Modifier.size(16.dp))
+                                        Spacer(Modifier.width(4.dp))
+                                        Text(stringResource(R.string.personal_object_search_now_btn), style = MaterialTheme.typography.labelMedium)
+                                    }
+
+                                    OutlinedButton(
+                                        onClick = { onEditObject(obj) },
+                                        modifier = Modifier.weight(0.7f)
+                                    ) {
+                                        Icon(Icons.Filled.Edit, contentDescription = null, modifier = Modifier.size(16.dp))
+                                        Spacer(Modifier.width(4.dp))
+                                        Text(stringResource(R.string.edit), style = MaterialTheme.typography.labelMedium)
+                                    }
+                                }
+                            }
+                        }
+                    }
+                }
+
+                Spacer(Modifier.height(4.dp))
+
+                // Botón para registrar nuevo objeto
+                Button(
+                    onClick = onCreateNewObject,
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .height(48.dp),
+                    colors = ButtonDefaults.buttonColors(
+                        containerColor = MaterialTheme.colorScheme.primary
+                    ),
+                    shape = RoundedCornerShape(12.dp)
+                ) {
+                    Icon(Icons.Filled.Add, contentDescription = null, modifier = Modifier.size(20.dp))
+                    Spacer(Modifier.width(8.dp))
+                    Text(
+                        text = stringResource(R.string.personal_object_new_btn),
+                        style = MaterialTheme.typography.titleSmall,
+                        fontWeight = FontWeight.Bold
+                    )
+                }
+            }
+        },
+        confirmButton = {
+            TextButton(onClick = onDismiss) {
+                Text(stringResource(android.R.string.ok))
+            }
+        }
+    )
+}
+
+/**
+ * Diálogo para crear o editar un objeto personal con fotos de referencia y perfil visual por IA.
+ */
+@Composable
+private fun PersonalObjectEditorDialog(
+    objectToEdit: PersonalObject?,
+    viewModel: ProactiveModeViewModel,
+    onSave: (PersonalObject) -> Unit,
+    onDelete: ((String) -> Unit)?,
+    onDismiss: () -> Unit
+) {
+    val context = LocalContext.current
+    var name by remember(objectToEdit) {
+        mutableStateOf(objectToEdit?.name ?: "")
+    }
+    var visualDescription by remember(objectToEdit) {
+        mutableStateOf(objectToEdit?.visualDescription ?: "")
+    }
+    var imageUris by remember(objectToEdit) {
+        mutableStateOf(objectToEdit?.imageUris?.map { Uri.parse(it) } ?: emptyList())
+    }
+    var tempCameraUri by remember { mutableStateOf<Uri?>(null) }
+    var validationError by remember { mutableStateOf<String?>(null) }
+    var showDeleteConfirmDialog by remember { mutableStateOf(false) }
+
+    val isGeneratingProfile by viewModel.isGeneratingProfile.collectAsState()
+
+    val title = if (objectToEdit == null) {
+        stringResource(R.string.personal_object_new_title)
+    } else {
+        stringResource(R.string.personal_object_edit_title, objectToEdit.name)
+    }
+
+    val galleryLauncher = rememberLauncherForActivityResult(
+        contract = ActivityResultContracts.PickVisualMedia()
+    ) { uri ->
+        if (uri != null && imageUris.size < 2) {
+            val imported = viewModel.imageStorageManager.importSharedImage(uri) ?: uri
+            imageUris = imageUris + imported
+            validationError = null
+        }
+    }
+
+    val cameraLauncher = rememberLauncherForActivityResult(
+        contract = ActivityResultContracts.TakePicture()
+    ) { success ->
+        if (success && tempCameraUri != null && imageUris.size < 2) {
+            imageUris = imageUris + tempCameraUri!!
+            validationError = null
+        }
+    }
+
+    AlertDialog(
+        onDismissRequest = onDismiss,
+        title = {
+            Text(
+                text = title,
+                style = MaterialTheme.typography.titleLarge,
+                fontWeight = FontWeight.Bold
+            )
+        },
+        text = {
+            Column(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .verticalScroll(rememberScrollState()),
+                verticalArrangement = Arrangement.spacedBy(14.dp)
+            ) {
+                // Nombre
+                OutlinedTextField(
+                    value = name,
+                    onValueChange = {
+                        name = it
+                        validationError = null
+                    },
+                    label = { Text(stringResource(R.string.personal_object_name_label)) },
+                    placeholder = { Text(stringResource(R.string.personal_object_name_placeholder)) },
+                    singleLine = true,
+                    modifier = Modifier.fillMaxWidth()
+                )
+
+                // Sección Fotos de referencia
+                Text(
+                    text = stringResource(R.string.personal_object_photos_header),
+                    style = MaterialTheme.typography.titleMedium,
+                    fontWeight = FontWeight.Bold,
+                    color = MaterialTheme.colorScheme.primary
+                )
+
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.spacedBy(8.dp)
+                ) {
+                    OutlinedButton(
+                        onClick = {
+                            if (imageUris.size < 2) {
+                                val uri = viewModel.imageStorageManager.getTmpFileUri()
+                                tempCameraUri = uri
+                                cameraLauncher.launch(uri)
+                            }
+                        },
+                        enabled = imageUris.size < 2,
+                        modifier = Modifier.weight(1f)
+                    ) {
+                        Icon(Icons.Filled.PhotoCamera, contentDescription = null, modifier = Modifier.size(18.dp))
+                        Spacer(Modifier.width(4.dp))
+                        Text(stringResource(R.string.personal_object_take_photo), style = MaterialTheme.typography.labelMedium)
+                    }
+
+                    OutlinedButton(
+                        onClick = {
+                            if (imageUris.size < 2) {
+                                galleryLauncher.launch(PickVisualMediaRequest(ActivityResultContracts.PickVisualMedia.ImageOnly))
+                            }
+                        },
+                        enabled = imageUris.size < 2,
+                        modifier = Modifier.weight(1f)
+                    ) {
+                        Icon(Icons.Filled.PhotoLibrary, contentDescription = null, modifier = Modifier.size(18.dp))
+                        Spacer(Modifier.width(4.dp))
+                        Text(stringResource(R.string.personal_object_pick_photo), style = MaterialTheme.typography.labelMedium)
+                    }
+                }
+
+                // Miniaturas de fotos tomadas
+                if (imageUris.isNotEmpty()) {
+                    Row(
+                        modifier = Modifier.fillMaxWidth(),
+                        horizontalArrangement = Arrangement.spacedBy(10.dp)
+                    ) {
+                        imageUris.forEachIndexed { index, uri ->
+                            Box(
+                                modifier = Modifier
+                                    .size(80.dp)
+                                    .clip(RoundedCornerShape(8.dp))
+                            ) {
+                                AsyncImage(
+                                    model = uri,
+                                    contentDescription = "Foto ${index + 1}",
+                                    contentScale = ContentScale.Crop,
+                                    modifier = Modifier.fillMaxSize()
+                                )
+                                IconButton(
+                                    onClick = { imageUris = imageUris - uri },
+                                    modifier = Modifier
+                                        .align(Alignment.TopEnd)
+                                        .size(24.dp)
+                                        .background(Color.Black.copy(alpha = 0.6f), CircleShape)
+                                ) {
+                                    Icon(
+                                        imageVector = Icons.Filled.Close,
+                                        contentDescription = stringResource(R.string.remove),
+                                        tint = Color.White,
+                                        modifier = Modifier.size(14.dp)
+                                    )
+                                }
+                            }
+                        }
+                    }
+
+                    // Botón para generar o actualizar el perfil visual con IA
+                    Button(
+                        onClick = {
+                            if (name.isBlank()) {
+                                validationError = context.getString(R.string.personal_object_requires_name_error)
+                                return@Button
+                            }
+                            viewModel.generateVisualProfile(
+                                imageUris = imageUris,
+                                objectName = name.trim(),
+                                onSuccess = { generatedProfile ->
+                                    visualDescription = generatedProfile
+                                    validationError = null
+                                },
+                                onError = { errorMsg ->
+                                    validationError = errorMsg
+                                }
+                            )
+                        },
+                        enabled = !isGeneratingProfile && name.isNotBlank(),
+                        modifier = Modifier.fillMaxWidth(),
+                        colors = ButtonDefaults.buttonColors(
+                            containerColor = MaterialTheme.colorScheme.tertiary
+                        ),
+                        shape = RoundedCornerShape(10.dp)
+                    ) {
+                        if (isGeneratingProfile) {
+                            CircularProgressIndicator(
+                                modifier = Modifier.size(18.dp),
+                                strokeWidth = 2.dp,
+                                color = MaterialTheme.colorScheme.onTertiary
+                            )
+                            Spacer(Modifier.width(8.dp))
+                            Text(stringResource(R.string.personal_object_generating_profile), style = MaterialTheme.typography.labelMedium)
+                        } else {
+                            Icon(Icons.Filled.AutoAwesome, contentDescription = null, modifier = Modifier.size(18.dp))
+                            Spacer(Modifier.width(6.dp))
+                            Text(stringResource(R.string.personal_object_generate_profile_btn), style = MaterialTheme.typography.labelMedium)
+                        }
+                    }
+                }
+
+                // Campo de Descripción Visual
+                OutlinedTextField(
+                    value = visualDescription,
+                    onValueChange = {
+                        visualDescription = it
+                        validationError = null
+                    },
+                    label = { Text(stringResource(R.string.personal_object_description_label)) },
+                    placeholder = { Text(stringResource(R.string.personal_object_description_placeholder)) },
+                    minLines = 3,
+                    maxLines = 5,
+                    modifier = Modifier.fillMaxWidth()
+                )
+
+                if (validationError != null) {
+                    Text(
+                        text = validationError!!,
+                        color = MaterialTheme.colorScheme.error,
+                        style = MaterialTheme.typography.bodySmall
+                    )
+                }
+            }
+        },
+        confirmButton = {
+            Button(
+                onClick = {
+                    if (name.isBlank()) {
+                        validationError = context.getString(R.string.personal_object_requires_name_error)
+                        return@Button
+                    }
+                    if (visualDescription.isBlank()) {
+                        validationError = context.getString(R.string.personal_object_requires_description_error)
+                        return@Button
+                    }
+
+                    val id = objectToEdit?.id ?: UUID.randomUUID().toString()
+                    val savedUris = imageUris.map { it.toString() }
+
+                    val savedObj = PersonalObject(
+                        id = id,
+                        name = name.trim(),
+                        visualDescription = visualDescription.trim(),
+                        imageUris = savedUris
+                    )
+                    onSave(savedObj)
+                },
+                modifier = Modifier.height(48.dp)
+            ) {
+                Text(
+                    text = stringResource(R.string.personal_object_save_btn),
+                    fontWeight = FontWeight.Bold
+                )
+            }
+        },
+        dismissButton = {
+            Row(verticalAlignment = Alignment.CenterVertically) {
+                if (onDelete != null && objectToEdit != null) {
+                    TextButton(
+                        onClick = { showDeleteConfirmDialog = true },
+                        colors = ButtonDefaults.textButtonColors(contentColor = MaterialTheme.colorScheme.error)
+                    ) {
+                        Icon(Icons.Filled.Delete, contentDescription = null, modifier = Modifier.size(18.dp))
+                        Spacer(Modifier.width(4.dp))
+                        Text(stringResource(R.string.personal_object_delete_btn))
+                    }
+                }
+                TextButton(onClick = onDismiss) {
+                    Text(stringResource(android.R.string.cancel))
+                }
+            }
+        }
+    )
+
+    // Diálogo confirmación eliminación
+    if (showDeleteConfirmDialog && objectToEdit != null) {
+        AlertDialog(
+            onDismissRequest = { showDeleteConfirmDialog = false },
+            title = { Text(stringResource(R.string.personal_object_delete_confirm_title)) },
+            text = { Text(stringResource(R.string.personal_object_delete_confirm_desc, objectToEdit.name)) },
+            confirmButton = {
+                Button(
+                    onClick = {
+                        showDeleteConfirmDialog = false
+                        onDelete?.invoke(objectToEdit.id)
+                    },
+                    colors = ButtonDefaults.buttonColors(containerColor = MaterialTheme.colorScheme.error)
+                ) {
+                    Text(stringResource(R.string.personal_object_delete_btn))
+                }
+            },
+            dismissButton = {
+                TextButton(onClick = { showDeleteConfirmDialog = false }) {
+                    Text(stringResource(android.R.string.cancel))
+                }
+            }
+        )
+    }
+}
+
+/**
  * Ventana independiente para gestionar, ver, activar y editar los Presets de vigilancia.
  */
 @Composable
 private fun ProactivePresetsManageDialog(
     presets: List<ProactivePresetModel>,
+    personalObjects: List<PersonalObject>,
     activePresetId: String?,
     onSelectPreset: (ProactivePresetModel) -> Unit,
     onEditPreset: (ProactivePresetModel) -> Unit,
@@ -907,7 +1563,7 @@ private fun ProactivePresetsManageDialog(
                 presets.forEach { preset ->
                     val isCurrent = preset.id == activePresetId
                     val displayName = preset.getDisplayName(context)
-                    val targetNames = preset.getActiveTargetNames(context)
+                    val targetNames = preset.getActiveTargetNames(context, personalObjects)
 
                     Card(
                         colors = CardDefaults.cardColors(
@@ -1017,11 +1673,12 @@ private fun ProactivePresetsManageDialog(
 }
 
 /**
- * Diálogo accesible para crear o editar presets del Modo Centinela con casillas y objetos propios.
+ * Diálogo accesible para crear o editar presets con casillas de objetos estándar, objetos personales y personalizados.
  */
 @Composable
 private fun ProactivePresetEditorDialog(
     preset: ProactivePresetModel?,
+    personalObjects: List<PersonalObject>,
     isCreatingNew: Boolean,
     onSavePreset: (ProactivePresetModel) -> Unit,
     onDeletePreset: ((String) -> Unit)?,
@@ -1039,6 +1696,9 @@ private fun ProactivePresetEditorDialog(
                 StandardProactiveTarget.PEOPLE.key
             )
         )
+    }
+    var selectedPersonalObjectIds by remember(preset) {
+        mutableStateOf(preset?.personalObjectIds ?: emptySet())
     }
     var customTargets by remember(preset) {
         mutableStateOf(preset?.customTargets ?: emptyList())
@@ -1103,7 +1763,7 @@ private fun ProactivePresetEditorDialog(
 
                 StandardProactiveTarget.entries.forEach { target ->
                     val isChecked = selectedStandardKeys.contains(target.key)
-                    val title = stringResource(target.titleRes)
+                    val titleText = stringResource(target.titleRes)
                     val desc = stringResource(target.descriptionRes)
 
                     Row(
@@ -1127,12 +1787,12 @@ private fun ProactivePresetEditorDialog(
                     ) {
                         Checkbox(
                             checked = isChecked,
-                            onCheckedChange = null // Manejado por toggleable del Row
+                            onCheckedChange = null
                         )
                         Spacer(Modifier.width(12.dp))
                         Column(modifier = Modifier.weight(1f)) {
                             Text(
-                                text = title,
+                                text = titleText,
                                 style = MaterialTheme.typography.bodyLarge,
                                 fontWeight = FontWeight.Bold
                             )
@@ -1141,6 +1801,59 @@ private fun ProactivePresetEditorDialog(
                                 style = MaterialTheme.typography.bodySmall,
                                 color = MaterialTheme.colorScheme.onSurfaceVariant
                             )
+                        }
+                    }
+                }
+
+                // Sección de Objetos Personales vinculables si existen
+                if (personalObjects.isNotEmpty()) {
+                    Spacer(Modifier.height(4.dp))
+                    Text(
+                        text = stringResource(R.string.personal_objects_in_presets_header),
+                        style = MaterialTheme.typography.titleMedium,
+                        fontWeight = FontWeight.Bold,
+                        color = MaterialTheme.colorScheme.primary
+                    )
+
+                    personalObjects.forEach { obj ->
+                        val isChecked = selectedPersonalObjectIds.contains(obj.id)
+                        Row(
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .clip(RoundedCornerShape(8.dp))
+                                .toggleable(
+                                    value = isChecked,
+                                    role = Role.Checkbox,
+                                    onValueChange = { checked ->
+                                        selectedPersonalObjectIds = if (checked) {
+                                            selectedPersonalObjectIds + obj.id
+                                        } else {
+                                            selectedPersonalObjectIds - obj.id
+                                        }
+                                        validationError = null
+                                    }
+                                )
+                                .padding(vertical = 8.dp, horizontal = 4.dp),
+                            verticalAlignment = Alignment.CenterVertically
+                        ) {
+                            Checkbox(
+                                checked = isChecked,
+                                onCheckedChange = null
+                            )
+                            Spacer(Modifier.width(12.dp))
+                            Column(modifier = Modifier.weight(1f)) {
+                                Text(
+                                    text = "⭐ ${obj.name}",
+                                    style = MaterialTheme.typography.bodyLarge,
+                                    fontWeight = FontWeight.Bold
+                                )
+                                Text(
+                                    text = obj.visualDescription,
+                                    style = MaterialTheme.typography.bodySmall,
+                                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                                    maxLines = 1
+                                )
+                            }
                         }
                     }
                 }
@@ -1215,7 +1928,7 @@ private fun ProactivePresetEditorDialog(
                         validationError = emptyNameError
                         return@Button
                     }
-                    if (selectedStandardKeys.isEmpty() && customTargets.isEmpty()) {
+                    if (selectedStandardKeys.isEmpty() && customTargets.isEmpty() && selectedPersonalObjectIds.isEmpty()) {
                         validationError = emptyTargetsError
                         return@Button
                     }
@@ -1235,7 +1948,8 @@ private fun ProactivePresetEditorDialog(
                         defaultNameRes = defaultNameRes,
                         isDefault = isDefault,
                         standardTargetKeys = selectedStandardKeys,
-                        customTargets = customTargets
+                        customTargets = customTargets,
+                        personalObjectIds = selectedPersonalObjectIds
                     )
                     onSavePreset(updatedPreset)
                 },
