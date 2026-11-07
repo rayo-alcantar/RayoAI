@@ -22,6 +22,9 @@ import com.rayoai.domain.usecase.proactive.EvaluateProactiveFrameUseCase
 import com.rayoai.domain.usecase.proactive.GenerateVisualProfileUseCase
 import com.rayoai.presentation.voice.AndroidSpeechFileTranscriber
 import dagger.hilt.android.lifecycle.HiltViewModel
+import kotlinx.coroutines.CancellationException
+import kotlinx.coroutines.CoroutineStart
+import kotlinx.coroutines.Job
 import kotlinx.coroutines.flow.MutableSharedFlow
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.SharedFlow
@@ -124,6 +127,8 @@ class ProactiveModeViewModel @Inject constructor(
     private var lastAnnouncementTimeMs: Long = 0L
     private var wasDetected: Boolean = false
     private var consecutiveNonDetectionFrames: Int = 0
+    private var startMonitoringJob: Job? = null
+    private var frameAnalysisJob: Job? = null
 
     private fun resetDetectionState() {
         _latestDetection.value = null
@@ -142,7 +147,8 @@ class ProactiveModeViewModel @Inject constructor(
     }
 
     fun startMonitoring(onMissingApiKey: () -> Unit) {
-        viewModelScope.launch {
+        if (_isMonitoring.value || startMonitoringJob?.isActive == true) return
+        startMonitoringJob = viewModelScope.launch {
             val key = apiKey.value ?: userPreferencesRepository.apiKey.first()
             if (key.isNullOrBlank()) {
                 onMissingApiKey()
@@ -155,9 +161,19 @@ class ProactiveModeViewModel @Inject constructor(
 
     fun stopMonitoring() {
         _isMonitoring.value = false
+        startMonitoringJob?.cancel()
+        startMonitoringJob = null
+        val pendingAnalysis = frameAnalysisJob
+        frameAnalysisJob = null
+        pendingAnalysis?.cancel()
         _isAnalyzing.value = false
         wasDetected = false
         consecutiveNonDetectionFrames = 0
+    }
+
+    override fun onCleared() {
+        stopMonitoring()
+        super.onCleared()
     }
 
     fun setQuickTarget(target: ProactiveQuickTarget) {
@@ -448,8 +464,8 @@ class ProactiveModeViewModel @Inject constructor(
             else -> defaultPromptCondition.ifBlank { "Objetos y cambios en el entorno" }
         }
 
-        viewModelScope.launch {
-            _isAnalyzing.value = true
+        _isAnalyzing.value = true
+        val analysis = viewModelScope.launch(start = CoroutineStart.LAZY) {
             var frameToProcess = bitmap
             try {
                 val key = apiKey.value ?: userPreferencesRepository.apiKey.first()
@@ -470,7 +486,6 @@ class ProactiveModeViewModel @Inject constructor(
                         true
                     )
                     if (scaled != bitmap) {
-                        bitmap.recycle()
                         frameToProcess = scaled
                     }
                 }
@@ -484,6 +499,7 @@ class ProactiveModeViewModel @Inject constructor(
                     languageCode = lang,
                     model = model
                 ).collect { result ->
+                    if (!_isMonitoring.value || frameAnalysisJob !== coroutineContext[Job]) return@collect
                     when (result) {
                         is ResultWrapper.Loading -> Unit
                         is ResultWrapper.Error -> {
@@ -519,12 +535,20 @@ class ProactiveModeViewModel @Inject constructor(
                         }
                     }
                 }
+            } catch (e: CancellationException) {
+                throw e
             } catch (_: Exception) {
                 // Mantener vigilancia activa en silencio
             } finally {
-                frameToProcess.recycle()
-                _isAnalyzing.value = false
+                if (frameToProcess !== bitmap) frameToProcess.recycle()
+                if (frameAnalysisJob === coroutineContext[Job]) {
+                    frameAnalysisJob = null
+                    _isAnalyzing.value = false
+                }
             }
         }
+        frameAnalysisJob = analysis
+        analysis.invokeOnCompletion { bitmap.recycle() }
+        analysis.start()
     }
 }

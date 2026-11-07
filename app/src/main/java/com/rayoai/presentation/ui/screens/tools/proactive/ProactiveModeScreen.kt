@@ -104,6 +104,7 @@ import androidx.compose.runtime.mutableLongStateOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
+import androidx.compose.runtime.rememberUpdatedState
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
@@ -262,10 +263,13 @@ fun ProactiveModeScreen(
         }
     }
 
-    DisposableEffect(Unit) {
+    val latestTextToSpeech by rememberUpdatedState(textToSpeech)
+    DisposableEffect(viewModel) {
         onDispose {
+            viewModel.stopMonitoring()
             toneGen?.release()
-            textToSpeech?.stop()
+            latestTextToSpeech?.stop()
+            vibrator?.cancel()
         }
     }
 
@@ -2369,6 +2373,8 @@ private fun ProactiveCameraPreview(
 
     DisposableEffect(cameraController, lifecycleOwner, canAnalyze, intervalMs) {
         val executor = Executors.newSingleThreadExecutor()
+        val mainExecutor = ContextCompat.getMainExecutor(context)
+        var analyzerActive = true // Solo se consulta y actualiza en el hilo principal.
 
         cameraController.setImageAnalysisAnalyzer(executor) { imageProxy ->
             val now = System.currentTimeMillis()
@@ -2376,7 +2382,9 @@ private fun ProactiveCameraPreview(
                 lastFrameTimeMs = now
                 val bitmap = imageProxyToBitmap(imageProxy)
                 if (bitmap != null) {
-                    onFrameToAnalyze(bitmap)
+                    mainExecutor.execute {
+                        if (analyzerActive) onFrameToAnalyze(bitmap) else bitmap.recycle()
+                    }
                 }
             }
             imageProxy.close()
@@ -2384,6 +2392,7 @@ private fun ProactiveCameraPreview(
         cameraController.bindToLifecycle(lifecycleOwner)
 
         onDispose {
+            analyzerActive = false
             cameraController.clearImageAnalysisAnalyzer()
             cameraController.unbind()
             executor.shutdown()

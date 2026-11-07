@@ -1,5 +1,6 @@
 package com.rayoai.presentation.ui.screens.tools.live
 
+import android.content.Context
 import android.graphics.Bitmap
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
@@ -10,6 +11,7 @@ import com.rayoai.domain.model.live.LiveSessionState
 import com.rayoai.domain.model.live.VisualSource
 import com.rayoai.domain.repository.UserPreferencesRepository
 import dagger.hilt.android.lifecycle.HiltViewModel
+import dagger.hilt.android.qualifiers.ApplicationContext
 import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.first
@@ -20,6 +22,7 @@ import javax.inject.Inject
 
 @HiltViewModel
 class LiveModeViewModel @Inject constructor(
+    @ApplicationContext private val context: Context,
     private val liveManager: GeminiLiveManager,
     private val userPreferencesRepository: UserPreferencesRepository
 ) : ViewModel() {
@@ -161,7 +164,9 @@ class LiveModeViewModel @Inject constructor(
     }
 
     override fun onCleared() {
+        // También cubre el cierre mientras Live conecta, antes del servicio en primer plano.
+        stopSession()
+        LiveSessionForegroundService.stop(context)
         super.onCleared()
-        // No detenemos la sesión automáticamente si el servicio en segundo plano sigue activo
     }
 }

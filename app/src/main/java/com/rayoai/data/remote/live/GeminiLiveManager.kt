@@ -65,12 +65,14 @@ class GeminiLiveManager @Inject constructor(
     private var client: GeminiLiveClient? = null
     private var recorder: LiveAudioRecorder? = null
     private var player: LiveAudioPlayer? = null
-    private var currentConfig: LiveModeConfig? = null
+    private var sessionToken: Any? = null
 
+    @Synchronized
     fun startSession(config: LiveModeConfig) {
-        if (_sessionState.value != LiveSessionState.STOPPED) return
+        if (sessionToken != null) return
 
-        currentConfig = config
+        val token = Any()
+        sessionToken = token
         _errorMessage.value = null
         _latestTranscript.value = ""
         _isVideoPaused.value = false
@@ -90,27 +92,33 @@ class GeminiLiveManager @Inject constructor(
             config = config,
             okHttpClient = okHttpClient,
             onStateChanged = { state ->
-                _sessionState.value = state
-                if (state == LiveSessionState.RUNNING) {
-                    recorder?.start()
+                withActiveSession(token) {
+                    _sessionState.value = state
+                    if (state == LiveSessionState.RUNNING) {
+                        recorder?.start()
+                    }
                 }
             },
             onAudioReceived = { pcm ->
-                player?.enqueueAudio(pcm)
+                withActiveSession(token) { player?.enqueueAudio(pcm) }
             },
             onTextReceived = { text ->
-                _latestTranscript.value = text
+                withActiveSession(token) { _latestTranscript.value = text }
             },
             onTurnComplete = {
-                player?.flush()
+                withActiveSession(token) { player?.flush() }
             },
             onInterrupted = {
-                player?.clear()
-                _isSpeaking.value = false
+                withActiveSession(token) {
+                    player?.clear()
+                    _isSpeaking.value = false
+                }
             },
             onError = { err ->
-                _errorMessage.value = err
-                stopSession()
+                withActiveSession(token) {
+                    _errorMessage.value = err
+                    stopSession()
+                }
             }
         )
 
@@ -118,11 +126,11 @@ class GeminiLiveManager @Inject constructor(
             pushToTalk = config.pushToTalk,
             isSpeakerPlaying = { player?.isSpeakingAudio() == true },
             onUserInterrupted = {
-                interruptCurrentResponse()
+                withActiveSession(token) { interruptCurrentResponse() }
             },
             onAudioChunk = { chunk ->
-                if (!_isMicMuted.value) {
-                    client?.sendAudio(chunk)
+                withActiveSession(token) {
+                    if (!_isMicMuted.value) client?.sendAudio(chunk)
                 }
             },
             onError = { exc ->
@@ -131,6 +139,12 @@ class GeminiLiveManager @Inject constructor(
         )
 
         client?.start()
+    }
+
+    private inline fun withActiveSession(token: Any, action: () -> Unit) {
+        synchronized(this) {
+            if (sessionToken === token) action()
+        }
     }
 
     fun setVisualSource(source: VisualSource) {
@@ -215,7 +229,10 @@ class GeminiLiveManager @Inject constructor(
         _errorMessage.value = null
     }
 
+    @Synchronized
     fun stopSession() {
+        if (sessionToken == null) return
+        sessionToken = null
         recorder?.stop()
         recorder = null
         player?.stop()

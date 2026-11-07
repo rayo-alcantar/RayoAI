@@ -304,7 +304,6 @@ fun LiveModeScreen(
     DisposableEffect(Unit) {
         onDispose {
             feedbackHelper.release()
-            LiveSessionForegroundService.stopScreenCapture(context)
         }
     }
 

@@ -11,6 +11,7 @@ import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.SupervisorJob
 import kotlinx.coroutines.cancel
+import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 import okhttp3.OkHttpClient
@@ -53,7 +54,7 @@ class GeminiLiveClient(
     private var sessionHandle: String? = null
     private var reconnectAttempts = 0
     private var isConnectedOnce = false
-    private var scope = CoroutineScope(SupervisorJob() + Dispatchers.IO)
+    private val scope = CoroutineScope(SupervisorJob() + Dispatchers.IO)
     private var activeModel: String = config.model
 
     fun start() {
@@ -72,6 +73,7 @@ class GeminiLiveClient(
         openWebSocket()
     }
 
+    @Synchronized
     private fun openWebSocket() {
         if (!isRunning.get()) return
         isSetupComplete.set(false)
@@ -436,25 +438,19 @@ class GeminiLiveClient(
 
         onStateChanged(LiveSessionState.RECONNECTING)
         val delaySec = (1L shl (reconnectAttempts - 1)).coerceAtMost(8L)
-        Thread({
-            try {
-                Thread.sleep(delaySec * 1000)
-                if (isRunning.get()) {
-                    connect()
-                }
-            } catch (e: InterruptedException) {
-                // Interrumpido
-            }
-        }, "RayoAI-LiveReconnect").start()
+        scope.launch {
+            delay(delaySec * 1000)
+            connect()
+        }
     }
 
+    @Synchronized
     fun stop() {
         isRunning.set(false)
         isSetupComplete.set(false)
         scope.cancel()
-        scope = CoroutineScope(SupervisorJob() + Dispatchers.IO)
         try {
-            webSocket?.close(1000, "User ended session")
+            webSocket?.cancel()
         } catch (e: Exception) {
             Log.w(TAG, "Error cerrando WebSocket", e)
         }

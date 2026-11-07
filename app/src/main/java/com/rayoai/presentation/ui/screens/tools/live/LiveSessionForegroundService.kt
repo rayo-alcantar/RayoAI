@@ -92,19 +92,6 @@ class LiveSessionForegroundService : Service() {
     override fun onStartCommand(intent: Intent?, flags: Int, startId: Int): Int {
         when (intent?.action) {
             ACTION_STOP -> {
-                isScreenCaptureActive = false
-                activeCapturedAppName = null
-                screenCaptureManager?.stop()
-                screenCaptureManager = null
-                liveManager.stopSession()
-                if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.N) {
-                    stopForeground(STOP_FOREGROUND_REMOVE)
-                } else {
-                    @Suppress("DEPRECATION")
-                    stopForeground(true)
-                }
-                val notificationManager = getSystemService(Context.NOTIFICATION_SERVICE) as NotificationManager
-                notificationManager.cancel(NOTIFICATION_ID)
                 stopSelf()
                 return START_NOT_STICKY
             }
@@ -177,7 +164,7 @@ class LiveSessionForegroundService : Service() {
             }
         }
 
-        return START_STICKY
+        return START_NOT_STICKY
     }
 
     override fun onDestroy() {
@@ -186,6 +173,7 @@ class LiveSessionForegroundService : Service() {
         activeCapturedAppName = null
         screenCaptureManager?.stop()
         screenCaptureManager = null
+        liveManager.stopSession()
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.N) {
             stopForeground(STOP_FOREGROUND_REMOVE)
         } else {

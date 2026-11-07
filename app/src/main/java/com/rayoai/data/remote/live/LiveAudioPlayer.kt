@@ -4,11 +4,14 @@ package com.rayoai.data.remote.live
 
 import android.content.Context
 import android.media.AudioAttributes
+import android.media.AudioDeviceCallback
 import android.media.AudioDeviceInfo
 import android.media.AudioFormat
 import android.media.AudioManager
 import android.media.AudioTrack
 import android.os.Build
+import android.os.Handler
+import android.os.Looper
 import android.os.Process
 import android.os.SystemClock
 import android.util.Log
@@ -18,8 +21,7 @@ import java.util.concurrent.atomic.AtomicBoolean
 /**
  * Reproduce el audio PCM devuelto por Gemini Live a 24 kHz Mono,
  * utilizando un búfer anti-jitter fluido que no fragmenta el audio
- * y ruteo flexible entre Altavoz (multimedia exterior sin bloqueo de TalkBack),
- * Auricular privado de llamada, o Silenciado.
+ * y prioridad para auriculares Bluetooth de comunicación sobre la salida del teléfono.
  */
 class LiveAudioPlayer(
     private val context: Context,
@@ -40,9 +42,15 @@ class LiveAudioPlayer(
     private val isPlaying = AtomicBoolean(false)
     private val isSpeaking = AtomicBoolean(false)
     private val isMuted = AtomicBoolean(initialOutputMode == "muted")
-    private var currentMode: String = initialOutputMode
+    private var currentMode: String = if (initialOutputMode == "muted") "speaker" else initialOutputMode
 
     private val audioManager = context.getSystemService(Context.AUDIO_SERVICE) as AudioManager
+    private var legacyScoRequested = false
+    private var audioDeviceCallbackRegistered = false
+    private val audioDeviceCallback = object : AudioDeviceCallback() {
+        override fun onAudioDevicesAdded(addedDevices: Array<out AudioDeviceInfo>) = updateRouting()
+        override fun onAudioDevicesRemoved(removedDevices: Array<out AudioDeviceInfo>) = updateRouting()
+    }
     private var audioTrack: AudioTrack? = null
     private var playbackThread: Thread? = null
 
@@ -54,11 +62,18 @@ class LiveAudioPlayer(
     @Volatile
     private var lastAudioWriteTime: Long = 0L
 
+    @Synchronized
     fun start() {
         if (isPlaying.getAndSet(true)) return
 
-        createTrack(currentMode)
-        applyRouting(currentMode)
+        updateRouting()
+        try {
+            audioManager.registerAudioDeviceCallback(audioDeviceCallback, Handler(Looper.getMainLooper()))
+            audioDeviceCallbackRegistered = true
+        } catch (e: RuntimeException) {
+            Log.w(TAG, "No se pudieron observar cambios de dispositivos de audio", e)
+        }
+        createTrack()
 
         synchronized(lock) {
             chunks.clear()
@@ -73,19 +88,13 @@ class LiveAudioPlayer(
         }
     }
 
-    private fun createTrack(mode: String) {
+    private fun createTrack() {
         val minBufferSize = AudioTrack.getMinBufferSize(
             SAMPLE_RATE,
             AudioFormat.CHANNEL_OUT_MONO,
             AudioFormat.ENCODING_PCM_16BIT
         )
         val bufferSize = minBufferSize.coerceAtLeast(SAMPLE_RATE * 2) // 48,000 bytes (1s)
-
-        try {
-            audioTrack?.pause()
-            audioTrack?.flush()
-            audioTrack?.release()
-        } catch (_: Exception) {}
 
         try {
             // USAGE_VOICE_COMMUNICATION vincula la reproducción al subsistema VoIP/AEC
@@ -111,51 +120,67 @@ class LiveAudioPlayer(
 
             audioTrack?.play()
         } catch (e: Exception) {
-            Log.e(TAG, "Error inicializando AudioTrack en modo $mode", e)
+            Log.e(TAG, "Error inicializando AudioTrack", e)
         }
     }
 
-    private fun applyRouting(mode: String) {
+    @Synchronized
+    @Suppress("DEPRECATION") // SCO en Android 10 y 11.
+    private fun updateRouting() {
+        if (!isPlaying.get()) return
         try {
-            when (mode) {
-                "earpiece" -> {
-                    audioManager.mode = AudioManager.MODE_IN_COMMUNICATION
-                    @Suppress("DEPRECATION")
+            audioManager.mode = AudioManager.MODE_IN_COMMUNICATION
+            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S) {
+                val devices = audioManager.availableCommunicationDevices
+                val bluetooth = devices.firstOrNull {
+                    it.type == AudioDeviceInfo.TYPE_BLUETOOTH_SCO ||
+                        it.type == AudioDeviceInfo.TYPE_BLE_HEADSET ||
+                        it.type == AudioDeviceInfo.TYPE_HEARING_AID
+                }
+                if (bluetooth != null && audioManager.setCommunicationDevice(bluetooth)) return
+
+                val phoneOutput = if (currentMode == "earpiece") {
+                    AudioDeviceInfo.TYPE_BUILTIN_EARPIECE
+                } else {
+                    AudioDeviceInfo.TYPE_BUILTIN_SPEAKER
+                }
+                val fallback = devices.firstOrNull { it.type == phoneOutput }
+                if (fallback == null || !audioManager.setCommunicationDevice(fallback)) {
+                    audioManager.clearCommunicationDevice()
+                }
+            } else {
+                val hasSco = audioManager.isBluetoothScoAvailableOffCall &&
+                    audioManager.getDevices(AudioManager.GET_DEVICES_OUTPUTS)
+                        .any { it.type == AudioDeviceInfo.TYPE_BLUETOOTH_SCO }
+                if (hasSco) {
                     audioManager.isSpeakerphoneOn = false
-                    if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S) {
-                        val earpiece = audioManager.availableCommunicationDevices.firstOrNull {
-                            it.type == AudioDeviceInfo.TYPE_BUILTIN_EARPIECE
-                        }
-                        if (earpiece != null) {
-                            audioManager.setCommunicationDevice(earpiece)
-                        }
+                    if (!legacyScoRequested) {
+                        audioManager.startBluetoothSco()
+                        legacyScoRequested = true
                     }
-                }
-                "muted" -> {
-                    // Modo silenciado: el flujo de audio se descarta internamente
-                }
-                else -> {
-                    // "speaker": llamada/comunicación al altavoz exterior con cancelación de eco activa
-                    audioManager.mode = AudioManager.MODE_IN_COMMUNICATION
-                    @Suppress("DEPRECATION")
-                    audioManager.isSpeakerphoneOn = true
-                    if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S) {
-                        val speaker = audioManager.availableCommunicationDevices.firstOrNull {
-                            it.type == AudioDeviceInfo.TYPE_BUILTIN_SPEAKER
-                        }
-                        if (speaker != null) {
-                            audioManager.setCommunicationDevice(speaker)
-                        } else {
-                            audioManager.clearCommunicationDevice()
-                        }
-                    }
+                    audioManager.isBluetoothScoOn = true
+                } else {
+                    releaseLegacySco()
+                    audioManager.isSpeakerphoneOn = currentMode != "earpiece"
                 }
             }
         } catch (e: Exception) {
-            Log.w(TAG, "Error aplicando ruteo de audio ($mode): ${e.message}")
+            Log.w(TAG, "Error aplicando ruteo de audio", e)
         }
     }
 
+    @Suppress("DEPRECATION")
+    private fun releaseLegacySco() {
+        if (!legacyScoRequested) return
+        legacyScoRequested = false
+        try {
+            audioManager.isBluetoothScoOn = false
+        } finally {
+            audioManager.stopBluetoothSco()
+        }
+    }
+
+    @Synchronized
     fun setAudioOutput(mode: String) {
         if (mode == "muted") {
             isMuted.set(true)
@@ -163,12 +188,9 @@ class LiveAudioPlayer(
             return
         }
 
+        currentMode = mode
+        updateRouting()
         isMuted.set(false)
-        if (mode != currentMode) {
-            currentMode = mode
-            createTrack(mode)
-            applyRouting(mode)
-        }
     }
 
     fun enqueueAudio(pcmData: ByteArray) {
@@ -234,8 +256,14 @@ class LiveAudioPlayer(
         return (SystemClock.elapsedRealtime() - lastAudioWriteTime) < 350L
     }
 
+    @Synchronized
+    @Suppress("DEPRECATION")
     fun stop() {
-        isPlaying.set(false)
+        if (!isPlaying.getAndSet(false)) return
+        if (audioDeviceCallbackRegistered) {
+            runCatching { audioManager.unregisterAudioDeviceCallback(audioDeviceCallback) }
+            audioDeviceCallbackRegistered = false
+        }
         synchronized(lock) {
             chunks.clear()
             bufferedBytes = 0
@@ -267,9 +295,14 @@ class LiveAudioPlayer(
         try {
             if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S) {
                 audioManager.clearCommunicationDevice()
+            } else {
+                releaseLegacySco()
+                audioManager.isSpeakerphoneOn = false
             }
-            audioManager.mode = AudioManager.MODE_NORMAL
-        } catch (_: Exception) {}
+        } catch (_: Exception) {
+        } finally {
+            runCatching { audioManager.mode = AudioManager.MODE_NORMAL }
+        }
     }
 
     private fun playbackLoop() {
