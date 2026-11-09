@@ -28,6 +28,9 @@ android {
         versionName = "3.3.12"
         testInstrumentationRunner = "com.rayoai.CustomTestRunner"
         vectorDrawables { useSupportLibrary = true }
+        ndk {
+            abiFilters += listOf("arm64-v8a", "armeabi-v7a")
+        }
     }
 
     flavorDimensions += "distribution"
