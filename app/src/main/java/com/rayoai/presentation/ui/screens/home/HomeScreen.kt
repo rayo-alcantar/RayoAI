@@ -32,6 +32,7 @@ import androidx.compose.material.icons.filled.FlashOff
 import androidx.compose.material.icons.filled.FlashOn
 import androidx.compose.material.icons.filled.Image
 import androidx.compose.material.icons.filled.PhotoCamera
+import androidx.compose.material.icons.filled.Portrait
 import androidx.compose.material.icons.filled.PhotoLibrary
 import androidx.compose.material.icons.filled.Save
 import androidx.compose.material.icons.filled.Share
@@ -272,25 +273,79 @@ fun HomeScreen(
                             .padding(horizontal = 16.dp),
                         horizontalAlignment = Alignment.CenterHorizontally
                     ) {
-                        Row(
+                        Box(
                             modifier = Modifier
                                 .fillMaxWidth()
                                 .height(88.dp)
                                 .padding(top = 12.dp, bottom = 12.dp),
-                            horizontalArrangement = Arrangement.SpaceBetween,
-                            verticalAlignment = Alignment.CenterVertically
+                            contentAlignment = Alignment.Center
                         ) {
-                            FilledIconButton(
-                                onClick = { viewModel.toggleCamera() },
-                                modifier = Modifier.size(52.dp)
+                            Row(
+                                modifier = Modifier.align(Alignment.CenterStart),
+                                horizontalArrangement = Arrangement.spacedBy(8.dp),
+                                verticalAlignment = Alignment.CenterVertically
                             ) {
-                                Icon(
-                                    Icons.Default.Cameraswitch,
-                                    contentDescription = if (uiState.currentCameraSelector == CameraSelector.DEFAULT_BACK_CAMERA)
-                                        stringResource(R.string.switch_to_front_camera)
-                                    else
-                                        stringResource(R.string.switch_to_back_camera)
-                                )
+                                FilledIconButton(
+                                    onClick = { viewModel.toggleCamera() },
+                                    modifier = Modifier.size(52.dp)
+                                ) {
+                                    Icon(
+                                        Icons.Default.Cameraswitch,
+                                        contentDescription = if (uiState.currentCameraSelector == CameraSelector.DEFAULT_BACK_CAMERA)
+                                            stringResource(R.string.switch_to_front_camera)
+                                        else
+                                            stringResource(R.string.switch_to_back_camera)
+                                    )
+                                }
+
+                                val cameraModePhoto = stringResource(R.string.camera_mode_photo)
+                                val cameraModePortrait = stringResource(R.string.camera_mode_portrait)
+                                val cameraModePhotoDesc = stringResource(R.string.camera_mode_photo_desc)
+                                val cameraModePortraitDesc = stringResource(R.string.camera_mode_portrait_desc)
+                                val portraitUnsupported = stringResource(R.string.portrait_mode_unsupported)
+
+                                val portraitButtonDesc = if (!uiState.isPortraitModeSupported) {
+                                    portraitUnsupported
+                                } else if (uiState.isPortraitMode) {
+                                    cameraModePortraitDesc
+                                } else {
+                                    cameraModePhotoDesc
+                                }
+
+                                val portraitStateDesc = if (!uiState.isPortraitModeSupported) {
+                                    portraitUnsupported
+                                } else if (uiState.isPortraitMode) {
+                                    cameraModePortrait
+                                } else {
+                                    cameraModePhoto
+                                }
+
+                                FilledIconButton(
+                                    onClick = { viewModel.togglePortraitMode() },
+                                    enabled = uiState.isPortraitModeSupported && !uiState.isLoading && !uiState.isCapturing,
+                                    modifier = Modifier
+                                        .size(52.dp)
+                                        .semantics {
+                                            contentDescription = portraitButtonDesc
+                                            stateDescription = portraitStateDesc
+                                        },
+                                    colors = if (uiState.isPortraitMode) {
+                                        IconButtonDefaults.filledIconButtonColors(
+                                            containerColor = MaterialTheme.colorScheme.primary,
+                                            contentColor = MaterialTheme.colorScheme.onPrimary
+                                        )
+                                    } else {
+                                        IconButtonDefaults.filledIconButtonColors(
+                                            containerColor = MaterialTheme.colorScheme.surfaceVariant,
+                                            contentColor = MaterialTheme.colorScheme.onSurfaceVariant
+                                        )
+                                    }
+                                ) {
+                                    Icon(
+                                        imageVector = if (uiState.isPortraitMode) Icons.Default.Portrait else Icons.Default.PhotoCamera,
+                                        contentDescription = null
+                                    )
+                                }
                             }
 
                             Image(
@@ -305,7 +360,9 @@ fun HomeScreen(
                                         PickVisualMediaRequest(ActivityResultContracts.PickVisualMedia.ImageOnly)
                                     )
                                 },
-                                modifier = Modifier.size(52.dp)
+                                modifier = Modifier
+                                    .size(52.dp)
+                                    .align(Alignment.CenterEnd)
                             ) {
                                 Icon(
                                     Icons.Default.PhotoLibrary,
@@ -328,6 +385,10 @@ fun HomeScreen(
                                 isCapturing = uiState.isCapturing,
                                 cameraSelector = uiState.currentCameraSelector,
                                 flashMode = uiState.flashMode,
+                                isPortraitMode = uiState.isPortraitMode,
+                                onPortraitModeAvailabilityChanged = { isSupported ->
+                                    viewModel.setPortraitModeSupported(isSupported)
+                                },
                                 isFocusAssistEnabled = uiState.focusAssistMode != FocusAssistMode.OFF &&
                                     !uiState.isLoading &&
                                     !uiState.isCapturing,

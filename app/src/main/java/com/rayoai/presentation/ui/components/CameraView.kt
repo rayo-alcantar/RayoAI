@@ -20,9 +20,15 @@ import androidx.camera.core.ImageCapture
 import androidx.camera.core.ImageCaptureException
 import androidx.camera.core.ImageProxy
 import androidx.camera.core.CameraSelector
+import androidx.camera.extensions.ExtensionMode
+import androidx.camera.extensions.ExtensionsManager
+import androidx.camera.lifecycle.ProcessCameraProvider
 import androidx.camera.view.CameraController
 import androidx.camera.view.LifecycleCameraController
 import androidx.camera.view.PreviewView
+import com.rayoai.core.PortraitBokehProcessor
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.withContext
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.padding
@@ -78,6 +84,8 @@ fun CameraView(
     isCapturing: Boolean,
     cameraSelector: CameraSelector,
     flashMode: Int = ImageCapture.FLASH_MODE_AUTO,
+    isPortraitMode: Boolean = false,
+    onPortraitModeAvailabilityChanged: (Boolean) -> Unit = {},
     isFocusAssistEnabled: Boolean = false,
     onFocusAssistAnnouncement: (String) -> Unit = {},
     onFocusAssistCentered: () -> Unit = {}
@@ -99,11 +107,56 @@ fun CameraView(
     val currentCenteredCallback by rememberUpdatedState(onFocusAssistCentered)
     val currentFlashMode by rememberUpdatedState(flashMode)
     val currentFocusAssistEnabled by rememberUpdatedState(isFocusAssistEnabled)
+    val currentOnPortraitModeAvailabilityChanged by rememberUpdatedState(onPortraitModeAvailabilityChanged)
     val sensorManager = remember {
         context.getSystemService(Context.SENSOR_SERVICE) as SensorManager
     }
     val ambientLightSensor = remember { sensorManager.getDefaultSensor(Sensor.TYPE_LIGHT) }
     var autoTorchEnabled by remember { mutableStateOf(false) }
+
+    val cameraProviderFuture = remember(context) { ProcessCameraProvider.getInstance(context) }
+    var extensionsManager by remember { mutableStateOf<ExtensionsManager?>(null) }
+    var isBokehAvailableOnCurrentCamera by remember { mutableStateOf(false) }
+
+    LaunchedEffect(cameraSelector) {
+        withContext(Dispatchers.IO) {
+            try {
+                val cameraProvider = cameraProviderFuture.get()
+                val extManager = extensionsManager ?: ExtensionsManager.getInstanceAsync(context, cameraProvider).get()
+                extensionsManager = extManager
+                val isSupported = extManager.isExtensionAvailable(cameraSelector, ExtensionMode.BOKEH)
+                withContext(Dispatchers.Main) {
+                    isBokehAvailableOnCurrentCamera = isSupported
+                    currentOnPortraitModeAvailabilityChanged(isSupported)
+                }
+            } catch (e: Exception) {
+                Log.w("CameraView", "Failed checking Bokeh extension availability", e)
+                withContext(Dispatchers.Main) {
+                    isBokehAvailableOnCurrentCamera = false
+                    currentOnPortraitModeAvailabilityChanged(false)
+                }
+            }
+        }
+    }
+
+    val effectiveCameraSelector = remember(
+        cameraSelector,
+        isPortraitMode,
+        isBokehAvailableOnCurrentCamera,
+        extensionsManager
+    ) {
+        if (isPortraitMode && isBokehAvailableOnCurrentCamera && extensionsManager != null) {
+            try {
+                extensionsManager!!.getExtensionEnabledCameraSelector(cameraSelector, ExtensionMode.BOKEH)
+            } catch (e: Exception) {
+                Log.e("CameraView", "Error acquiring Bokeh CameraSelector, falling back to base", e)
+                cameraSelector
+            }
+        } else {
+            cameraSelector
+        }
+    }
+
     // Controlador de la cámara que gestiona el ciclo de vida y las operaciones de la cámara.
     val cameraController = remember { LifecycleCameraController(context) }
     val cameraBackgroundExecutor = remember { Executors.newSingleThreadExecutor() }
@@ -186,8 +239,15 @@ fun CameraView(
             autoTorchEnabled = false
         }
     }
-    LaunchedEffect(cameraController, cameraSelector, flashMode) {
-        cameraController.cameraSelector = cameraSelector
+    LaunchedEffect(cameraController, effectiveCameraSelector, flashMode) {
+        try {
+            cameraController.cameraSelector = effectiveCameraSelector
+        } catch (e: Exception) {
+            Log.e("CameraView", "Failed setting cameraSelector to controller", e)
+            if (effectiveCameraSelector != cameraSelector) {
+                runCatching { cameraController.cameraSelector = cameraSelector }
+            }
+        }
         cameraController.imageCaptureFlashMode = flashMode
     }
     LaunchedEffect(cameraController, isFocusAssistEnabled, focusAssistAnalyzer) {
@@ -223,6 +283,8 @@ fun CameraView(
             )
         }
     }
+    val isHardwareBokehActive = isPortraitMode && isBokehAvailableOnCurrentCamera && extensionsManager != null
+
     // Estado del permiso de la cámara utilizando Accompanist Permissions.
     LaunchedEffect(isCapturing) {
         Log.d("CameraView", "isCapturing changed to: $isCapturing")
@@ -231,6 +293,8 @@ fun CameraView(
                 cameraController = cameraController,
                 backgroundExecutor = cameraBackgroundExecutor,
                 context = context,
+                isPortraitMode = isPortraitMode,
+                isHardwareBokehActive = isHardwareBokehActive,
                 onImageCaptured = onImageCaptured,
                 onError = onError,
                 captureError = captureError,
@@ -278,6 +342,8 @@ private fun captureImage(
     cameraController: LifecycleCameraController,
     backgroundExecutor: ExecutorService,
     context: Context,
+    isPortraitMode: Boolean,
+    isHardwareBokehActive: Boolean,
     onImageCaptured: (Bitmap) -> Unit,
     onError: (String) -> Unit,
     captureError: String,
@@ -295,8 +361,20 @@ private fun captureImage(
                         val bitmap = image.toBitmap()
                         val rotationDegrees = image.imageInfo.rotationDegrees
                         val processedBitmap = rotateAndScaleBitmap(bitmap, rotationDegrees)
+
+                        val finalBitmap = if (isPortraitMode && !isHardwareBokehActive) {
+                            Log.d("CameraView", "Applying software portrait bokeh effect")
+                            runCatching {
+                                kotlinx.coroutines.runBlocking {
+                                    PortraitBokehProcessor.applyBokehEffect(processedBitmap)
+                                }
+                            }.getOrDefault(processedBitmap)
+                        } else {
+                            processedBitmap
+                        }
+
                         mainExecutor.execute {
-                            onImageCaptured(processedBitmap)
+                            onImageCaptured(finalBitmap)
                         }
                     } catch (e: Exception) {
                         Log.e("CameraView", "Error processing captured bitmap: ", e)

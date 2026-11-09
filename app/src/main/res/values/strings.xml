@@ -101,6 +101,11 @@ Tarjeta: 4152314082325278</string>
     <string name="camera_permission_required">Se requiere permiso de cámara para tomar fotografías.</string>
     <string name="switch_to_front_camera">Cambiar a cámara frontal</string>
     <string name="switch_to_back_camera">Cambiar a cámara trasera</string>
+    <string name="camera_mode_photo">Modo fotografía</string>
+    <string name="camera_mode_portrait">Modo retrato</string>
+    <string name="camera_mode_photo_desc">Modo fotografía normal. Toca para cambiar a modo retrato</string>
+    <string name="camera_mode_portrait_desc">Modo retrato activado. Toca para cambiar a fotografía normal</string>
+    <string name="portrait_mode_unsupported">Modo retrato no disponible en esta cámara</string>
     <string name="load_from_gallery">Cargar de la galería</string>
     <string name="timer">Temporizador</string>
     <string name="select">Seleccionar</string>
@@ -447,6 +452,12 @@ Tarjeta: 4152314082325278</string>
     <string name="live_mode_torch_off_desc">Linterna encendida. Toca para apagar</string>
     <string name="live_mode_mic_muted">Micrófono silenciado</string>
     <string name="live_mode_mic_unmuted">Micrófono activo</string>
+    <string name="live_mode_mute_mic">Silenciar micrófono</string>
+    <string name="live_mode_unmute_mic">Activar micrófono</string>
+    <string name="live_mode_floating_controls">Controles flotantes de Live</string>
+    <string name="live_mode_floating_controls_description">Muestra los controles sobre otras apps durante esta conversación. Android te pedirá permiso para mostrarlos.</string>
+    <string name="live_mode_hide_floating_controls">Ocultar controles flotantes</string>
+    <string name="live_mode_overlay_settings_unavailable">No se pudo abrir el permiso de superposición. Puedes usar los controles de la notificación de Live.</string>
     <string name="live_mode_ptt_button">Pulsar para hablar</string>
     <string name="live_mode_ptt_talking">Hablando…</string>
     <string name="live_mode_ptt_listening">Escuchando…</string>
@@ -538,7 +549,11 @@ Tarjeta: 4152314082325278</string>
     <string name="proactive_preset_custom_title">✍️ Personalizado</string>
     <string name="proactive_preset_custom_condition">Detecta el objetivo especificado por el usuario.</string>
     <string name="proactive_custom_hint">¿Qué deseas que vigile? (ej. dime cuando veas una ventana)</string>
-    <string name="proactive_interval_label">Frecuencia</string>
+        <string name="proactive_interval_label">Intervalo de análisis</string>
+    <plurals name="proactive_interval_seconds">
+        <item quantity="one">%d segundo</item>
+        <item quantity="other">%d segundos</item>
+    </plurals>
     <string name="proactive_interval_1s">1s (tiempo real)</string>
     <string name="proactive_interval_2s">2s (rápido)</string>
     <string name="proactive_interval_3s">3s (óptimo)</string>

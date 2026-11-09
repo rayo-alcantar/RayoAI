@@ -20,6 +20,9 @@ import com.rayoai.presentation.voice.AndroidSpeechFileTranscriber
 import dagger.hilt.android.lifecycle.HiltViewModel
 import androidx.camera.core.CameraSelector
 import androidx.camera.core.ImageCapture
+import androidx.camera.extensions.ExtensionMode
+import androidx.camera.extensions.ExtensionsManager
+import androidx.camera.lifecycle.ProcessCameraProvider
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.flow.MutableSharedFlow
 import kotlinx.coroutines.flow.MutableStateFlow
@@ -92,7 +95,10 @@ data class HomeUiState(
     val failedActionType: FailedActionType = FailedActionType.NONE,
     val failedMessageContent: String? = null,
     val isNewCapture: Boolean = false,
-    val focusAssistMode: FocusAssistMode = FocusAssistMode.OFF
+    val focusAssistMode: FocusAssistMode = FocusAssistMode.OFF,
+    val isPortraitMode: Boolean = false,
+    val isPortraitModeSupported: Boolean = true,
+    val isPortraitDeviceCapable: Boolean = true
 )
 
 
@@ -134,6 +140,10 @@ class HomeViewModel @Inject constructor(
         }
         savedStateHandle.get<String>("captureId")?.toLongOrNull()?.let {
             restoreChatFromHistory(it)
+        }
+
+        viewModelScope.launch(Dispatchers.IO) {
+            checkDevicePortraitSupport()
         }
 
         viewModelScope.launch {
@@ -660,13 +670,47 @@ class HomeViewModel @Inject constructor(
     }
 
     fun toggleCamera() {
+        val nextSelector = if (_uiState.value.currentCameraSelector == CameraSelector.DEFAULT_BACK_CAMERA) {
+            CameraSelector.DEFAULT_FRONT_CAMERA
+        } else {
+            CameraSelector.DEFAULT_BACK_CAMERA
+        }
         _uiState.update { currentState ->
-            val newSelector = if (currentState.currentCameraSelector == CameraSelector.DEFAULT_BACK_CAMERA) {
-                CameraSelector.DEFAULT_FRONT_CAMERA
-            } else {
-                CameraSelector.DEFAULT_BACK_CAMERA
+            currentState.copy(currentCameraSelector = nextSelector)
+        }
+    }
+
+    fun togglePortraitMode() {
+        _uiState.update { current ->
+            current.copy(isPortraitMode = !current.isPortraitMode)
+        }
+    }
+
+    fun setPortraitModeSupported(isSupported: Boolean) {
+        _uiState.update { current ->
+            current.copy(
+                isPortraitModeSupported = true,
+                isPortraitDeviceCapable = true
+            )
+        }
+    }
+
+    private suspend fun checkDevicePortraitSupport() {
+        try {
+            val cameraProvider = ProcessCameraProvider.getInstance(appContext).get()
+            val extensionsManager = ExtensionsManager.getInstanceAsync(appContext, cameraProvider).get()
+            val backSupported = extensionsManager.isExtensionAvailable(CameraSelector.DEFAULT_BACK_CAMERA, ExtensionMode.BOKEH)
+            val frontSupported = extensionsManager.isExtensionAvailable(CameraSelector.DEFAULT_FRONT_CAMERA, ExtensionMode.BOKEH)
+            val isDeviceCapable = backSupported || frontSupported
+            Log.i("HomeViewModel", "CameraX Bokeh check: back=$backSupported, front=$frontSupported, capable=$isDeviceCapable")
+            _uiState.update {
+                it.copy(
+                    isPortraitDeviceCapable = true,
+                    isPortraitModeSupported = true
+                )
             }
-            currentState.copy(currentCameraSelector = newSelector)
+        } catch (e: Exception) {
+            Log.w("HomeViewModel", "Unable to query CameraX ExtensionsManager for portrait support", e)
         }
     }
 
