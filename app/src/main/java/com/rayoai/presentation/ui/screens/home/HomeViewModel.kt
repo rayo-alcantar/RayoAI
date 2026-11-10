@@ -63,6 +63,12 @@ enum class FocusAssistMode {
     AUTO_CAPTURE
 }
 
+enum class PortraitMode {
+    OFF,
+    SOFTWARE,
+    HARDWARE
+}
+
 data class HomeUiState(
     val screenState: HomeScreenState = HomeScreenState.Initial,
     val isLoading: Boolean = false,
@@ -96,10 +102,12 @@ data class HomeUiState(
     val failedMessageContent: String? = null,
     val isNewCapture: Boolean = false,
     val focusAssistMode: FocusAssistMode = FocusAssistMode.OFF,
-    val isPortraitMode: Boolean = false,
-    val isPortraitModeSupported: Boolean = true,
-    val isPortraitDeviceCapable: Boolean = true
-)
+    val portraitMode: PortraitMode = PortraitMode.OFF,
+    val isHardwarePortraitSupported: Boolean = false
+) {
+    val isPortraitMode: Boolean get() = portraitMode != PortraitMode.OFF
+    val isPortraitModeSupported: Boolean get() = true
+}
 
 
 @HiltViewModel
@@ -682,17 +690,37 @@ class HomeViewModel @Inject constructor(
 
     fun togglePortraitMode() {
         _uiState.update { current ->
-            current.copy(isPortraitMode = !current.isPortraitMode)
+            val nextMode = when (current.portraitMode) {
+                PortraitMode.OFF -> PortraitMode.SOFTWARE
+                PortraitMode.SOFTWARE -> {
+                    if (current.isHardwarePortraitSupported) {
+                        PortraitMode.HARDWARE
+                    } else {
+                        PortraitMode.OFF
+                    }
+                }
+                PortraitMode.HARDWARE -> PortraitMode.OFF
+            }
+            current.copy(portraitMode = nextMode)
+        }
+    }
+
+    fun setHardwarePortraitSupported(isSupported: Boolean) {
+        _uiState.update { current ->
+            val adjustedMode = if (!isSupported && current.portraitMode == PortraitMode.HARDWARE) {
+                PortraitMode.SOFTWARE
+            } else {
+                current.portraitMode
+            }
+            current.copy(
+                isHardwarePortraitSupported = isSupported,
+                portraitMode = adjustedMode
+            )
         }
     }
 
     fun setPortraitModeSupported(isSupported: Boolean) {
-        _uiState.update { current ->
-            current.copy(
-                isPortraitModeSupported = true,
-                isPortraitDeviceCapable = true
-            )
-        }
+        // Kept for backward compatibility
     }
 
     private suspend fun checkDevicePortraitSupport() {
@@ -705,8 +733,7 @@ class HomeViewModel @Inject constructor(
             Log.i("HomeViewModel", "CameraX Bokeh check: back=$backSupported, front=$frontSupported, capable=$isDeviceCapable")
             _uiState.update {
                 it.copy(
-                    isPortraitDeviceCapable = true,
-                    isPortraitModeSupported = true
+                    isHardwarePortraitSupported = isDeviceCapable
                 )
             }
         } catch (e: Exception) {

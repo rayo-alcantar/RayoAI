@@ -27,6 +27,7 @@ import androidx.camera.view.CameraController
 import androidx.camera.view.LifecycleCameraController
 import androidx.camera.view.PreviewView
 import com.rayoai.core.PortraitBokehProcessor
+import com.rayoai.presentation.ui.screens.home.PortraitMode
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
 import androidx.compose.foundation.layout.Box
@@ -84,8 +85,8 @@ fun CameraView(
     isCapturing: Boolean,
     cameraSelector: CameraSelector,
     flashMode: Int = ImageCapture.FLASH_MODE_AUTO,
-    isPortraitMode: Boolean = false,
-    onPortraitModeAvailabilityChanged: (Boolean) -> Unit = {},
+    portraitMode: PortraitMode = PortraitMode.OFF,
+    onHardwarePortraitAvailabilityChanged: (Boolean) -> Unit = {},
     isFocusAssistEnabled: Boolean = false,
     onFocusAssistAnnouncement: (String) -> Unit = {},
     onFocusAssistCentered: () -> Unit = {}
@@ -107,7 +108,7 @@ fun CameraView(
     val currentCenteredCallback by rememberUpdatedState(onFocusAssistCentered)
     val currentFlashMode by rememberUpdatedState(flashMode)
     val currentFocusAssistEnabled by rememberUpdatedState(isFocusAssistEnabled)
-    val currentOnPortraitModeAvailabilityChanged by rememberUpdatedState(onPortraitModeAvailabilityChanged)
+    val currentOnHardwarePortraitAvailabilityChanged by rememberUpdatedState(onHardwarePortraitAvailabilityChanged)
     val sensorManager = remember {
         context.getSystemService(Context.SENSOR_SERVICE) as SensorManager
     }
@@ -127,13 +128,13 @@ fun CameraView(
                 val isSupported = extManager.isExtensionAvailable(cameraSelector, ExtensionMode.BOKEH)
                 withContext(Dispatchers.Main) {
                     isBokehAvailableOnCurrentCamera = isSupported
-                    currentOnPortraitModeAvailabilityChanged(isSupported)
+                    currentOnHardwarePortraitAvailabilityChanged(isSupported)
                 }
             } catch (e: Exception) {
                 Log.w("CameraView", "Failed checking Bokeh extension availability", e)
                 withContext(Dispatchers.Main) {
                     isBokehAvailableOnCurrentCamera = false
-                    currentOnPortraitModeAvailabilityChanged(false)
+                    currentOnHardwarePortraitAvailabilityChanged(false)
                 }
             }
         }
@@ -141,11 +142,11 @@ fun CameraView(
 
     val effectiveCameraSelector = remember(
         cameraSelector,
-        isPortraitMode,
+        portraitMode,
         isBokehAvailableOnCurrentCamera,
         extensionsManager
     ) {
-        if (isPortraitMode && isBokehAvailableOnCurrentCamera && extensionsManager != null) {
+        if (portraitMode == PortraitMode.HARDWARE && isBokehAvailableOnCurrentCamera && extensionsManager != null) {
             try {
                 extensionsManager!!.getExtensionEnabledCameraSelector(cameraSelector, ExtensionMode.BOKEH)
             } catch (e: Exception) {
@@ -283,7 +284,6 @@ fun CameraView(
             )
         }
     }
-    val isHardwareBokehActive = isPortraitMode && isBokehAvailableOnCurrentCamera && extensionsManager != null
 
     // Estado del permiso de la cámara utilizando Accompanist Permissions.
     LaunchedEffect(isCapturing) {
@@ -293,8 +293,7 @@ fun CameraView(
                 cameraController = cameraController,
                 backgroundExecutor = cameraBackgroundExecutor,
                 context = context,
-                isPortraitMode = isPortraitMode,
-                isHardwareBokehActive = isHardwareBokehActive,
+                portraitMode = portraitMode,
                 onImageCaptured = onImageCaptured,
                 onError = onError,
                 captureError = captureError,
@@ -342,8 +341,7 @@ private fun captureImage(
     cameraController: LifecycleCameraController,
     backgroundExecutor: ExecutorService,
     context: Context,
-    isPortraitMode: Boolean,
-    isHardwareBokehActive: Boolean,
+    portraitMode: PortraitMode,
     onImageCaptured: (Bitmap) -> Unit,
     onError: (String) -> Unit,
     captureError: String,
@@ -362,7 +360,7 @@ private fun captureImage(
                         val rotationDegrees = image.imageInfo.rotationDegrees
                         val processedBitmap = rotateAndScaleBitmap(bitmap, rotationDegrees)
 
-                        val finalBitmap = if (isPortraitMode && !isHardwareBokehActive) {
+                        val finalBitmap = if (portraitMode == PortraitMode.SOFTWARE) {
                             Log.d("CameraView", "Applying software portrait bokeh effect")
                             runCatching {
                                 kotlinx.coroutines.runBlocking {

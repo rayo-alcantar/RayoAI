@@ -33,6 +33,7 @@ import androidx.compose.material.icons.filled.FlashOn
 import androidx.compose.material.icons.filled.Image
 import androidx.compose.material.icons.filled.PhotoCamera
 import androidx.compose.material.icons.filled.Portrait
+import androidx.compose.material.icons.filled.AutoAwesome
 import androidx.compose.material.icons.filled.PhotoLibrary
 import androidx.compose.material.icons.filled.Save
 import androidx.compose.material.icons.filled.Share
@@ -299,50 +300,56 @@ fun HomeScreen(
                                 }
 
                                 val cameraModePhoto = stringResource(R.string.camera_mode_photo)
-                                val cameraModePortrait = stringResource(R.string.camera_mode_portrait)
-                                val cameraModePhotoDesc = stringResource(R.string.camera_mode_photo_desc)
-                                val cameraModePortraitDesc = stringResource(R.string.camera_mode_portrait_desc)
-                                val portraitUnsupported = stringResource(R.string.portrait_mode_unsupported)
+                                val cameraModePortraitSoftware = stringResource(R.string.camera_mode_portrait_software)
+                                val cameraModePortraitHardware = stringResource(R.string.camera_mode_portrait_hardware)
+                                val cameraModePhotoDescWithHw = stringResource(R.string.camera_mode_photo_desc_with_hw)
+                                val cameraModePhotoDescNoHw = stringResource(R.string.camera_mode_photo_desc_no_hw)
+                                val cameraModePortraitSoftwareDescWithHw = stringResource(R.string.camera_mode_portrait_software_desc_with_hw)
+                                val cameraModePortraitSoftwareDescNoHw = stringResource(R.string.camera_mode_portrait_software_desc_no_hw)
+                                val cameraModePortraitHardwareDesc = stringResource(R.string.camera_mode_portrait_hardware_desc)
 
-                                val portraitButtonDesc = if (!uiState.isPortraitModeSupported) {
-                                    portraitUnsupported
-                                } else if (uiState.isPortraitMode) {
-                                    cameraModePortraitDesc
-                                } else {
-                                    cameraModePhotoDesc
+                                val portraitButtonDesc = when (uiState.portraitMode) {
+                                    PortraitMode.OFF -> if (uiState.isHardwarePortraitSupported) cameraModePhotoDescWithHw else cameraModePhotoDescNoHw
+                                    PortraitMode.SOFTWARE -> if (uiState.isHardwarePortraitSupported) cameraModePortraitSoftwareDescWithHw else cameraModePortraitSoftwareDescNoHw
+                                    PortraitMode.HARDWARE -> cameraModePortraitHardwareDesc
                                 }
 
-                                val portraitStateDesc = if (!uiState.isPortraitModeSupported) {
-                                    portraitUnsupported
-                                } else if (uiState.isPortraitMode) {
-                                    cameraModePortrait
-                                } else {
-                                    cameraModePhoto
+                                val portraitStateDesc = when (uiState.portraitMode) {
+                                    PortraitMode.OFF -> cameraModePhoto
+                                    PortraitMode.SOFTWARE -> cameraModePortraitSoftware
+                                    PortraitMode.HARDWARE -> cameraModePortraitHardware
                                 }
 
                                 FilledIconButton(
                                     onClick = { viewModel.togglePortraitMode() },
-                                    enabled = uiState.isPortraitModeSupported && !uiState.isLoading && !uiState.isCapturing,
+                                    enabled = !uiState.isLoading && !uiState.isCapturing,
                                     modifier = Modifier
                                         .size(52.dp)
                                         .semantics {
                                             contentDescription = portraitButtonDesc
                                             stateDescription = portraitStateDesc
                                         },
-                                    colors = if (uiState.isPortraitMode) {
-                                        IconButtonDefaults.filledIconButtonColors(
+                                    colors = when (uiState.portraitMode) {
+                                        PortraitMode.OFF -> IconButtonDefaults.filledIconButtonColors(
+                                            containerColor = MaterialTheme.colorScheme.surfaceVariant,
+                                            contentColor = MaterialTheme.colorScheme.onSurfaceVariant
+                                        )
+                                        PortraitMode.SOFTWARE -> IconButtonDefaults.filledIconButtonColors(
                                             containerColor = MaterialTheme.colorScheme.primary,
                                             contentColor = MaterialTheme.colorScheme.onPrimary
                                         )
-                                    } else {
-                                        IconButtonDefaults.filledIconButtonColors(
-                                            containerColor = MaterialTheme.colorScheme.surfaceVariant,
-                                            contentColor = MaterialTheme.colorScheme.onSurfaceVariant
+                                        PortraitMode.HARDWARE -> IconButtonDefaults.filledIconButtonColors(
+                                            containerColor = MaterialTheme.colorScheme.tertiary,
+                                            contentColor = MaterialTheme.colorScheme.onTertiary
                                         )
                                     }
                                 ) {
                                     Icon(
-                                        imageVector = if (uiState.isPortraitMode) Icons.Default.Portrait else Icons.Default.PhotoCamera,
+                                        imageVector = when (uiState.portraitMode) {
+                                            PortraitMode.OFF -> Icons.Default.PhotoCamera
+                                            PortraitMode.SOFTWARE -> Icons.Default.Portrait
+                                            PortraitMode.HARDWARE -> Icons.Default.AutoAwesome
+                                        },
                                         contentDescription = null
                                     )
                                 }
@@ -385,9 +392,9 @@ fun HomeScreen(
                                 isCapturing = uiState.isCapturing,
                                 cameraSelector = uiState.currentCameraSelector,
                                 flashMode = uiState.flashMode,
-                                isPortraitMode = uiState.isPortraitMode,
-                                onPortraitModeAvailabilityChanged = { isSupported ->
-                                    viewModel.setPortraitModeSupported(isSupported)
+                                portraitMode = uiState.portraitMode,
+                                onHardwarePortraitAvailabilityChanged = { isSupported ->
+                                    viewModel.setHardwarePortraitSupported(isSupported)
                                 },
                                 isFocusAssistEnabled = uiState.focusAssistMode != FocusAssistMode.OFF &&
                                     !uiState.isLoading &&

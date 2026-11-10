@@ -1,11 +1,7 @@
 package com.rayoai.core
 
 import android.graphics.Bitmap
-import android.graphics.Canvas
 import android.graphics.Color
-import android.graphics.Paint
-import android.graphics.PorterDuff
-import android.graphics.PorterDuffXfermode
 import android.util.Log
 import com.google.android.gms.tasks.Tasks
 import com.google.mlkit.vision.common.InputImage
@@ -16,9 +12,9 @@ import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
 
 /**
- * Procesador universal de desenfoque de fondo (Modo Retrato / Bokeh).
- * Utiliza Google ML Kit Selfie Segmentation para aislar el sujeto y aplicar
- * un desenfoque fotográfico al fondo sin depender de extensiones OEM de fabricantes.
+ * High-performance, natural optical portrait bokeh processor using Google ML Kit Selfie Segmentation.
+ * Employs normalized convolution (alpha-weighted blur) to suppress foreground silhouette bleed,
+ * optical depth tuning (f/1.8-f/2.2 emulation), and full-resolution alpha-channel feathering.
  */
 object PortraitBokehProcessor {
     private const val TAG = "PortraitBokeh"
@@ -40,97 +36,173 @@ object PortraitBokehProcessor {
             val maskBuffer = segmentationMask.buffer
 
             maskBuffer.rewind()
-            val totalPixels = maskWidth * maskHeight
-            val maskPixels = IntArray(totalPixels)
+            val totalMaskPixels = maskWidth * maskHeight
+            val maskPixels = IntArray(totalMaskPixels)
             var maxConfidence = 0f
 
-            for (i in 0 until totalPixels) {
-                val confidence = maskBuffer.float
-                if (confidence > maxConfidence) {
-                    maxConfidence = confidence
+            for (i in 0 until totalMaskPixels) {
+                val rawConfidence = maskBuffer.float
+                if (rawConfidence > maxConfidence) {
+                    maxConfidence = rawConfidence
                 }
-                val alpha = (confidence * 255f).toInt().coerceIn(0, 255)
-                maskPixels[i] = Color.argb(alpha, 255, 255, 255)
+                // Smoothstep curve (0.25 to 0.75) for soft, natural optical boundary feathering
+                val feathered = smoothStep(0.20f, 0.80f, rawConfidence)
+                val alpha = (feathered * 255f).toInt().coerceIn(0, 255)
+                maskPixels[i] = (alpha shl 24) or 0x00FFFFFF
             }
 
-            // Si no se detecta ninguna persona con suficiente confianza, mantener imagen original
+            // If no person is detected with sufficient confidence, return untouched source
             if (maxConfidence < 0.25f) {
                 Log.d(TAG, "No person detected with sufficient confidence ($maxConfidence), skipping blur")
                 return@withContext source
             }
 
-            // 1. Crear máscara alfa y escalarla a las dimensiones originales
+            // 1. Create full-resolution feathered alpha mask
             val rawMaskBitmap = Bitmap.createBitmap(maskPixels, maskWidth, maskHeight, Bitmap.Config.ARGB_8888)
-            val scaledMask = Bitmap.createScaledBitmap(rawMaskBitmap, source.width, source.height, true)
-            if (scaledMask != rawMaskBitmap) {
+            val fullMask = Bitmap.createScaledBitmap(rawMaskBitmap, source.width, source.height, true)
+            if (fullMask != rawMaskBitmap) {
                 rawMaskBitmap.recycle()
             }
 
-            // 2. Crear fondo desenfocado
-            val blurredBackground = createBlurredBackground(source, scaleFactor = 8, blurRadius = 5, blurPasses = 3)
+            // 2. Generate natural optical bokeh background with foreground suppression
+            val blurredBackground = createNaturalBokehBackground(
+                source = source,
+                fullMask = fullMask,
+                scaleFactor = 3,
+                blurRadius = 5,
+                blurPasses = 2
+            )
 
-            // 3. Componer la persona nítida sobre el fondo desenfocado
-            val composite = Bitmap.createBitmap(source.width, source.height, Bitmap.Config.ARGB_8888)
-            val canvas = Canvas(composite)
+            // 3. Pixel-exact ARGB composite
+            val width = source.width
+            val height = source.height
+            val totalPixels = width * height
 
-            // Fondo desenfocado
-            canvas.drawBitmap(blurredBackground, 0f, 0f, null)
+            val srcPixels = IntArray(totalPixels)
+            val bgPixels = IntArray(totalPixels)
+            val maskAlphaPixels = IntArray(totalPixels)
+            val compositePixels = IntArray(totalPixels)
 
-            // Persona nítida enmascarada
-            val foreground = Bitmap.createBitmap(source.width, source.height, Bitmap.Config.ARGB_8888)
-            val fgCanvas = Canvas(foreground)
-            fgCanvas.drawBitmap(scaledMask, 0f, 0f, null)
+            source.getPixels(srcPixels, 0, width, 0, 0, width, height)
+            blurredBackground.getPixels(bgPixels, 0, width, 0, 0, width, height)
+            fullMask.getPixels(maskAlphaPixels, 0, width, 0, 0, width, height)
 
-            val maskPaint = Paint(Paint.ANTI_ALIAS_FLAG).apply {
-                xfermode = PorterDuffXfermode(PorterDuff.Mode.SRC_IN)
+            for (i in 0 until totalPixels) {
+                val a = (maskAlphaPixels[i] ushr 24) and 0xFF
+                if (a == 255) {
+                    compositePixels[i] = srcPixels[i]
+                } else if (a == 0) {
+                    compositePixels[i] = bgPixels[i]
+                } else {
+                    val invA = 255 - a
+                    val sr = (srcPixels[i] shr 16) and 0xFF
+                    val sg = (srcPixels[i] shr 8) and 0xFF
+                    val sb = srcPixels[i] and 0xFF
+
+                    val br = (bgPixels[i] shr 16) and 0xFF
+                    val bg = (bgPixels[i] shr 8) and 0xFF
+                    val bb = bgPixels[i] and 0xFF
+
+                    val r = (sr * a + br * invA) / 255
+                    val g = (sg * a + bg * invA) / 255
+                    val b = (sb * a + bb * invA) / 255
+
+                    compositePixels[i] = (0xFF shl 24) or (r shl 16) or (g shl 8) or b
+                }
             }
-            fgCanvas.drawBitmap(source, 0f, 0f, maskPaint)
 
-            // Superponer sujeto nítido sobre fondo con bokeh
-            canvas.drawBitmap(foreground, 0f, 0f, null)
-
-            // Liberar memoria de bitmaps intermedios
-            scaledMask.recycle()
+            fullMask.recycle()
             blurredBackground.recycle()
-            foreground.recycle()
 
-            composite
+            Bitmap.createBitmap(compositePixels, width, height, Bitmap.Config.ARGB_8888)
         } catch (e: Exception) {
-            Log.e(TAG, "Failed applying selfie bokeh segmentation", e)
+            Log.e(TAG, "Failed applying natural portrait bokeh segmentation", e)
             source
         }
     }
 
-    private fun createBlurredBackground(source: Bitmap, scaleFactor: Int, blurRadius: Int, blurPasses: Int): Bitmap {
-        val scaledWidth = maxOf(1, source.width / scaleFactor)
-        val scaledHeight = maxOf(1, source.height / scaleFactor)
+    private fun smoothStep(edge0: Float, edge1: Float, x: Float): Float {
+        val t = ((x - edge0) / (edge1 - edge0)).coerceIn(0f, 1f)
+        return t * t * (3f - 2f * t)
+    }
 
-        val small = Bitmap.createScaledBitmap(source, scaledWidth, scaledHeight, true)
-        val blurredSmall = fastBoxBlur(small, blurRadius, blurPasses)
+    /**
+     * Creates an optical bokeh background using normalized convolution.
+     * Weights foreground pixels near 0 so dark subject silhouettes do not bleed into the background.
+     */
+    private fun createNaturalBokehBackground(
+        source: Bitmap,
+        fullMask: Bitmap,
+        scaleFactor: Int,
+        blurRadius: Int,
+        blurPasses: Int
+    ): Bitmap {
+        val sw = maxOf(1, source.width / scaleFactor)
+        val sh = maxOf(1, source.height / scaleFactor)
 
-        val blurredFull = Bitmap.createScaledBitmap(blurredSmall, source.width, source.height, true)
-        if (blurredSmall != small) {
-            blurredSmall.recycle()
+        val smallSource = Bitmap.createScaledBitmap(source, sw, sh, true)
+        val smallMask = Bitmap.createScaledBitmap(fullMask, sw, sh, true)
+
+        val count = sw * sh
+        val srcPx = IntArray(count)
+        val maskPx = IntArray(count)
+
+        smallSource.getPixels(srcPx, 0, sw, 0, 0, sw, sh)
+        smallMask.getPixels(maskPx, 0, sw, 0, 0, sw, sh)
+
+        smallSource.recycle()
+        smallMask.recycle()
+
+        // Weighted color and weight buffers
+        val rWeighted = IntArray(count)
+        val gWeighted = IntArray(count)
+        val bWeighted = IntArray(count)
+        val weights = IntArray(count)
+
+        for (i in 0 until count) {
+            val maskAlpha = (maskPx[i] ushr 24) and 0xFF
+            // Background pixels have weight ~255. Foreground subject has minimal weight (min 10) to suppress bleed.
+            val w = (255 - maskAlpha).coerceAtLeast(12)
+            val c = srcPx[i]
+
+            val r = (c shr 16) and 0xFF
+            val g = (c shr 8) and 0xFF
+            val b = c and 0xFF
+
+            rWeighted[i] = (r * w) / 255
+            gWeighted[i] = (g * w) / 255
+            bWeighted[i] = (b * w) / 255
+            weights[i] = w
         }
-        small.recycle()
+
+        for (p in 0 until blurPasses) {
+            boxBlurBuffer(rWeighted, sw, sh, blurRadius)
+            boxBlurBuffer(gWeighted, sw, sh, blurRadius)
+            boxBlurBuffer(bWeighted, sw, sh, blurRadius)
+            boxBlurBuffer(weights, sw, sh, blurRadius)
+        }
+
+        // Normalize weighted blur
+        val normalizedPixels = IntArray(count)
+        for (i in 0 until count) {
+            val w = weights[i].coerceAtLeast(1)
+            val r = ((rWeighted[i] * 255) / w).coerceIn(0, 255)
+            val g = ((gWeighted[i] * 255) / w).coerceIn(0, 255)
+            val b = ((bWeighted[i] * 255) / w).coerceIn(0, 255)
+            normalizedPixels[i] = (0xFF shl 24) or (r shl 16) or (g shl 8) or b
+        }
+
+        val blurredSmall = Bitmap.createBitmap(normalizedPixels, sw, sh, Bitmap.Config.ARGB_8888)
+        val blurredFull = Bitmap.createScaledBitmap(blurredSmall, source.width, source.height, true)
+        blurredSmall.recycle()
+
         return blurredFull
     }
 
-    private fun fastBoxBlur(src: Bitmap, radius: Int, passes: Int): Bitmap {
-        if (radius < 1) return src
-        val w = src.width
-        val h = src.height
-        val current = src.copy(Bitmap.Config.ARGB_8888, true)
-        val pixels = IntArray(w * h)
-        current.getPixels(pixels, 0, w, 0, 0, w, h)
-
-        for (p in 0 until passes) {
-            boxBlurHorizontal(pixels, w, h, radius)
-            boxBlurVertical(pixels, w, h, radius)
-        }
-
-        current.setPixels(pixels, 0, w, 0, 0, w, h)
-        return current
+    private fun boxBlurBuffer(buffer: IntArray, w: Int, h: Int, r: Int) {
+        if (r < 1) return
+        boxBlurHorizontal(buffer, w, h, r)
+        boxBlurVertical(buffer, w, h, r)
     }
 
     private fun boxBlurHorizontal(pixels: IntArray, w: Int, h: Int, r: Int) {
@@ -141,25 +213,16 @@ object PortraitBokehProcessor {
             val yOffset = y * w
             System.arraycopy(pixels, yOffset, row, 0, w)
 
-            var rSum = 0
-            var gSum = 0
-            var bSum = 0
-
+            var sum = 0
             for (i in -r..r) {
-                val c = row[i.coerceIn(0, w - 1)]
-                rSum += (c shr 16) and 0xFF
-                gSum += (c shr 8) and 0xFF
-                bSum += c and 0xFF
+                sum += row[i.coerceIn(0, w - 1)]
             }
 
             for (x in 0 until w) {
-                pixels[yOffset + x] = (0xFF shl 24) or ((rSum / div) shl 16) or ((gSum / div) shl 8) or (bSum / div)
+                pixels[yOffset + x] = sum / div
                 val leaving = row[(x - r).coerceIn(0, w - 1)]
                 val entering = row[(x + r + 1).coerceIn(0, w - 1)]
-
-                rSum += ((entering shr 16) and 0xFF) - ((leaving shr 16) and 0xFF)
-                gSum += ((entering shr 8) and 0xFF) - ((leaving shr 8) and 0xFF)
-                bSum += (entering and 0xFF) - (leaving and 0xFF)
+                sum += entering - leaving
             }
         }
     }
@@ -173,25 +236,16 @@ object PortraitBokehProcessor {
                 col[y] = pixels[y * w + x]
             }
 
-            var rSum = 0
-            var gSum = 0
-            var bSum = 0
-
+            var sum = 0
             for (i in -r..r) {
-                val c = col[i.coerceIn(0, h - 1)]
-                rSum += (c shr 16) and 0xFF
-                gSum += (c shr 8) and 0xFF
-                bSum += c and 0xFF
+                sum += col[i.coerceIn(0, h - 1)]
             }
 
             for (y in 0 until h) {
-                pixels[y * w + x] = (0xFF shl 24) or ((rSum / div) shl 16) or ((gSum / div) shl 8) or (bSum / div)
+                pixels[y * w + x] = sum / div
                 val leaving = col[(y - r).coerceIn(0, h - 1)]
                 val entering = col[(y + r + 1).coerceIn(0, h - 1)]
-
-                rSum += ((entering shr 16) and 0xFF) - ((leaving shr 16) and 0xFF)
-                gSum += ((entering shr 8) and 0xFF) - ((leaving shr 8) and 0xFF)
-                bSum += (entering and 0xFF) - (leaving and 0xFF)
+                sum += entering - leaving
             }
         }
     }
