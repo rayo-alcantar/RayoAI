@@ -19,13 +19,11 @@ import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.PaddingValues
-import androidx.compose.foundation.layout.Row
-import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
-import androidx.compose.foundation.layout.width
-import androidx.compose.foundation.lazy.LazyColumn
+import androidx.compose.foundation.lazy.grid.GridCells
+import androidx.compose.foundation.lazy.grid.LazyVerticalGrid
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.GraphicEq
 import androidx.compose.material.icons.filled.LightMode
@@ -49,6 +47,7 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.semantics.clearAndSetSemantics
 import androidx.compose.ui.semantics.LiveRegionMode
@@ -206,19 +205,16 @@ private fun LightDetectorCard() {
             },
         colors = CardDefaults.cardColors(MaterialTheme.colorScheme.tertiaryContainer)
     ) {
-        Row(Modifier.padding(16.dp)) {
+        Column(Modifier.padding(16.dp)) {
             Icon(
                 imageVector = Icons.Filled.LightMode,
                 contentDescription = null
             )
-            Spacer(modifier = Modifier.width(12.dp))
-            Column {
-                Text(text = buttonText, style = MaterialTheme.typography.titleMedium)
-                Text(
-                    text = statusText,
-                    modifier = Modifier.clearAndSetSemantics {}
-                )
-            }
+            Text(text = buttonText, style = MaterialTheme.typography.titleMedium)
+            Text(
+                text = statusText,
+                modifier = Modifier.clearAndSetSemantics {}
+            )
         }
     }
 }
@@ -347,16 +343,19 @@ fun ToolsScreen(
     val scanVideoDescription = stringResource(R.string.tool_scan_video_description)
     val scanQrText = stringResource(R.string.tool_scan_qr)
     val scanQrDescription = stringResource(R.string.tool_scan_qr_description)
+    val minToolWidth = 152.dp * maxOf(1f, LocalDensity.current.fontScale)
 
     Scaffold(
         topBar = { TopAppBar(title = { Text(text = toolsTitle) }) }
     ) { padding ->
-        LazyColumn(
+        LazyVerticalGrid(
+            columns = GridCells.Adaptive(minSize = minToolWidth),
             modifier = Modifier
                 .fillMaxSize()
                 .padding(padding),
             contentPadding = PaddingValues(16.dp),
-            verticalArrangement = Arrangement.spacedBy(12.dp)
+            verticalArrangement = Arrangement.spacedBy(12.dp),
+            horizontalArrangement = Arrangement.spacedBy(12.dp)
         ) {
             item {
                 Card(
@@ -374,7 +373,6 @@ fun ToolsScreen(
                             imageVector = Icons.Filled.GraphicEq,
                             contentDescription = null
                         )
-                        Spacer(modifier = Modifier.width(4.dp))
                         Text(text = liveModeText, style = MaterialTheme.typography.titleMedium)
                         Text(text = liveModeDescription)
                     }
@@ -397,7 +395,6 @@ fun ToolsScreen(
                             imageVector = Icons.Filled.Visibility,
                             contentDescription = null
                         )
-                        Spacer(modifier = Modifier.width(4.dp))
                         Text(text = proactiveModeText, style = MaterialTheme.typography.titleMedium)
                         Text(text = proactiveModeDescription)
                     }
