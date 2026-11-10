@@ -674,5 +674,41 @@ Tarjeta: 4152314082325278</string>
     <string name="proactive_target_seats_desc">Sillas, bancos o asientos disponibles</string>
     <string name="proactive_target_objects">Objetos personales</string>
     <string name="proactive_target_objects_desc">Llaves, celular, billetera, bastón, lentes</string>
+
+    <!-- Más opciones de fotografía / Fondos virtuales -->
+    <string name="more_photo_options">Más opciones de fotografía</string>
+    <string name="more_photo_options_desc">Abrir opciones y efectos de fotografía</string>
+    <string name="photo_options_title">Opciones de fotografía</string>
+    <string name="photo_options_subtitle">Efectos y herramientas de captura</string>
+    <string name="virtual_background_title">Fotografía con fondo</string>
+    <string name="virtual_background_desc">Aplica un fondo prediseñado o personalizado a las fotos con personas.</string>
+    <string name="bg_option_none">Sin fondo</string>
+    <string name="bg_option_none_desc">Captura normal sin modificar el fondo</string>
+    <string name="bg_option_white">Fondo claro</string>
+    <string name="bg_option_white_name">Blanco</string>
+    <string name="bg_option_white_desc">Fondo claro blanco uniforme para retrato</string>
+    <string name="bg_option_royal_blue">Fondo oscuro</string>
+    <string name="bg_option_royal_blue_name">Azul rey</string>
+    <string name="bg_option_royal_blue_desc">Fondo oscuro azul rey profesional para estudio</string>
+    <string name="bg_option_custom">Fondo personalizado</string>
+    <string name="bg_option_custom_name">Cargar imagen</string>
+    <string name="bg_option_custom_desc">Elige una imagen de tu galería como fondo</string>
+    <string name="bg_option_custom_change">Cambiar imagen de fondo</string>
+    <string name="bg_active_badge">Fondo: %1$s</string>
+    <string name="bg_active_badge_desc">Fondo activo: %1$s. Toca para cambiar o usa cerrar para desactivar.</string>
+    <string name="bg_remove_desc">Quitar fondo virtual</string>
+    <string name="bg_no_person_detected">No se detectó una persona en la foto; se utilizó la imagen original.</string>
+    <string name="btn_apply_options">Listo</string>
+    <string name="take_photo_with_bg">Tomar foto con este fondo</string>
+    <string name="photo_options_future_section">Más opciones próximamente</string>
+    <string name="photo_options_future_desc">Nuevas herramientas y efectos de fotografía estarán disponibles aquí.</string>
+    <string name="menu_add_background">Añadir fondo…</string>
+    <string name="select_background_title">Elegir fondo</string>
+    <string name="select_background_subtitle">Selecciona el fondo que se aplicará automáticamente a tus fotografías de personas.</string>
+    <string name="bg_option_custom_photo">Cargar fotografía (fondo)</string>
+    <string name="bg_option_custom_photo_desc">Elige una imagen de tu galería como fondo personalizado</string>
+    <string name="bg_option_custom_photo_selected">Fotografía seleccionada de la galería</string>
+    <string name="copy_image_to_clipboard">Copiar imagen al portapapeles</string>
+    <string name="image_copied_to_clipboard">Imagen copiada al portapapeles</string>
 </resources>
 

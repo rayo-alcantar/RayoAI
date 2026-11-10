@@ -7,6 +7,8 @@ import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.rayoai.BuildConfig
 import com.rayoai.core.ResultWrapper
+import com.rayoai.core.VirtualBackgroundConfig
+import com.rayoai.core.VirtualBackgroundMode
 import com.rayoai.R
 import com.rayoai.data.local.ImageStorageManager
 import com.rayoai.domain.model.ChatMessage
@@ -103,7 +105,9 @@ data class HomeUiState(
     val isNewCapture: Boolean = false,
     val focusAssistMode: FocusAssistMode = FocusAssistMode.OFF,
     val portraitMode: PortraitMode = PortraitMode.OFF,
-    val isHardwarePortraitSupported: Boolean = false
+    val isHardwarePortraitSupported: Boolean = false,
+    val virtualBackgroundConfig: VirtualBackgroundConfig = VirtualBackgroundConfig(),
+    val showPhotoOptionsSheet: Boolean = false
 ) {
     val isPortraitMode: Boolean get() = portraitMode != PortraitMode.OFF
     val isPortraitModeSupported: Boolean get() = true
@@ -271,6 +275,41 @@ class HomeViewModel @Inject constructor(
 
     fun setCapturing(value: Boolean) {
         _uiState.update { it.copy(isCapturing = value) }
+    }
+
+    fun setPhotoOptionsSheetVisible(visible: Boolean) {
+        _uiState.update { it.copy(showPhotoOptionsSheet = visible) }
+    }
+
+    fun setVirtualBackgroundMode(mode: VirtualBackgroundMode) {
+        _uiState.update { currentState ->
+            val updatedConfig = if (mode == VirtualBackgroundMode.CUSTOM) {
+                currentState.virtualBackgroundConfig.copy(mode = mode)
+            } else {
+                VirtualBackgroundConfig(mode = mode, customImageUri = null)
+            }
+            currentState.copy(virtualBackgroundConfig = updatedConfig)
+        }
+    }
+
+    fun setCustomBackgroundUri(uri: Uri) {
+        viewModelScope.launch(Dispatchers.IO) {
+            val importedUri = imageStorageManager.importSharedImage(uri) ?: uri
+            _uiState.update {
+                it.copy(
+                    virtualBackgroundConfig = VirtualBackgroundConfig(
+                        mode = VirtualBackgroundMode.CUSTOM,
+                        customImageUri = importedUri
+                    )
+                )
+            }
+        }
+    }
+
+    fun clearVirtualBackground() {
+        _uiState.update {
+            it.copy(virtualBackgroundConfig = VirtualBackgroundConfig(mode = VirtualBackgroundMode.NONE))
+        }
     }
 
     fun onImageCaptureFailed(message: String) {

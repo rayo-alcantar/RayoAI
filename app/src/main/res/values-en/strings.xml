@@ -665,4 +665,40 @@ Card: 4152314082325278</string>
     <string name="proactive_target_seats_desc">Chairs, benches or available seats</string>
     <string name="proactive_target_objects">Personal items</string>
     <string name="proactive_target_objects_desc">Keys, phone, wallet, cane, glasses</string>
+
+    <!-- More photo options / Virtual backgrounds -->
+    <string name="more_photo_options">More photography options</string>
+    <string name="more_photo_options_desc">Open photography options and effects</string>
+    <string name="photo_options_title">Photography options</string>
+    <string name="photo_options_subtitle">Capture effects and tools</string>
+    <string name="virtual_background_title">Photo with background</string>
+    <string name="virtual_background_desc">Apply a preset or custom background to photos with people.</string>
+    <string name="bg_option_none">No background</string>
+    <string name="bg_option_none_desc">Normal capture without altering the background</string>
+    <string name="bg_option_white">Light background</string>
+    <string name="bg_option_white_name">White</string>
+    <string name="bg_option_white_desc">Uniform white light background for portraits</string>
+    <string name="bg_option_royal_blue">Dark background</string>
+    <string name="bg_option_royal_blue_name">Royal blue</string>
+    <string name="bg_option_royal_blue_desc">Professional dark royal blue studio background</string>
+    <string name="bg_option_custom">Custom background</string>
+    <string name="bg_option_custom_name">Choose image</string>
+    <string name="bg_option_custom_desc">Select an image from your gallery as background</string>
+    <string name="bg_option_custom_change">Change background image</string>
+    <string name="bg_active_badge">Background: %1$s</string>
+    <string name="bg_active_badge_desc">Active background: %1$s. Tap to change or close to disable.</string>
+    <string name="bg_remove_desc">Remove virtual background</string>
+    <string name="bg_no_person_detected">No person detected in the photo; original image was used.</string>
+    <string name="btn_apply_options">Done</string>
+    <string name="take_photo_with_bg">Take photo with this background</string>
+    <string name="photo_options_future_section">More options coming soon</string>
+    <string name="photo_options_future_desc">New photography tools and effects will be available here.</string>
+    <string name="menu_add_background">Add background…</string>
+    <string name="select_background_title">Choose background</string>
+    <string name="select_background_subtitle">Select the background that will be automatically applied to your photos of people.</string>
+    <string name="bg_option_custom_photo">Load photo (background)</string>
+    <string name="bg_option_custom_photo_desc">Choose an image from your gallery as a custom background</string>
+    <string name="bg_option_custom_photo_selected">Photo selected from gallery</string>
+    <string name="copy_image_to_clipboard">Copy image to clipboard</string>
+    <string name="image_copied_to_clipboard">Image copied to clipboard</string>
 </resources>

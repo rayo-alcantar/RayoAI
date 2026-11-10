@@ -15,6 +15,7 @@ import androidx.compose.animation.core.Animatable
 import androidx.compose.animation.core.tween
 import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
+import androidx.compose.foundation.border
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.lazy.LazyColumn
@@ -41,13 +42,19 @@ import androidx.compose.material.icons.filled.SpeakerPhone
 import androidx.compose.material.icons.filled.Send
 import androidx.compose.material.icons.filled.Settings
 import androidx.compose.material.icons.filled.Timer
+import androidx.compose.material.icons.filled.Tune
+import androidx.compose.material.icons.filled.MoreVert
+import androidx.compose.material.icons.filled.Wallpaper
+import androidx.compose.material.icons.filled.Close
 import androidx.compose.material.icons.automirrored.filled.Send
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.clip
 import androidx.compose.ui.focus.FocusRequester
 import androidx.compose.ui.focus.focusRequester
+import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.asImageBitmap
 import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.layout.ContentScale
@@ -68,6 +75,8 @@ import com.google.accompanist.permissions.isGranted
 import com.google.accompanist.permissions.rememberPermissionState
 import com.rayoai.BuildConfig
 import com.rayoai.R
+import com.rayoai.core.VirtualBackgroundConfig
+import com.rayoai.core.VirtualBackgroundMode
 import com.rayoai.presentation.ui.components.CameraView
 import com.rayoai.presentation.ui.components.ChatBubble
 import com.rayoai.presentation.ui.navigation.Screen
@@ -361,21 +370,124 @@ fun HomeScreen(
                                 modifier = Modifier.size(52.dp)
                             )
 
-                            FilledIconButton(
-                                onClick = {
-                                    galleryLauncher.launch(
-                                        PickVisualMediaRequest(ActivityResultContracts.PickVisualMedia.ImageOnly)
+                            Row(
+                                modifier = Modifier.align(Alignment.CenterEnd),
+                                horizontalArrangement = Arrangement.spacedBy(8.dp),
+                                verticalAlignment = Alignment.CenterVertically
+                            ) {
+                                var showContextMenu by remember { mutableStateOf(false) }
+                                val moreOptionsLabel = stringResource(R.string.more_photo_options)
+
+                                Box {
+                                    FilledIconButton(
+                                        onClick = { showContextMenu = true },
+                                        enabled = !uiState.isLoading && !uiState.isCapturing,
+                                        modifier = Modifier
+                                            .size(52.dp)
+                                            .semantics {
+                                                contentDescription = moreOptionsLabel
+                                            }
+                                    ) {
+                                        Icon(
+                                            imageVector = Icons.Default.MoreVert,
+                                            contentDescription = null
+                                        )
+                                    }
+
+                                    DropdownMenu(
+                                        expanded = showContextMenu,
+                                        onDismissRequest = { showContextMenu = false }
+                                    ) {
+                                        DropdownMenuItem(
+                                            text = { Text(stringResource(R.string.menu_add_background)) },
+                                            leadingIcon = {
+                                                Icon(
+                                                    imageVector = Icons.Default.Wallpaper,
+                                                    contentDescription = null
+                                                )
+                                            },
+                                            onClick = {
+                                                showContextMenu = false
+                                                navController.navigate(Screen.SelectBackground.route)
+                                            }
+                                        )
+                                    }
+                                }
+
+                                FilledIconButton(
+                                    onClick = {
+                                        galleryLauncher.launch(
+                                            PickVisualMediaRequest(ActivityResultContracts.PickVisualMedia.ImageOnly)
+                                        )
+                                    },
+                                    modifier = Modifier.size(52.dp)
+                                ) {
+                                    Icon(
+                                        Icons.Default.PhotoLibrary,
+                                        contentDescription = stringResource(R.string.load_from_gallery)
+                                    )
+                                }
+                            }
+                        }
+
+                        if (uiState.virtualBackgroundConfig.mode != VirtualBackgroundMode.NONE) {
+                            val activeBgName = when (uiState.virtualBackgroundConfig.mode) {
+                                VirtualBackgroundMode.WHITE -> stringResource(R.string.bg_option_white_name)
+                                VirtualBackgroundMode.ROYAL_BLUE -> stringResource(R.string.bg_option_royal_blue_name)
+                                VirtualBackgroundMode.CUSTOM -> stringResource(R.string.bg_option_custom)
+                                VirtualBackgroundMode.NONE -> ""
+                            }
+                            val badgeText = stringResource(R.string.bg_active_badge, activeBgName)
+                            val badgeDesc = stringResource(R.string.bg_active_badge_desc, activeBgName)
+                            val removeDesc = stringResource(R.string.bg_remove_desc)
+
+                            InputChip(
+                                selected = true,
+                                onClick = { navController.navigate(Screen.SelectBackground.route) },
+                                label = {
+                                    Text(
+                                        text = badgeText,
+                                        style = MaterialTheme.typography.labelMedium,
+                                        fontWeight = FontWeight.SemiBold
                                     )
                                 },
+                                leadingIcon = {
+                                    Box(
+                                        modifier = Modifier
+                                            .size(16.dp)
+                                            .clip(CircleShape)
+                                            .background(
+                                                when (uiState.virtualBackgroundConfig.mode) {
+                                                    VirtualBackgroundMode.WHITE -> Color.White
+                                                    VirtualBackgroundMode.ROYAL_BLUE -> Color(0xFF102A71)
+                                                    else -> MaterialTheme.colorScheme.primary
+                                                }
+                                            )
+                                            .border(
+                                                width = 1.dp,
+                                                color = MaterialTheme.colorScheme.outline.copy(alpha = 0.5f),
+                                                shape = CircleShape
+                                            )
+                                    )
+                                },
+                                trailingIcon = {
+                                    IconButton(
+                                        onClick = { viewModel.clearVirtualBackground() },
+                                        modifier = Modifier.size(24.dp)
+                                    ) {
+                                        Icon(
+                                            Icons.Default.Close,
+                                            contentDescription = removeDesc,
+                                            modifier = Modifier.size(16.dp)
+                                        )
+                                    }
+                                },
                                 modifier = Modifier
-                                    .size(52.dp)
-                                    .align(Alignment.CenterEnd)
-                            ) {
-                                Icon(
-                                    Icons.Default.PhotoLibrary,
-                                    contentDescription = stringResource(R.string.load_from_gallery)
-                                )
-                            }
+                                    .padding(bottom = 8.dp)
+                                    .semantics {
+                                        contentDescription = badgeDesc
+                                    }
+                            )
                         }
 
                         if (cameraPermissionState.status.isGranted) {
@@ -393,6 +505,17 @@ fun HomeScreen(
                                 cameraSelector = uiState.currentCameraSelector,
                                 flashMode = uiState.flashMode,
                                 portraitMode = uiState.portraitMode,
+                                virtualBackgroundConfig = uiState.virtualBackgroundConfig,
+                                onVirtualBackgroundResult = { personDetected ->
+                                    if (!personDetected && uiState.virtualBackgroundConfig.mode != VirtualBackgroundMode.NONE) {
+                                        scope.launch {
+                                            snackbarHostState.showSnackbar(
+                                                message = context.getString(R.string.bg_no_person_detected),
+                                                duration = SnackbarDuration.Short
+                                            )
+                                        }
+                                    }
+                                },
                                 onHardwarePortraitAvailabilityChanged = { isSupported ->
                                     viewModel.setHardwarePortraitSupported(isSupported)
                                 },
@@ -716,13 +839,27 @@ fun HomeScreen(
                         isLoading = uiState.isLoading,
                         onSaveImage = { bitmap -> viewModel.saveImageToGallery(bitmap) },
                         onShareImage = { uri ->
-                            val shareIntent: Intent = Intent().apply {
-                                action = Intent.ACTION_SEND
+                            val shareIntent = Intent(Intent.ACTION_SEND).apply {
+                                type = "image/jpeg"
                                 putExtra(Intent.EXTRA_STREAM, uri)
-                                type = "image/*"
+                                clipData = ClipData.newUri(context.contentResolver, "Image", uri)
                                 addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION)
                             }
-                            context.startActivity(Intent.createChooser(shareIntent, context.getString(R.string.share_image)))
+                            val chooser = Intent.createChooser(shareIntent, context.getString(R.string.share_image)).apply {
+                                addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION)
+                            }
+                            context.startActivity(chooser)
+                        },
+                        onCopyImage = { uri ->
+                            val clipboardManager = context.getSystemService(android.content.Context.CLIPBOARD_SERVICE) as ClipboardManager
+                            val clipData = ClipData.newUri(context.contentResolver, "Image", uri)
+                            clipboardManager.setPrimaryClip(clipData)
+                            scope.launch {
+                                snackbarHostState.showSnackbar(
+                                    message = context.getString(R.string.image_copied_to_clipboard),
+                                    duration = SnackbarDuration.Short
+                                )
+                            }
                         },
                         onSendMessage = { message -> viewModel.sendChatMessage(message) },
                         isTranscribingAudio = uiState.isTranscribingAudio,

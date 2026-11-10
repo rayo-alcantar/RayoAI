@@ -57,6 +57,7 @@ sealed class Screen(val route: String, val baseRoute: String, val labelRes: Int?
     object Home : Screen("home?captureId={captureId}", "home", R.string.tab_home, Icons.Default.Home) {
         fun createRoute(captureId: Long?) = if (captureId != null) "home?captureId=$captureId" else "home"
     }
+    object SelectBackground : Screen("select_background", "home")
     object MultiImagePassage : Screen("multi_image_passage", "multi_image_passage")
     object History : Screen("history", "history", R.string.tab_history, Icons.Default.History)
     object Tools : Screen("tools", "tools", R.string.tab_tools, Icons.Default.Build)
@@ -237,6 +238,20 @@ fun AppNavigation(
                         pendingBatchTruncatedCount = 0
                         navController.navigate(Screen.MultiImagePassage.route) { launchSingleTop = true }
                     }
+                )
+            }
+            composable(Screen.SelectBackground.route) { backStackEntry ->
+                val parentEntry = remember(backStackEntry) {
+                    navController.previousBackStackEntry
+                }
+                val homeViewModel: com.rayoai.presentation.ui.screens.home.HomeViewModel = if (parentEntry != null) {
+                    androidx.hilt.navigation.compose.hiltViewModel(parentEntry)
+                } else {
+                    androidx.hilt.navigation.compose.hiltViewModel()
+                }
+                com.rayoai.presentation.ui.screens.home.SelectBackgroundScreen(
+                    viewModel = homeViewModel,
+                    onNavigateBack = { navController.popBackStack() }
                 )
             }
             composable(Screen.MultiImagePassage.route) {

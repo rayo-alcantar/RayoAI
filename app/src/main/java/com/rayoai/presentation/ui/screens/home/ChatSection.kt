@@ -42,6 +42,7 @@ import android.speech.tts.TextToSpeech
 import com.rayoai.R
 import androidx.compose.foundation.lazy.items
 import androidx.compose.material.icons.filled.AddAPhoto
+import androidx.compose.material.icons.filled.ContentCopy
 import androidx.compose.material.icons.filled.Close
 import androidx.compose.material.icons.filled.RestartAlt
 import androidx.compose.material.icons.filled.ZoomIn
@@ -78,6 +79,7 @@ fun ChatSection(
     isLoading: Boolean,
     onSaveImage: (Bitmap) -> Unit,
     onShareImage: (Uri) -> Unit,
+    onCopyImage: (Uri) -> Unit = {},
     onSendMessage: (String) -> Unit,
     isTranscribingAudio: Boolean,
     onVoiceMessageReady: (com.rayoai.domain.model.AudioRecording) -> Unit,
@@ -99,6 +101,7 @@ fun ChatSection(
     val saveImageDesc = stringResource(R.string.save_image)
     val noImageToSave = context.getString(R.string.no_image_to_save)
     val shareImageDesc = stringResource(R.string.share_image)
+    val copyImageDesc = stringResource(R.string.copy_image_to_clipboard)
     val noImageToShare = context.getString(R.string.no_image_to_share)
     val shareImageChooser = stringResource(R.string.share_image_chooser)
     val analyzingImageDesc = stringResource(R.string.analyzing_image)
@@ -197,6 +200,20 @@ fun ChatSection(
                 Icon(
                     Icons.Default.Share,
                     contentDescription = shareImageDesc
+                )
+            }
+
+            IconButton(
+                onClick = {
+                    imageUri?.let { uri ->
+                        onCopyImage(uri)
+                    } ?: onError(noImageToShare)
+                },
+                enabled = imageUri != null
+            ) {
+                Icon(
+                    Icons.Default.ContentCopy,
+                    contentDescription = copyImageDesc
                 )
             }
         }

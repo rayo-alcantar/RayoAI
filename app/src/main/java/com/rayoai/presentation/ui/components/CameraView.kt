@@ -27,6 +27,10 @@ import androidx.camera.view.CameraController
 import androidx.camera.view.LifecycleCameraController
 import androidx.camera.view.PreviewView
 import com.rayoai.core.PortraitBokehProcessor
+import com.rayoai.core.VirtualBackgroundConfig
+import com.rayoai.core.VirtualBackgroundMode
+import com.rayoai.core.VirtualBackgroundProcessor
+import com.rayoai.core.BackgroundProcessResult
 import com.rayoai.presentation.ui.screens.home.PortraitMode
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
@@ -86,6 +90,8 @@ fun CameraView(
     cameraSelector: CameraSelector,
     flashMode: Int = ImageCapture.FLASH_MODE_AUTO,
     portraitMode: PortraitMode = PortraitMode.OFF,
+    virtualBackgroundConfig: VirtualBackgroundConfig = VirtualBackgroundConfig(),
+    onVirtualBackgroundResult: (Boolean) -> Unit = {},
     onHardwarePortraitAvailabilityChanged: (Boolean) -> Unit = {},
     isFocusAssistEnabled: Boolean = false,
     onFocusAssistAnnouncement: (String) -> Unit = {},
@@ -294,6 +300,8 @@ fun CameraView(
                 backgroundExecutor = cameraBackgroundExecutor,
                 context = context,
                 portraitMode = portraitMode,
+                virtualBackgroundConfig = virtualBackgroundConfig,
+                onVirtualBackgroundResult = onVirtualBackgroundResult,
                 onImageCaptured = onImageCaptured,
                 onError = onError,
                 captureError = captureError,
@@ -342,6 +350,8 @@ private fun captureImage(
     backgroundExecutor: ExecutorService,
     context: Context,
     portraitMode: PortraitMode,
+    virtualBackgroundConfig: VirtualBackgroundConfig,
+    onVirtualBackgroundResult: (Boolean) -> Unit,
     onImageCaptured: (Bitmap) -> Unit,
     onError: (String) -> Unit,
     captureError: String,
@@ -360,18 +370,38 @@ private fun captureImage(
                         val rotationDegrees = image.imageInfo.rotationDegrees
                         val processedBitmap = rotateAndScaleBitmap(bitmap, rotationDegrees)
 
-                        val finalBitmap = if (portraitMode == PortraitMode.SOFTWARE) {
+                        val finalBitmap: Bitmap
+                        var personDetected = true
+
+                        if (virtualBackgroundConfig.mode != VirtualBackgroundMode.NONE) {
+                            Log.d("CameraView", "Applying virtual background: ${virtualBackgroundConfig.mode}")
+                            val result = runCatching {
+                                kotlinx.coroutines.runBlocking {
+                                    VirtualBackgroundProcessor.applyBackground(
+                                        source = processedBitmap,
+                                        config = virtualBackgroundConfig,
+                                        context = context
+                                    )
+                                }
+                            }.getOrElse {
+                                Log.e("CameraView", "Error in VirtualBackgroundProcessor", it)
+                                BackgroundProcessResult(processedBitmap, false)
+                            }
+                            finalBitmap = result.bitmap
+                            personDetected = result.personDetected
+                        } else if (portraitMode == PortraitMode.SOFTWARE) {
                             Log.d("CameraView", "Applying software portrait bokeh effect")
-                            runCatching {
+                            finalBitmap = runCatching {
                                 kotlinx.coroutines.runBlocking {
                                     PortraitBokehProcessor.applyBokehEffect(processedBitmap)
                                 }
                             }.getOrDefault(processedBitmap)
                         } else {
-                            processedBitmap
+                            finalBitmap = processedBitmap
                         }
 
                         mainExecutor.execute {
+                            onVirtualBackgroundResult(personDetected)
                             onImageCaptured(finalBitmap)
                         }
                     } catch (e: Exception) {
