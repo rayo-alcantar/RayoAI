@@ -14,6 +14,7 @@ import dagger.hilt.android.lifecycle.HiltViewModel
 import dagger.hilt.android.qualifiers.ApplicationContext
 import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
+import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.launch
@@ -24,6 +25,7 @@ import javax.inject.Inject
 class LiveModeViewModel @Inject constructor(
     @ApplicationContext private val context: Context,
     private val liveManager: GeminiLiveManager,
+    private val floatingState: LiveFloatingControlsState,
     private val userPreferencesRepository: UserPreferencesRepository
 ) : ViewModel() {
 
@@ -35,6 +37,15 @@ class LiveModeViewModel @Inject constructor(
     val isSpeaking: StateFlow<Boolean> = liveManager.isSpeaking
     val latestTranscript: StateFlow<String> = liveManager.latestTranscript
     val errorMessage: StateFlow<String?> = liveManager.errorMessage
+    val floatingControlsEnabled = floatingState.enabled.asStateFlow()
+
+    fun setFloatingControlsEnabled(enabled: Boolean) {
+        floatingState.enabled.value = enabled
+    }
+
+    fun setLiveScreenVisible(visible: Boolean) {
+        floatingState.liveScreenVisible.value = visible
+    }
 
     val apiKey: StateFlow<String?> = userPreferencesRepository.apiKey
         .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), null)
@@ -165,6 +176,8 @@ class LiveModeViewModel @Inject constructor(
 
     override fun onCleared() {
         // También cubre el cierre mientras Live conecta, antes del servicio en primer plano.
+        setFloatingControlsEnabled(false)
+        setLiveScreenVisible(false)
         stopSession()
         LiveSessionForegroundService.stop(context)
         super.onCleared()

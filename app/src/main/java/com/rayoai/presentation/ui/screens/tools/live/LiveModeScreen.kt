@@ -7,15 +7,19 @@ package com.rayoai.presentation.ui.screens.tools.live
 
 import android.Manifest
 import android.app.Activity
+import android.content.ActivityNotFoundException
 import android.content.Context
 import android.content.Intent
 import android.content.pm.PackageManager
 import android.graphics.drawable.Drawable
 import android.media.projection.MediaProjectionManager
+import android.net.Uri
 import android.os.Build
 import android.os.SystemClock
+import android.provider.Settings
 import android.util.Log
 import android.view.ViewGroup
+import android.widget.Toast
 import androidx.activity.compose.BackHandler
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
@@ -46,6 +50,7 @@ import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.foundation.selection.toggleable
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
@@ -95,7 +100,9 @@ import androidx.compose.material3.ModalBottomSheet
 import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Scaffold
+import androidx.compose.material3.Slider
 import androidx.compose.material3.Surface
+import androidx.compose.material3.Switch
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.material3.TopAppBar
@@ -131,6 +138,8 @@ import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.viewinterop.AndroidView
 import androidx.hilt.navigation.compose.hiltViewModel
+import androidx.lifecycle.Lifecycle
+import androidx.lifecycle.LifecycleEventObserver
 import com.google.accompanist.permissions.MultiplePermissionsState
 import com.google.accompanist.permissions.rememberMultiplePermissionsState
 import com.rayoai.R
@@ -150,6 +159,7 @@ fun LiveModeScreen(
     onNavigateToSettings: () -> Unit
 ) {
     val context = LocalContext.current
+    val lifecycleOwner = LocalLifecycleOwner.current
 
     val sessionState by viewModel.sessionState.collectAsState()
     val visualSource by viewModel.visualSource.collectAsState()
@@ -158,6 +168,32 @@ fun LiveModeScreen(
     val isTalking by viewModel.isTalking.collectAsState()
     val latestTranscript by viewModel.latestTranscript.collectAsState()
     val errorMessage by viewModel.errorMessage.collectAsState()
+    val floatingControlsEnabled by viewModel.floatingControlsEnabled.collectAsState()
+
+    val overlayPermissionLauncher = rememberLauncherForActivityResult(
+        ActivityResultContracts.StartActivityForResult()
+    ) {
+        viewModel.setFloatingControlsEnabled(Settings.canDrawOverlays(context))
+    }
+
+    DisposableEffect(lifecycleOwner, viewModel) {
+        val lifecycle = lifecycleOwner.lifecycle
+        fun updateVisibility() {
+            viewModel.setLiveScreenVisible(lifecycle.currentState.isAtLeast(Lifecycle.State.STARTED))
+        }
+        val observer = LifecycleEventObserver { _, event ->
+            updateVisibility()
+            if (event == Lifecycle.Event.ON_RESUME && !Settings.canDrawOverlays(context)) {
+                viewModel.setFloatingControlsEnabled(false)
+            }
+        }
+        lifecycle.addObserver(observer)
+        updateVisibility()
+        onDispose {
+            lifecycle.removeObserver(observer)
+            viewModel.setLiveScreenVisible(false)
+        }
+    }
 
     val liveModel by viewModel.liveModel.collectAsState()
     val liveVoice by viewModel.liveVoice.collectAsState()
@@ -897,6 +933,7 @@ fun LiveModeScreen(
             currentPtt = livePushToTalk,
             currentInterval = liveCaptureIntervalSeconds,
             currentAudioOutput = liveAudioOutput,
+            floatingControlsEnabled = floatingControlsEnabled,
             onDismiss = { showConfigSheet = false },
             onSaveModel = { viewModel.saveLiveModel(it) },
             onSaveVoice = { viewModel.saveLiveVoice(it) },
@@ -904,7 +941,24 @@ fun LiveModeScreen(
             onSaveVad = { viewModel.saveLiveVadSensitivity(it) },
             onSavePtt = { viewModel.saveLivePushToTalk(it) },
             onSaveInterval = { viewModel.saveLiveCaptureIntervalSeconds(it) },
-            onSaveAudioOutput = { viewModel.setAudioOutput(it) }
+            onSaveAudioOutput = { viewModel.setAudioOutput(it) },
+            onFloatingControlsChanged = { enabled ->
+                if (!enabled || Settings.canDrawOverlays(context)) {
+                    viewModel.setFloatingControlsEnabled(enabled)
+                } else {
+                    val intent = Intent(
+                        Settings.ACTION_MANAGE_OVERLAY_PERMISSION,
+                        Uri.fromParts("package", context.packageName, null)
+                    )
+                    try {
+                        overlayPermissionLauncher.launch(intent)
+                    } catch (_: ActivityNotFoundException) {
+                        Toast.makeText(
+                            context, R.string.live_mode_overlay_settings_unavailable, Toast.LENGTH_LONG
+                        ).show()
+                    }
+                }
+            }
         )
     }
 
@@ -1293,6 +1347,7 @@ private fun LiveSettingsSheet(
     currentPtt: Boolean,
     currentInterval: Float,
     currentAudioOutput: String,
+    floatingControlsEnabled: Boolean,
     onDismiss: () -> Unit,
     onSaveModel: (String) -> Unit,
     onSaveVoice: (String) -> Unit,
@@ -1300,7 +1355,8 @@ private fun LiveSettingsSheet(
     onSaveVad: (String) -> Unit,
     onSavePtt: (Boolean) -> Unit,
     onSaveInterval: (Float) -> Unit,
-    onSaveAudioOutput: (String) -> Unit
+    onSaveAudioOutput: (String) -> Unit,
+    onFloatingControlsChanged: (Boolean) -> Unit
 ) {
     val sheetState = rememberModalBottomSheetState(skipPartiallyExpanded = true)
 
@@ -1532,7 +1588,7 @@ private fun LiveSettingsSheet(
                 }
             }
 
-            // Sección 3: Frecuencia de Captura Visual (Botón conmutador cíclico)
+            // Intervalo de captura visual
             Card(
                 colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.45f)),
                 shape = RoundedCornerShape(16.dp),
@@ -1552,23 +1608,51 @@ private fun LiveSettingsSheet(
                         )
                     }
 
-                    val currentIntervalText = when (currentInterval) {
+                    val intervalLabel = stringResource(R.string.live_mode_interval_label)
+                    var selectedInterval by remember(currentInterval) {
+                        mutableStateOf(currentInterval.coerceIn(1f, 2f))
+                    }
+                    val selectedIntervalText = when (selectedInterval) {
                         1.0f -> stringResource(R.string.live_mode_interval_1s)
                         1.5f -> stringResource(R.string.live_mode_interval_1_5s)
                         else -> stringResource(R.string.live_mode_interval_2s)
                     }
-                    val nextInterval = when (currentInterval) {
-                        1.0f -> 1.5f
-                        1.5f -> 2.0f
-                        else -> 1.0f
-                    }
-                    CyclingSettingButton(
-                        title = stringResource(R.string.live_mode_interval_label),
-                        currentValue = currentIntervalText,
-                        icon = Icons.Filled.Timer,
-                        onClick = { onSaveInterval(nextInterval) }
+                    Text(selectedIntervalText, style = MaterialTheme.typography.bodyMedium)
+                    Slider(
+                        value = selectedInterval,
+                        onValueChange = { selectedInterval = it },
+                        onValueChangeFinished = { onSaveInterval(selectedInterval) },
+                        valueRange = 1f..2f,
+                        steps = 1,
+                        modifier = Modifier.fillMaxWidth().semantics {
+                            contentDescription = intervalLabel
+                            stateDescription = selectedIntervalText
+                        }
                     )
                 }
+            }
+
+            Row(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .heightIn(min = 48.dp)
+                    .toggleable(
+                        value = floatingControlsEnabled,
+                        role = Role.Switch,
+                        onValueChange = onFloatingControlsChanged
+                    )
+                    .padding(vertical = 8.dp),
+                horizontalArrangement = Arrangement.spacedBy(12.dp),
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                Column(Modifier.weight(1f)) {
+                    Text(stringResource(R.string.live_mode_floating_controls), style = MaterialTheme.typography.titleSmall)
+                    Text(
+                        stringResource(R.string.live_mode_floating_controls_description),
+                        style = MaterialTheme.typography.bodySmall
+                    )
+                }
+                Switch(checked = floatingControlsEnabled, onCheckedChange = null)
             }
 
             // Botón de Confirmación Listo

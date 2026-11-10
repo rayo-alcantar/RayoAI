@@ -14,8 +14,18 @@ import android.os.IBinder
 import androidx.core.app.NotificationCompat
 import com.rayoai.R
 import com.rayoai.data.remote.live.GeminiLiveManager
+import com.rayoai.domain.model.live.LiveSessionState
+import com.rayoai.domain.model.live.VisualSource
 import com.rayoai.presentation.ui.MainActivity
 import dagger.hilt.android.AndroidEntryPoint
+import kotlinx.coroutines.CoroutineScope
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.SupervisorJob
+import kotlinx.coroutines.cancel
+import kotlinx.coroutines.flow.combine
+import kotlinx.coroutines.flow.dropWhile
+import kotlinx.coroutines.flow.first
+import kotlinx.coroutines.launch
 import javax.inject.Inject
 
 @AndroidEntryPoint
@@ -24,6 +34,11 @@ class LiveSessionForegroundService : Service() {
     @Inject
     lateinit var liveManager: GeminiLiveManager
 
+    @Inject
+    lateinit var floatingState: LiveFloatingControlsState
+
+    private val controlsScope = CoroutineScope(SupervisorJob() + Dispatchers.Main.immediate)
+    private var floatingControls: LiveFloatingControls? = null
     private var screenCaptureManager: ScreenCaptureManager? = null
     private var isScreenCaptureActive = false
     private var activeCapturedAppName: String? = null
@@ -33,6 +48,7 @@ class LiveSessionForegroundService : Service() {
         const val NOTIFICATION_ID = 2026
         const val ACTION_STOP = "com.rayoai.live.ACTION_STOP"
         const val ACTION_TOGGLE_PAUSE = "com.rayoai.live.ACTION_TOGGLE_PAUSE"
+        private const val ACTION_TOGGLE_MIC = "com.rayoai.live.ACTION_TOGGLE_MIC"
         const val ACTION_START_SCREEN_CAPTURE = "com.rayoai.live.ACTION_START_SCREEN_CAPTURE"
         const val ACTION_STOP_SCREEN_CAPTURE = "com.rayoai.live.ACTION_STOP_SCREEN_CAPTURE"
 
@@ -90,7 +106,14 @@ class LiveSessionForegroundService : Service() {
     }
 
     override fun onStartCommand(intent: Intent?, flags: Int, startId: Int): Int {
-        when (intent?.action) {
+        val action = intent?.action
+        if ((action == ACTION_TOGGLE_PAUSE || action == ACTION_TOGGLE_MIC) &&
+            liveManager.sessionState.value == LiveSessionState.STOPPED
+        ) {
+            stopSelf(startId)
+            return START_NOT_STICKY
+        }
+        when (action) {
             ACTION_STOP -> {
                 stopSelf()
                 return START_NOT_STICKY
@@ -98,9 +121,12 @@ class LiveSessionForegroundService : Service() {
             ACTION_TOGGLE_PAUSE -> {
                 liveManager.toggleVideoPause()
             }
+            ACTION_TOGGLE_MIC -> {
+                liveManager.toggleMicMute()
+            }
             ACTION_START_SCREEN_CAPTURE -> {
                 isScreenCaptureActive = true
-                intent.getStringExtra(EXTRA_APP_NAME)?.let {
+                intent?.getStringExtra(EXTRA_APP_NAME)?.let {
                     activeCapturedAppName = it
                 }
             }
@@ -109,7 +135,7 @@ class LiveSessionForegroundService : Service() {
                 activeCapturedAppName = null
                 screenCaptureManager?.stop()
                 screenCaptureManager = null
-                liveManager.setVisualSource(com.rayoai.domain.model.live.VisualSource.NONE)
+                liveManager.setVisualSource(VisualSource.NONE)
             }
         }
 
@@ -164,11 +190,15 @@ class LiveSessionForegroundService : Service() {
             }
         }
 
+        observeFloatingControls()
         return START_NOT_STICKY
     }
 
     override fun onDestroy() {
-        super.onDestroy()
+        controlsScope.cancel()
+        floatingControls?.hide()
+        floatingControls = null
+        floatingState.enabled.value = false
         isScreenCaptureActive = false
         activeCapturedAppName = null
         screenCaptureManager?.stop()
@@ -182,6 +212,44 @@ class LiveSessionForegroundService : Service() {
         }
         val notificationManager = getSystemService(Context.NOTIFICATION_SERVICE) as NotificationManager
         notificationManager.cancel(NOTIFICATION_ID)
+        super.onDestroy()
+    }
+
+    private fun observeFloatingControls() {
+        if (floatingControls != null) return
+        val controls = LiveFloatingControls(
+            context = this,
+            onToggleMic = liveManager::toggleMicMute,
+            onToggleVideo = liveManager::toggleVideoPause,
+            onStop = { stopSelf() },
+            onHide = { floatingState.enabled.value = false }
+        )
+        floatingControls = controls
+
+        // Close the service even when the Live screen is not collecting its state.
+        // Screen sharing can start the service just before the Live connection begins.
+        controlsScope.launch {
+            liveManager.sessionState
+                .dropWhile { it == LiveSessionState.STOPPED }
+                .first { it == LiveSessionState.STOPPED }
+            stopSelf()
+        }
+
+        val showOverlay = combine(
+            liveManager.sessionState, floatingState.enabled, floatingState.liveScreenVisible
+        ) { sessionState, enabled, screenVisible ->
+            enabled && !screenVisible && sessionState == LiveSessionState.RUNNING
+        }
+        val notificationManager = getSystemService(Context.NOTIFICATION_SERVICE) as NotificationManager
+        controlsScope.launch {
+            combine(
+                showOverlay, liveManager.isMicMuted, liveManager.isVideoPaused, liveManager.visualSource
+            ) { show, micMuted, videoPaused, source ->
+                controls.update(show, micMuted, videoPaused, source != VisualSource.NONE)
+            }.collect {
+                notificationManager.notify(NOTIFICATION_ID, buildNotification())
+            }
+        }
     }
 
     private fun createNotificationChannel() {
@@ -241,22 +309,20 @@ class LiveSessionForegroundService : Service() {
             .setSmallIcon(R.mipmap.ic_launcher)
             .setContentIntent(openPendingIntent)
             .setOngoing(true)
+            .setOnlyAlertOnce(true)
             .setPriority(NotificationCompat.PRIORITY_LOW)
 
-        if (isScreenCaptureActive) {
-            val stopScreenIntent = Intent(this, LiveSessionForegroundService::class.java).apply {
-                action = ACTION_STOP_SCREEN_CAPTURE
-            }
-            val stopScreenPendingIntent = PendingIntent.getService(
-                this,
-                2,
-                stopScreenIntent,
-                PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE
-            )
+        builder.addAction(
+            android.R.drawable.ic_btn_speak_now,
+            getString(micActionLabel(liveManager.isMicMuted.value)),
+            controlPendingIntent(ACTION_TOGGLE_MIC, 3)
+        )
+
+        if (isScreenCaptureActive || liveManager.visualSource.value != VisualSource.NONE) {
             builder.addAction(
-                android.R.drawable.ic_menu_close_clear_cancel,
-                getString(R.string.live_mode_screen_notification_stop),
-                stopScreenPendingIntent
+                if (liveManager.isVideoPaused.value) android.R.drawable.ic_media_play else android.R.drawable.ic_media_pause,
+                getString(videoActionLabel(liveManager.isVideoPaused.value)),
+                controlPendingIntent(ACTION_TOGGLE_PAUSE, 4)
             )
         }
 
@@ -268,4 +334,12 @@ class LiveSessionForegroundService : Service() {
 
         return builder.build()
     }
+
+    private fun controlPendingIntent(action: String, requestCode: Int): PendingIntent =
+        PendingIntent.getService(
+            this,
+            requestCode,
+            Intent(this, LiveSessionForegroundService::class.java).setAction(action),
+            PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE
+        )
 }
