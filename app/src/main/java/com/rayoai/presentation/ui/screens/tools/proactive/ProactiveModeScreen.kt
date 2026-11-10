@@ -66,7 +66,6 @@ import androidx.compose.material.icons.filled.PlayArrow
 import androidx.compose.material.icons.filled.Search
 import androidx.compose.material.icons.filled.Stars
 import androidx.compose.material.icons.filled.Stop
-import androidx.compose.material.icons.filled.Timer
 import androidx.compose.material.icons.filled.Tune
 import androidx.compose.material.icons.filled.Visibility
 import androidx.compose.material3.AlertDialog
@@ -88,6 +87,7 @@ import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Scaffold
+import androidx.compose.material3.Slider
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Tab
 import androidx.compose.material3.TabRow
@@ -113,11 +113,13 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalLifecycleOwner
+import androidx.compose.ui.res.pluralStringResource
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.semantics.role
 import androidx.compose.ui.semantics.semantics
+import androidx.compose.ui.semantics.stateDescription
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.viewinterop.AndroidView
@@ -137,6 +139,7 @@ import com.rayoai.presentation.voice.VoiceRecorder
 import kotlinx.coroutines.launch
 import java.util.UUID
 import java.util.concurrent.Executors
+import kotlin.math.roundToInt
 
 private enum class ProactiveTargetTab {
     QUICK,
@@ -354,20 +357,6 @@ fun ProactiveModeScreen(
                     ) {
                         Icon(Icons.Filled.Cameraswitch, contentDescription = null)
                     }
-
-                    // Frecuencia (1s, 2s, 3s, 5s)
-                    val intervalText = "$intervalLabel: ${intervalSeconds}s"
-                    TextButton(
-                        onClick = { viewModel.cycleInterval() },
-                        modifier = Modifier.semantics {
-                            role = Role.Button
-                            contentDescription = intervalText
-                        }
-                    ) {
-                        Icon(Icons.Filled.Timer, contentDescription = null, modifier = Modifier.size(18.dp))
-                        Spacer(Modifier.width(4.dp))
-                        Text("${intervalSeconds}s", fontWeight = FontWeight.Bold)
-                    }
                 }
             )
         }
@@ -397,6 +386,28 @@ fun ProactiveModeScreen(
                     .fillMaxSize()
                     .padding(innerPadding)
             ) {
+                var selectedInterval by remember(intervalSeconds) {
+                    mutableStateOf(intervalSeconds.toFloat())
+                }
+                val selectedSeconds = selectedInterval.roundToInt()
+                val intervalText = pluralStringResource(
+                    R.plurals.proactive_interval_seconds, selectedSeconds, selectedSeconds
+                )
+                Column(Modifier.fillMaxWidth().padding(horizontal = 16.dp)) {
+                    Text("$intervalLabel: $intervalText", style = MaterialTheme.typography.titleSmall)
+                    Slider(
+                        value = selectedInterval,
+                        onValueChange = { selectedInterval = it },
+                        onValueChangeFinished = { viewModel.setIntervalSeconds(selectedInterval.roundToInt()) },
+                        valueRange = 1f..5f,
+                        steps = 3,
+                        modifier = Modifier.fillMaxWidth().semantics {
+                            contentDescription = intervalLabel
+                            stateDescription = intervalText
+                        }
+                    )
+                }
+
                 // Escenario de Cámara Central (Tocar silencia cualquier anuncio en curso)
                 Box(
                     modifier = Modifier

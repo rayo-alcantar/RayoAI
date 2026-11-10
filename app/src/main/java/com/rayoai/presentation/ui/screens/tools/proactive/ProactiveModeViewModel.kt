@@ -313,13 +313,8 @@ class ProactiveModeViewModel @Inject constructor(
         resetDetectionState()
     }
 
-    fun cycleInterval() {
-        _intervalSeconds.value = when (_intervalSeconds.value) {
-            1 -> 2
-            2 -> 3
-            3 -> 5
-            else -> 1
-        }
+    fun setIntervalSeconds(seconds: Int) {
+        _intervalSeconds.value = seconds.coerceIn(1, 5)
     }
 
     fun toggleTorch() {
