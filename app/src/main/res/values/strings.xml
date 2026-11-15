@@ -120,6 +120,8 @@ Tarjeta: 4152314082325278</string>
     <string name="focus_assist_off">Enfoque facial desactivado</string>
     <string name="focus_assist_auto_capture">Enfoque facial con captura automática activado</string>
     <string name="focus_assist_auto_capture_badge">A</string>
+    <string name="focus_assist_not_supported_in_hw_portrait">El enfoque facial no está disponible en modo retrato por hardware</string>
+    <string name="hw_portrait_not_supported_with_focus_assist">El modo retrato por hardware no está disponible con el enfoque facial activo</string>
     <string name="error_loading_shared_image">Error al cargar la imagen compartida.</string>
     <string name="error_security_shared_image">No se pudo acceder a la imagen compartida. El permiso pudo haber expirado.</string>
     <string name="error_loading_gallery_image">Error al cargar la imagen de la galería.</string>

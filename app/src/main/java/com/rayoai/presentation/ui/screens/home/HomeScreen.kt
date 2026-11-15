@@ -195,6 +195,17 @@ fun HomeScreen(
         }
     }
 
+    LaunchedEffect(Unit) {
+        viewModel.userMessage.collect { messageResId ->
+            val message = context.getString(messageResId)
+            view.announceForAccessibility(message)
+            snackbarHostState.showSnackbar(
+                message = message,
+                duration = SnackbarDuration.Short
+            )
+        }
+    }
+
     val sharedTts = LocalTextToSpeech.current
     var fallbackTts by remember { mutableStateOf<TextToSpeech?>(null) }
     var ttsInitialized by remember(sharedTts) { mutableStateOf(sharedTts != null) }

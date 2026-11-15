@@ -150,9 +150,17 @@ fun CameraView(
         cameraSelector,
         portraitMode,
         isBokehAvailableOnCurrentCamera,
-        extensionsManager
+        extensionsManager,
+        isFocusAssistEnabled
     ) {
-        if (portraitMode == PortraitMode.HARDWARE && isBokehAvailableOnCurrentCamera && extensionsManager != null) {
+        if (
+            CameraFeatureCompatibilityPolicy.canUseHardwareBokeh(
+                portraitMode = portraitMode,
+                isBokehAvailable = isBokehAvailableOnCurrentCamera,
+                hasExtensionManager = extensionsManager != null,
+                isFocusAssistEnabled = isFocusAssistEnabled
+            )
+        ) {
             try {
                 extensionsManager!!.getExtensionEnabledCameraSelector(cameraSelector, ExtensionMode.BOKEH)
             } catch (e: Exception) {
@@ -257,15 +265,25 @@ fun CameraView(
         }
         cameraController.imageCaptureFlashMode = flashMode
     }
-    LaunchedEffect(cameraController, isFocusAssistEnabled, focusAssistAnalyzer) {
-        if (isFocusAssistEnabled) {
+    LaunchedEffect(cameraController, isFocusAssistEnabled, focusAssistAnalyzer, portraitMode) {
+        val canAnalyze = CameraFeatureCompatibilityPolicy.shouldEnableImageAnalysis(
+            isFocusAssistEnabled = isFocusAssistEnabled,
+            portraitMode = portraitMode
+        )
+        if (canAnalyze) {
             focusAssistAnalyzer.start()
-            cameraController.setEnabledUseCases(CameraController.IMAGE_CAPTURE or CameraController.IMAGE_ANALYSIS)
-            cameraController.imageAnalysisBackpressureStrategy = ImageAnalysis.STRATEGY_KEEP_ONLY_LATEST
-            cameraController.setImageAnalysisAnalyzer(
-                cameraBackgroundExecutor,
-                focusAssistAnalyzer
-            )
+            try {
+                cameraController.setEnabledUseCases(CameraController.IMAGE_CAPTURE or CameraController.IMAGE_ANALYSIS)
+                cameraController.imageAnalysisBackpressureStrategy = ImageAnalysis.STRATEGY_KEEP_ONLY_LATEST
+                cameraController.setImageAnalysisAnalyzer(
+                    cameraBackgroundExecutor,
+                    focusAssistAnalyzer
+                )
+            } catch (e: Exception) {
+                Log.e("CameraView", "Failed to enable ImageAnalysis with current camera mode", e)
+                cameraController.clearImageAnalysisAnalyzer()
+                cameraController.setEnabledUseCases(CameraController.IMAGE_CAPTURE)
+            }
         } else {
             cameraController.clearImageAnalysisAnalyzer()
             cameraController.setEnabledUseCases(CameraController.IMAGE_CAPTURE)

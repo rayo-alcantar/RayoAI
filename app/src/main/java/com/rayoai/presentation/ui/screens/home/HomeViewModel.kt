@@ -40,6 +40,7 @@ import java.util.Locale
 import androidx.lifecycle.SavedStateHandle
 import com.rayoai.domain.model.GeminiModelConfig
 import com.rayoai.domain.model.DescriptionDetail
+import com.rayoai.presentation.ui.components.CameraFeatureCompatibilityPolicy
 import com.rayoai.data.local.db.CaptureDao
 import dagger.hilt.android.qualifiers.ApplicationContext
 import javax.inject.Inject
@@ -133,6 +134,8 @@ class HomeViewModel @Inject constructor(
     val playCaptureSound: SharedFlow<Unit> = _playCaptureSound
     private val _countdownTrigger = MutableSharedFlow<Int>()
     val countdownTrigger: SharedFlow<Int> = _countdownTrigger
+    private val _userMessage = MutableSharedFlow<Int>()
+    val userMessage: SharedFlow<Int> = _userMessage
 
     init {
         viewModelScope.launch {
@@ -728,12 +731,18 @@ class HomeViewModel @Inject constructor(
     }
 
     fun togglePortraitMode() {
+        var notifyIncompatible = false
         _uiState.update { current ->
             val nextMode = when (current.portraitMode) {
                 PortraitMode.OFF -> PortraitMode.SOFTWARE
                 PortraitMode.SOFTWARE -> {
                     if (current.isHardwarePortraitSupported) {
-                        PortraitMode.HARDWARE
+                        if (!CameraFeatureCompatibilityPolicy.canEnableHardwarePortrait(current.focusAssistMode)) {
+                            notifyIncompatible = true
+                            PortraitMode.OFF
+                        } else {
+                            PortraitMode.HARDWARE
+                        }
                     } else {
                         PortraitMode.OFF
                     }
@@ -742,11 +751,19 @@ class HomeViewModel @Inject constructor(
             }
             current.copy(portraitMode = nextMode)
         }
+        if (notifyIncompatible) {
+            viewModelScope.launch {
+                _userMessage.emit(R.string.hw_portrait_not_supported_with_focus_assist)
+            }
+        }
     }
 
     fun setHardwarePortraitSupported(isSupported: Boolean) {
         _uiState.update { current ->
-            val adjustedMode = if (!isSupported && current.portraitMode == PortraitMode.HARDWARE) {
+            val adjustedMode = if (
+                (!isSupported || !CameraFeatureCompatibilityPolicy.canEnableHardwarePortrait(current.focusAssistMode)) &&
+                current.portraitMode == PortraitMode.HARDWARE
+            ) {
                 PortraitMode.SOFTWARE
             } else {
                 current.portraitMode
@@ -912,6 +929,12 @@ class HomeViewModel @Inject constructor(
     }
 
     fun toggleFocusAssist() {
+        if (!CameraFeatureCompatibilityPolicy.canEnableFocusAssist(_uiState.value.portraitMode)) {
+            viewModelScope.launch {
+                _userMessage.emit(R.string.focus_assist_not_supported_in_hw_portrait)
+            }
+            return
+        }
         _uiState.update { currentState ->
             if (currentState.isLoading || currentState.isCapturing || currentState.screenState !is HomeScreenState.Initial) {
                 currentState.copy(focusAssistMode = FocusAssistMode.OFF)
