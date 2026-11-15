@@ -11,5 +11,6 @@ data class CaptureEntity(
     val imageUris: List<String>,
     val chatHistory: List<ChatMessage>,
     val timestamp: Long,
-    val isHidden: Boolean = false
+    val isHidden: Boolean = false,
+    val isFavorite: Boolean = false
 )

@@ -10,6 +10,7 @@ import com.rayoai.data.local.db.CaptureDao
 import com.rayoai.data.local.db.RayoAIDatabase
 import com.rayoai.data.local.db.MIGRATION_1_2
 import com.rayoai.data.local.db.MIGRATION_2_3
+import com.rayoai.data.local.db.MIGRATION_3_4
 import com.rayoai.data.local.pdfdb.PdfDao
 import com.rayoai.data.local.pdfdb.PdfChatDao
 import com.rayoai.data.local.pdfdb.PdfDatabase
@@ -109,7 +110,7 @@ object AppModule {
             context,
             RayoAIDatabase::class.java,
             "rayo_ai_db"
-                ).addMigrations(MIGRATION_1_2, MIGRATION_2_3).build()
+                ).addMigrations(MIGRATION_1_2, MIGRATION_2_3, MIGRATION_3_4).build()
     }
 
     @Provides

@@ -6,23 +6,24 @@ import com.rayoai.domain.model.Capture
 import com.rayoai.domain.usecase.DeleteAllCapturesUseCase
 import com.rayoai.domain.usecase.DeleteCaptureUseCase
 import com.rayoai.domain.usecase.GetHistoryUseCase
+import com.rayoai.domain.usecase.UpdateChatFavoriteStateUseCase
 import com.rayoai.domain.usecase.UpdateChatHiddenStateUseCase
 import com.rayoai.domain.repository.UserPreferencesRepository
 import dagger.hilt.android.lifecycle.HiltViewModel
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.SharingStarted
+import kotlinx.coroutines.flow.combine
 import kotlinx.coroutines.flow.flatMapLatest
 import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.launch
 import javax.inject.Inject
-
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.update
 
 /**
  * ViewModel para la pantalla de historial de capturas.
- * Gestiona la lógica para mostrar, eliminar y navegar desde el historial.
+ * Gestiona la lógica para mostrar, buscar, filtrar por favoritos, eliminar y navegar desde el historial.
  */
 @HiltViewModel
 class HistoryViewModel @Inject constructor(
@@ -30,14 +31,36 @@ class HistoryViewModel @Inject constructor(
     private val deleteAllCapturesUseCase: DeleteAllCapturesUseCase,
     private val deleteCaptureUseCase: DeleteCaptureUseCase,
     private val updateChatHiddenStateUseCase: UpdateChatHiddenStateUseCase,
+    private val updateChatFavoriteStateUseCase: UpdateChatFavoriteStateUseCase,
     private val userPreferencesRepository: UserPreferencesRepository
 ) : ViewModel() {
 
     val showHiddenChats: StateFlow<Boolean> = userPreferencesRepository.showHiddenChats
         .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), false)
 
-    private val _history = MutableStateFlow<List<Capture>>(emptyList())
-    val history: StateFlow<List<Capture>> = _history.asStateFlow()
+    private val _rawHistory = MutableStateFlow<List<Capture>>(emptyList())
+
+    private val _searchQuery = MutableStateFlow("")
+    val searchQuery: StateFlow<String> = _searchQuery.asStateFlow()
+
+    private val _filterFavoritesOnly = MutableStateFlow(false)
+    val filterFavoritesOnly: StateFlow<Boolean> = _filterFavoritesOnly.asStateFlow()
+
+    val history: StateFlow<List<Capture>> = combine(
+        _rawHistory,
+        _searchQuery,
+        _filterFavoritesOnly
+    ) { captures, query, favoritesOnly ->
+        captures.filter { capture ->
+            val matchesFav = if (favoritesOnly) capture.isFavorite else true
+            val matchesQuery = if (query.isBlank()) {
+                true
+            } else {
+                capture.firstDescription.contains(query.trim(), ignoreCase = true)
+            }
+            matchesFav && matchesQuery
+        }
+    }.stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), emptyList())
 
     private val _isSelectionMode = MutableStateFlow(false)
     val isSelectionMode: StateFlow<Boolean> = _isSelectionMode.asStateFlow()
@@ -54,9 +77,21 @@ class HistoryViewModel @Inject constructor(
             showHiddenChats
                 .flatMapLatest { showHidden -> getHistoryUseCase(showHidden) }
                 .collect { captures ->
-                    _history.value = captures
+                    _rawHistory.value = captures
                 }
         }
+    }
+
+    fun onSearchQueryChange(query: String) {
+        _searchQuery.value = query
+    }
+
+    fun clearSearchQuery() {
+        _searchQuery.value = ""
+    }
+
+    fun toggleFilterFavoritesOnly() {
+        _filterFavoritesOnly.update { !it }
     }
 
     fun onEvent(event: HistoryEvent) {
@@ -87,7 +122,7 @@ class HistoryViewModel @Inject constructor(
             }
             HistoryEvent.OnDeleteSelected -> {
                 viewModelScope.launch {
-                    val itemsToDelete = _history.value.filter { it.id in _selectedItemIds.value }
+                    val itemsToDelete = _rawHistory.value.filter { it.id in _selectedItemIds.value }
                     itemsToDelete.forEach { capture ->
                         deleteCaptureUseCase(capture)
                     }
@@ -108,6 +143,12 @@ class HistoryViewModel @Inject constructor(
     fun toggleChatHiddenState(capture: Capture) {
         viewModelScope.launch {
             updateChatHiddenStateUseCase(capture.id, !capture.isHidden)
+        }
+    }
+
+    fun toggleChatFavoriteState(capture: Capture) {
+        viewModelScope.launch {
+            updateChatFavoriteStateUseCase(capture.id, !capture.isFavorite)
         }
     }
 

@@ -21,11 +21,14 @@ class SaveCaptureUseCase @Inject constructor(
      * @return El ID de la captura guardada o actualizada.
      */
     suspend operator fun invoke(imageUris: List<String>, chatHistory: List<ChatMessage>, captureId: Long? = null): Long {
+        val existing = captureId?.let { captureDao.getCaptureById(it) }
         val capture = CaptureEntity(
             id = captureId ?: 0,
             imageUris = imageUris,
             chatHistory = chatHistory,
-            timestamp = System.currentTimeMillis()
+            timestamp = existing?.timestamp ?: System.currentTimeMillis(),
+            isHidden = existing?.isHidden ?: false,
+            isFavorite = existing?.isFavorite ?: false
         )
         return captureDao.insertCapture(capture)
     }

@@ -26,6 +26,11 @@ enum class VirtualBackgroundMode {
     NONE,
     WHITE,
     ROYAL_BLUE,
+    CHARCOAL_GRAY,
+    EMERALD_GREEN,
+    WARM_BEIGE,
+    BURGUNDY,
+    SOFT_CYAN,
     CUSTOM
 }
 
@@ -241,6 +246,11 @@ object VirtualBackgroundProcessor {
         return when (mode) {
             VirtualBackgroundMode.WHITE -> createStudioWhiteBackground(targetWidth, targetHeight)
             VirtualBackgroundMode.ROYAL_BLUE -> createStudioRoyalBlueBackground(targetWidth, targetHeight)
+            VirtualBackgroundMode.CHARCOAL_GRAY -> createStudioCharcoalBackground(targetWidth, targetHeight)
+            VirtualBackgroundMode.EMERALD_GREEN -> createStudioEmeraldBackground(targetWidth, targetHeight)
+            VirtualBackgroundMode.WARM_BEIGE -> createStudioWarmBeigeBackground(targetWidth, targetHeight)
+            VirtualBackgroundMode.BURGUNDY -> createStudioBurgundyBackground(targetWidth, targetHeight)
+            VirtualBackgroundMode.SOFT_CYAN -> createStudioSoftCyanBackground(targetWidth, targetHeight)
             VirtualBackgroundMode.CUSTOM -> {
                 val customBitmap = customUri?.let { uri ->
                     customBitmapLoader?.invoke(uri) ?: loadBitmapFromUri(context, uri)
@@ -310,6 +320,87 @@ object VirtualBackgroundProcessor {
         // Microtextura de muselina fotográfica
         applySubtleMuslinTexture(bitmap, amplitude = 3)
         return bitmap
+    }
+
+    private fun createStudioColorBackground(
+        width: Int,
+        height: Int,
+        colors: IntArray,
+        positions: FloatArray = floatArrayOf(0.0f, 0.55f, 1.0f),
+        amplitude: Int = 3
+    ): Bitmap {
+        val bitmap = Bitmap.createBitmap(width, height, Bitmap.Config.ARGB_8888)
+        val canvas = Canvas(bitmap)
+        val paint = Paint(Paint.ANTI_ALIAS_FLAG)
+        val centerX = width * 0.5f
+        val centerY = height * 0.40f
+        val radius = maxOf(width, height) * 0.85f
+
+        paint.shader = RadialGradient(centerX, centerY, radius, colors, positions, Shader.TileMode.CLAMP)
+        canvas.drawRect(0f, 0f, width.toFloat(), height.toFloat(), paint)
+
+        applySubtleMuslinTexture(bitmap, amplitude = amplitude)
+        return bitmap
+    }
+
+    private fun createStudioCharcoalBackground(width: Int, height: Int): Bitmap {
+        return createStudioColorBackground(
+            width, height,
+            colors = intArrayOf(
+                Color.rgb(65, 65, 68),
+                Color.rgb(38, 38, 40),
+                Color.rgb(20, 20, 22)
+            ),
+            amplitude = 3
+        )
+    }
+
+    private fun createStudioEmeraldBackground(width: Int, height: Int): Bitmap {
+        return createStudioColorBackground(
+            width, height,
+            colors = intArrayOf(
+                Color.rgb(32, 105, 72),
+                Color.rgb(18, 68, 45),
+                Color.rgb(10, 36, 24)
+            ),
+            amplitude = 3
+        )
+    }
+
+    private fun createStudioWarmBeigeBackground(width: Int, height: Int): Bitmap {
+        return createStudioColorBackground(
+            width, height,
+            colors = intArrayOf(
+                Color.rgb(240, 230, 216),
+                Color.rgb(218, 202, 182),
+                Color.rgb(186, 168, 146)
+            ),
+            amplitude = 2
+        )
+    }
+
+    private fun createStudioBurgundyBackground(width: Int, height: Int): Bitmap {
+        return createStudioColorBackground(
+            width, height,
+            colors = intArrayOf(
+                Color.rgb(120, 32, 48),
+                Color.rgb(82, 18, 30),
+                Color.rgb(44, 10, 16)
+            ),
+            amplitude = 3
+        )
+    }
+
+    private fun createStudioSoftCyanBackground(width: Int, height: Int): Bitmap {
+        return createStudioColorBackground(
+            width, height,
+            colors = intArrayOf(
+                Color.rgb(80, 175, 200),
+                Color.rgb(45, 130, 155),
+                Color.rgb(22, 75, 95)
+            ),
+            amplitude = 2
+        )
     }
 
     /**

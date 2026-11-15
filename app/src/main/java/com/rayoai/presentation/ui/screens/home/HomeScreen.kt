@@ -434,6 +434,11 @@ fun HomeScreen(
                             val activeBgName = when (uiState.virtualBackgroundConfig.mode) {
                                 VirtualBackgroundMode.WHITE -> stringResource(R.string.bg_option_white_name)
                                 VirtualBackgroundMode.ROYAL_BLUE -> stringResource(R.string.bg_option_royal_blue_name)
+                                VirtualBackgroundMode.CHARCOAL_GRAY -> stringResource(R.string.bg_option_charcoal_name)
+                                VirtualBackgroundMode.EMERALD_GREEN -> stringResource(R.string.bg_option_emerald_name)
+                                VirtualBackgroundMode.WARM_BEIGE -> stringResource(R.string.bg_option_warm_beige_name)
+                                VirtualBackgroundMode.BURGUNDY -> stringResource(R.string.bg_option_burgundy_name)
+                                VirtualBackgroundMode.SOFT_CYAN -> stringResource(R.string.bg_option_soft_cyan_name)
                                 VirtualBackgroundMode.CUSTOM -> stringResource(R.string.bg_option_custom)
                                 VirtualBackgroundMode.NONE -> ""
                             }
@@ -460,6 +465,11 @@ fun HomeScreen(
                                                 when (uiState.virtualBackgroundConfig.mode) {
                                                     VirtualBackgroundMode.WHITE -> Color.White
                                                     VirtualBackgroundMode.ROYAL_BLUE -> Color(0xFF102A71)
+                                                    VirtualBackgroundMode.CHARCOAL_GRAY -> Color(0xFF282828)
+                                                    VirtualBackgroundMode.EMERALD_GREEN -> Color(0xFF0F5A38)
+                                                    VirtualBackgroundMode.WARM_BEIGE -> Color(0xFFD8C7B0)
+                                                    VirtualBackgroundMode.BURGUNDY -> Color(0xFF6B1724)
+                                                    VirtualBackgroundMode.SOFT_CYAN -> Color(0xFF3BA7C9)
                                                     else -> MaterialTheme.colorScheme.primary
                                                 }
                                             )

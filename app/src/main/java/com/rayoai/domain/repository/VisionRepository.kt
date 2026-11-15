@@ -31,6 +31,8 @@ interface VisionRepository {
 
     suspend fun updateChatHiddenState(id: Long, isHidden: Boolean)
 
+    suspend fun updateChatFavoriteState(id: Long, isFavorite: Boolean)
+
     suspend fun deleteCapture(capture: Capture)
 
     suspend fun deleteAllCaptures()

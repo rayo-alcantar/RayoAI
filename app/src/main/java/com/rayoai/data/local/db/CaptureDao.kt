@@ -18,6 +18,9 @@ interface CaptureDao {
     @Query("UPDATE captures SET isHidden = :isHidden WHERE id = :captureId")
     suspend fun updateHiddenState(captureId: Long, isHidden: Boolean)
 
+    @Query("UPDATE captures SET isFavorite = :isFavorite WHERE id = :captureId")
+    suspend fun updateFavoriteState(captureId: Long, isFavorite: Boolean)
+
     @Query("DELETE FROM captures WHERE id = :captureId")
     suspend fun deleteCapture(captureId: Long)
 

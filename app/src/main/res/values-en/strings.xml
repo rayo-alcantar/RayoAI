@@ -701,4 +701,35 @@ Card: 4152314082325278</string>
     <string name="bg_option_custom_photo_selected">Photo selected from gallery</string>
     <string name="copy_image_to_clipboard">Copy image to clipboard</string>
     <string name="image_copied_to_clipboard">Image copied to clipboard</string>
+
+    <!-- History search, favorites and revamp -->
+    <string name="history_search_hint">Search history…</string>
+    <string name="history_search_clear">Clear search</string>
+    <string name="history_filter_all">All</string>
+    <string name="history_filter_favorites">Favorites</string>
+    <string name="history_no_results">No chats found matching your search.</string>
+    <string name="history_no_favorites">You don\'t have any favorite chats.</string>
+    <string name="history_favorite_action_add">Mark as favorite</string>
+    <string name="history_favorite_action_remove">Remove from favorites</string>
+    <string name="history_favorite_badge">Favorite</string>
+    <string name="history_hidden_badge">Hidden</string>
+    <string name="history_results_count">%1$d chats found</string>
+
+    <!-- Additional studio background options -->
+    <string name="bg_option_charcoal_name">Charcoal gray</string>
+    <string name="bg_option_charcoal_desc">Neutral studio charcoal gray background</string>
+    <string name="bg_option_emerald_name">Emerald green</string>
+    <string name="bg_option_emerald_desc">Elegant studio emerald green background</string>
+    <string name="bg_option_warm_beige_name">Warm beige</string>
+    <string name="bg_option_warm_beige_desc">Soft texture studio warm beige background</string>
+    <string name="bg_option_burgundy_name">Burgundy</string>
+    <string name="bg_option_burgundy_desc">Classic deep burgundy studio background</string>
+    <string name="bg_option_soft_cyan_name">Soft cyan</string>
+    <string name="bg_option_soft_cyan_desc">Soft studio cyan background</string>
+    <string name="bg_add_custom_button">Add custom background</string>
+    <string name="bg_option_custom_preview">Your custom photo</string>
+
+    <!-- Settings version -->
+    <string name="settings_current_version">Current version: %1$s (%2$d)</string>
+    <string name="settings_version_title">Installed version</string>
 </resources>

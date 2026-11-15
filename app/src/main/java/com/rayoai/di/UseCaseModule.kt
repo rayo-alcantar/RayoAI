@@ -9,6 +9,7 @@ import com.rayoai.domain.usecase.DescribeImageUseCase
 import com.rayoai.domain.usecase.GetHistoryUseCase
 import com.rayoai.domain.usecase.SaveCaptureUseCase
 import com.rayoai.domain.usecase.UpdateChatHiddenStateUseCase
+import com.rayoai.domain.usecase.UpdateChatFavoriteStateUseCase
 import dagger.Module
 import dagger.Provides
 import dagger.hilt.InstallIn
@@ -59,5 +60,11 @@ object UseCaseModule {
     @ViewModelScoped
     fun provideUpdateChatHiddenStateUseCase(visionRepository: VisionRepository): UpdateChatHiddenStateUseCase {
         return UpdateChatHiddenStateUseCase(visionRepository)
+    }
+
+    @Provides
+    @ViewModelScoped
+    fun provideUpdateChatFavoriteStateUseCase(visionRepository: VisionRepository): UpdateChatFavoriteStateUseCase {
+        return UpdateChatFavoriteStateUseCase(visionRepository)
     }
 }

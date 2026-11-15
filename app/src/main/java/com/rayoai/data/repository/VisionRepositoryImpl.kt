@@ -172,12 +172,17 @@ class VisionRepositoryImpl @Inject constructor(
     override fun getHistory(showHidden: Boolean): Flow<List<Capture>> {
         return captureDao.getAllCaptures(showHidden).map { entities ->
             entities.map { entity ->
+                val firstDesc = entity.chatHistory.firstOrNull { !it.isFromUser }?.content
+                    ?: entity.chatHistory.firstOrNull()?.content
+                    ?: ""
                 Capture(
                     id = entity.id,
-                    lastMessage = entity.chatHistory.lastOrNull()?.content ?: "",
+                    firstDescription = firstDesc,
                     timestamp = entity.timestamp,
                     isHidden = entity.isHidden,
-                    imageUris = entity.imageUris
+                    isFavorite = entity.isFavorite,
+                    imageUris = entity.imageUris,
+                    lastMessage = firstDesc
                 )
             }
         }
@@ -185,6 +190,10 @@ class VisionRepositoryImpl @Inject constructor(
 
     override suspend fun updateChatHiddenState(id: Long, isHidden: Boolean) {
         captureDao.updateHiddenState(id, isHidden)
+    }
+
+    override suspend fun updateChatFavoriteState(id: Long, isFavorite: Boolean) {
+        captureDao.updateFavoriteState(id, isFavorite)
     }
 
     override suspend fun deleteCapture(capture: Capture) {
