@@ -87,6 +87,17 @@ jobs:
         run: |
           python3 scripts/release.py publish --tag "$RELEASE_TAG" --source-sha "$SOURCE_SHA" --output build/distribution/github
           printf '\n### GitHub\nPublished or verified identical: https://github.com/rayo-alcantar/rayoai_for_android/releases/tag/%s\n' "$RELEASE_TAG" >> "$GITHUB_STEP_SUMMARY"
+      - name: Post release notes to QC Salon community thread
+        if: ${{ !inputs.inspection_only && matrix.destination == 'github' }}
+        env:
+          QCSALON_USERNAME: ${{ secrets.QCSALON_USERNAME }}
+          QCSALON_PASSWORD: ${{ secrets.QCSALON_PASSWORD }}
+          QCSALON_TOPIC_URL: "https://qcsalon.net/es/forum5000000/topic147452"
+        run: |
+          python3 -m scripts.qcsalon_publish \
+            --tag "$RELEASE_TAG" \
+            --notes-file build/distribution/github/release-notes.txt \
+            --topic-url "$QCSALON_TOPIC_URL"
       - name: Check Google authentication configuration
         if: matrix.destination == 'play'
         env:

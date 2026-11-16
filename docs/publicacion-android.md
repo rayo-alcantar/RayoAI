@@ -202,6 +202,16 @@ Estas variables no cambian los valores seleccionados explícitamente en una ejec
 manual. Un tag que solicita Play sin acceso configurado falla en ese destino: no
 simula éxito ni omite silenciosamente la tienda pendiente.
 
+### Notificación a la comunidad (QC Salon)
+
+Tras publicar con éxito el APK en GitHub, el workflow ejecuta `scripts.qcsalon_publish` para publicar las notas de la versión y los enlaces de descarga directamente en el hilo oficial de RayoAI en La Sala de Juegos (`topic147452`).
+
+Requiere los siguientes secretos en GitHub Actions (en el repositorio o en el environment `release-public`):
+- `QCSALON_USERNAME`: Nombre de usuario en el foro.
+- `QCSALON_PASSWORD`: Contraseña de la cuenta.
+
+Si alguno de estos secretos no está configurado, el paso se omite automáticamente registrando un aviso, sin bloquear la publicación de la release.
+
 ## Qué se conserva igual y qué debe seguir siendo diferente
 
 | Aspecto | GitHub | Google Play |
