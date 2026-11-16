@@ -81,6 +81,34 @@ class QCSalonPublishTest(unittest.TestCase):
             )
         self.assertIn("Could not find reply form", str(ctx.exception))
 
+    def test_post_to_topic_dry_run(self):
+        mock_opener = MagicMock()
+        mock_resp_login = MagicMock()
+        mock_resp_topic = MagicMock()
+        topic_html = (
+            b'<html><body><h1>Responder al tema</h1>'
+            b'<form action="/es/forum32/topic147452" method="post">'
+            b'<textarea name="content"></textarea>'
+            b'</form></body></html>'
+        )
+        mock_resp_topic.read.return_value = topic_html
+        mock_resp_topic.__enter__.return_value = mock_resp_topic
+
+        mock_opener.open.side_effect = [mock_resp_login, mock_resp_topic]
+
+        with patch("sys.stdout", new=io.StringIO()) as fake_out:
+            qcsalon_publish.post_to_topic(
+                "https://qcsalon.net/es/forum5000000/topic147452",
+                "Mensaje de prueba",
+                "testuser",
+                "secretpass",
+                dry_run=True,
+                opener=mock_opener,
+            )
+            self.assertIn("[DRY-RUN]", fake_out.getvalue())
+        # In dry-run, only login and topic get are called, NO post!
+        self.assertEqual(mock_opener.open.call_count, 2)
+
     def test_post_to_topic_success(self):
         mock_opener = MagicMock()
         mock_resp_login = MagicMock()

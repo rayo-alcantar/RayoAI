@@ -81,6 +81,7 @@ def post_to_topic(
     username: str,
     password: str,
     *,
+    dry_run: bool = False,
     opener: urllib.request.OpenerDirector | None = None,
 ) -> None:
     """Authenticate and submit the message to the target QC Salon forum topic."""
@@ -136,6 +137,11 @@ def post_to_topic(
     if not reply_form:
         raise RuntimeError(f"Could not find reply form on {topic_url}. Thread may be locked or layout changed.")
 
+    if dry_run:
+        print(f"[DRY-RUN] Authentication successful and reply form found on {topic_url}.")
+        print("[DRY-RUN] Message to post:\n" + message)
+        return
+
     action_url = urllib.parse.urljoin(topic_url, reply_form["action"])
     payload = dict(reply_form["inputs"])
     textarea_name = reply_form["textarea"]
@@ -165,6 +171,7 @@ def main() -> None:
     parser.add_argument("--tag", required=True, help="Release tag (e.g. 3.3.12-stable)")
     parser.add_argument("--notes-file", type=Path, help="Path to release-notes.txt")
     parser.add_argument("--topic-url", default=DEFAULT_TOPIC_URL, help="QC Salon topic URL")
+    parser.add_argument("--dry-run", action="store_true", help="Validate login and form presence without posting")
     args = parser.parse_args()
 
     username = os.getenv("QCSALON_USERNAME", "").strip()
@@ -184,7 +191,7 @@ def main() -> None:
 
     msg = format_message(args.tag, notes)
     try:
-        post_to_topic(args.topic_url, msg, username, password)
+        post_to_topic(args.topic_url, msg, username, password, dry_run=args.dry_run)
     except Exception as exc:
         print(f"Error publishing to QC Salon: {exc}", file=sys.stderr)
         sys.exit(1)
