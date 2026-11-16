@@ -212,6 +212,27 @@ Requiere los siguientes secretos en GitHub Actions (en el repositorio o en el en
 
 Si alguno de estos secretos no está configurado, el paso se omite automáticamente registrando un aviso, sin bloquear la publicación de la release.
 
+El publicador comprueba si el enlace de la release ya está en el hilo antes de
+enviar el aviso. Si falla, registra la fase y el código HTTP o el tipo de error,
+sin mostrar secretos ni respuestas del servidor. La release de GitHub ya publicada
+no se revierte.
+
+El archivo `scripts/qcsalon-chain.pem` completa la cadena TLS que falta en el
+servidor con los certificados YR1, YR2 y Root YR firmado por ISRG Root X1 del
+[repositorio oficial de Let's Encrypt](https://letsencrypt.org/certificates/).
+No añade una raíz de confianza ni desactiva la comprobación de nombre. Revisarlo
+si cambia el emisor; puede retirarse cuando el servidor entregue su cadena completa.
+
+Para previsualizar el anuncio de una release pública existente sin iniciar sesión
+ni enviar el mensaje, ejecutar desde la raíz del repositorio (reemplazar el tag):
+
+```powershell
+python -m scripts.qcsalon_publish --tag X.Y.Z-stable --published-release --dry-run
+```
+
+`--check-access` verifica la sesión y el formulario sin publicar; requiere los
+secretos de QC Salon y se usa en lugar de `--dry-run`.
+
 ## Qué se conserva igual y qué debe seguir siendo diferente
 
 | Aspecto | GitHub | Google Play |
