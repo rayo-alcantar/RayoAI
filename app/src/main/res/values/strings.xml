@@ -184,6 +184,13 @@ Tarjeta: 4152314082325278</string>
     <string name="tool_scan_pdf_description">Extrae texto y describe imágenes</string>
     <string name="scan_pdf_select">Seleccionar PDF</string>
     <string name="scan_pdf_loading_document">Cargando documento...</string>
+    <string name="scan_pdf_force_visual">Usar solo el escaneo visual (tablas, fórmulas o imágenes)</string>
+    <string name="scan_pdf_detecting_text">Buscando texto seleccionable en el PDF…</string>
+    <string name="scan_pdf_remediating_range">Cotejando el texto de %1$s con la imagen original…</string>
+    <string name="scan_pdf_visual_ready">Escaneo visual terminado.</string>
+    <string name="scan_pdf_remediation_ready">Remediación de la capa de texto terminada.</string>
+    <string name="scan_pdf_mixed_ready">Procesamiento mixto terminado: remediación de texto y escaneo visual.</string>
+    <string name="scan_pdf_remediation_review">Páginas con texto sin verificar o por revisar: %1$d.</string>
     <string name="scan_pdf_analyzing">Analizando con Gemini...</string>
     <string name="scan_pdf_processing_text">Procesando texto...</string>
     <string name="scan_pdf_copy">Copiar contenido</string>

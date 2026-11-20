@@ -12,6 +12,7 @@ import android.webkit.WebView
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.foundation.clickable
+import androidx.compose.foundation.selection.toggleable
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
@@ -29,6 +30,7 @@ import androidx.compose.material3.Button
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Card
 import androidx.compose.material3.CircularProgressIndicator
+import androidx.compose.material3.Checkbox
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
@@ -43,12 +45,16 @@ import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.setValue
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.saveable.rememberSaveable
+import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.semantics.Role
+import androidx.compose.ui.semantics.LiveRegionMode
 import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.semantics.role
+import androidx.compose.ui.semantics.liveRegion
 import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.viewinterop.AndroidView
@@ -56,14 +62,17 @@ import androidx.hilt.navigation.compose.hiltViewModel
 import com.rayoai.domain.model.GeminiModelConfig
 import com.rayoai.domain.model.PdfDocument
 import com.rayoai.domain.repository.UserPreferencesRepository
+import com.rayoai.domain.repository.PdfTextLayerReader
 import com.rayoai.domain.model.AccessiblePdfDocument
 import com.rayoai.domain.usecase.AccessiblePdfHtmlRenderer
 import com.rayoai.domain.usecase.ExtractAccessiblePdfUseCase
 import com.rayoai.domain.usecase.pdf.DeletePdfDocumentUseCase
 import com.rayoai.domain.usecase.pdf.GetPdfDocumentsUseCase
+import com.rayoai.domain.usecase.pdf.PdfTextRemediation
 import com.rayoai.domain.usecase.pdf.SavePdfDocumentUseCase
 import com.rayoai.core.ResultWrapper
 import dagger.hilt.android.lifecycle.HiltViewModel
+import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.first
@@ -84,6 +93,7 @@ import com.rayoai.R
 @HiltViewModel
 class ScanPdfViewModel @Inject constructor(
     private val extractAccessiblePdfUseCase: ExtractAccessiblePdfUseCase,
+    private val pdfTextLayerReader: PdfTextLayerReader,
     private val savePdfDocumentUseCase: SavePdfDocumentUseCase,
     getPdfDocumentsUseCase: GetPdfDocumentsUseCase,
     private val deletePdfDocumentUseCase: DeletePdfDocumentUseCase,
@@ -108,7 +118,8 @@ class ScanPdfViewModel @Inject constructor(
     val pdfDocuments: StateFlow<List<PdfDocument>> = getPdfDocumentsUseCase()
         .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), emptyList())
 
-    fun analyze(context: Context, uri: Uri) {
+    fun analyze(context: Context, uri: Uri, forceVisualScan: Boolean = false) {
+        if (isLoading) return
         viewModelScope.launch {
             try {
                 isLoading = true
@@ -116,51 +127,69 @@ class ScanPdfViewModel @Inject constructor(
                 resultHtml = null
                 exportStatus = null
 
-                val pageCount = getPageCount(context.contentResolver, uri)
+                val resolver = context.contentResolver
+                val pageCount = withContext(Dispatchers.IO) { getPageCount(resolver, uri) }
                 if (pageCount <= 0) {
                     throw IllegalStateException(context.getString(R.string.scan_pdf_no_pages))
                 }
 
-                status = context.getString(R.string.scan_pdf_analyzing)
+                val textLayer = if (forceVisualScan) null else {
+                    status = context.getString(R.string.scan_pdf_detecting_text)
+                    pdfTextLayerReader.read { resolver.openInputStream(uri) }
+                        ?.takeIf { it.size == pageCount }
+                }
                 val apiKey = userPreferencesRepository.apiKey.first() ?: ""
                 val language = Locale.getDefault().language
                 val model = userPreferencesRepository.defaultModel.firstOrNull()
                     ?: GeminiModelConfig.DEFAULT_MODEL
 
                 val fragments = mutableListOf<AccessiblePdfDocument>()
-                val chunkSize = 1
-                var startPage = 0
-                while (startPage < pageCount) {
-                    val endPage = minOf(startPage + chunkSize - 1, pageCount - 1)
-                    val rangeLabel = context.getString(R.string.scan_pdf_page_range, startPage + 1, endPage + 1, pageCount)
-                    status = context.getString(R.string.scan_pdf_processing_range, rangeLabel)
-                    val images = renderPages(context.contentResolver, uri, startPage, endPage)
-                    try {
-                        val rawJson = extractRange(
-                            apiKey = apiKey,
-                            images = images,
-                            pageRange = rangeLabel,
-                            context = context,
-                            language = language,
-                            isFirstRange = startPage == 0,
-                            model = model
-                        )
-                        fragments.add(AccessiblePdfHtmlRenderer.parseJson(rawJson))
-                    } finally {
-                        images.forEach { it.recycle() }
-                    }
-                    startPage = endPage + 1
-                    if (pageCount > 6 && startPage < pageCount) {
+                val title = context.getString(R.string.scan_pdf_document_title)
+                var nativePages = 0
+                var pagesToReview = 0
+                var backOff = false
+                for (index in 0 until pageCount) {
+                    val rangeLabel = context.getString(R.string.scan_pdf_page_range, index + 1, index + 1, pageCount)
+                    val source = textLayer?.get(index)?.takeIf(PdfTextRemediation::hasText)
+                    val canAskModel = source == null || (apiKey.isNotBlank() && PdfTextRemediation.canReview(source))
+                    if (canAskModel && backOff) {
                         status = context.getString(R.string.scan_pdf_waiting_model)
                         delay(15_000)
+                    }
+                    if (canAskModel) backOff = pageCount > 6
+
+                    if (source != null) {
+                        nativePages++
+                        status = context.getString(R.string.scan_pdf_remediating_range, rangeLabel)
+                        val reviewed = if (canAskModel) {
+                            reviewTextPage(resolver, uri, index, source, apiKey, model)
+                        } else PdfTextRemediation.Result(source, needsReview = true)
+                        if (reviewed.needsReview) pagesToReview++
+                        fragments.add(PdfTextRemediation.fragment(reviewed.text, title, language))
+                    } else {
+                        status = context.getString(R.string.scan_pdf_processing_range, rangeLabel)
+                        val image = renderPage(resolver, uri, index)
+                            ?: throw IllegalStateException(context.getString(R.string.scan_pdf_no_pages))
+                        try {
+                            fragments.add(
+                                extractRange(apiKey, listOf(image), rangeLabel, context, language, index == 0, model)
+                            )
+                        } finally {
+                            image.recycle()
+                        }
                     }
                 }
 
                 val accessibleDocument = AccessiblePdfHtmlRenderer.merge(fragments)
                 val html = AccessiblePdfHtmlRenderer.renderHtml(accessibleDocument)
                 resultHtml = html
-                status = context.getString(R.string.scan_pdf_ready)
-                isLoading = false
+                status = when (nativePages) {
+                    0 -> context.getString(R.string.scan_pdf_visual_ready)
+                    pageCount -> context.getString(R.string.scan_pdf_remediation_ready)
+                    else -> context.getString(R.string.scan_pdf_mixed_ready)
+                } + if (pagesToReview > 0) {
+                    " " + context.getString(R.string.scan_pdf_remediation_review, pagesToReview)
+                } else ""
 
                 val name = getDisplayName(context.contentResolver, uri) ?: context.getString(R.string.scan_pdf_default_display_name)
                 suggestedFileName = buildSuggestedPdfFileName(name)
@@ -170,8 +199,11 @@ class ScanPdfViewModel @Inject constructor(
                     html,
                     System.currentTimeMillis()
                 )
+            } catch (e: CancellationException) {
+                throw e
             } catch (e: Exception) {
-                status = e.message
+                status = e.message ?: context.getString(R.string.scan_pdf_unknown_error)
+            } finally {
                 isLoading = false
             }
         }
@@ -219,6 +251,31 @@ class ScanPdfViewModel @Inject constructor(
         }
     }
 
+    private suspend fun reviewTextPage(
+        resolver: ContentResolver,
+        uri: Uri,
+        index: Int,
+        source: String,
+        apiKey: String,
+        model: String
+    ): PdfTextRemediation.Result {
+        val response = try {
+            val image = renderPage(resolver, uri, index)
+            if (image == null) null else try {
+                val result = extractAccessiblePdfUseCase.reviewTextLayer(apiKey, image, source, model)
+                    .firstOrNull { it !is ResultWrapper.Loading }
+                (result as? ResultWrapper.Success)?.data
+            } finally {
+                image.recycle()
+            }
+        } catch (e: CancellationException) {
+            throw e
+        } catch (_: Exception) {
+            null
+        }
+        return withContext(Dispatchers.Default) { PdfTextRemediation.apply(source, response) }
+    }
+
     private suspend fun extractRange(
         apiKey: String,
         images: List<Bitmap>,
@@ -227,7 +284,7 @@ class ScanPdfViewModel @Inject constructor(
         language: String,
         isFirstRange: Boolean,
         model: String
-    ): String {
+    ): AccessiblePdfDocument {
         val delays = listOf(0L, 5_000L, 15_000L, 30_000L)
         var lastError: Throwable? = null
 
@@ -256,8 +313,9 @@ class ScanPdfViewModel @Inject constructor(
 
             try {
                 val raw = text ?: throw IllegalStateException(error ?: context.getString(R.string.scan_pdf_empty_gemini))
-                AccessiblePdfHtmlRenderer.parseJson(raw)
-                return raw
+                return AccessiblePdfHtmlRenderer.parseJson(raw)
+            } catch (e: CancellationException) {
+                throw e
             } catch (e: Exception) {
                 lastError = e
                 val message = error ?: e.message.orEmpty()
@@ -305,26 +363,26 @@ class ScanPdfViewModel @Inject constructor(
         }
     }
 
-    private suspend fun renderPages(
+    private suspend fun renderPage(
         resolver: ContentResolver,
         uri: Uri,
-        startPage: Int,
-        endPage: Int
-    ): List<Bitmap> = withContext(Dispatchers.IO) {
-        val pfd = resolver.openFileDescriptor(uri, "r") ?: return@withContext emptyList()
+        index: Int
+    ): Bitmap? = withContext(Dispatchers.IO) {
+        val pfd = resolver.openFileDescriptor(uri, "r") ?: return@withContext null
         pfd.use { descriptor ->
             PdfRenderer(descriptor).use { renderer ->
-                val bitmaps = mutableListOf<Bitmap>()
-                for (index in startPage..endPage) {
-                    renderer.openPage(index).use { page ->
-                        val width = 1080
-                        val height = (width.toFloat() / page.width * page.height).toInt()
-                        val bmp = Bitmap.createBitmap(width, height, Bitmap.Config.ARGB_8888)
+                renderer.openPage(index).use { page ->
+                    val width = 1080
+                    val height = (width.toFloat() / page.width * page.height).toInt()
+                    val bmp = Bitmap.createBitmap(width, height, Bitmap.Config.ARGB_8888)
+                    try {
                         page.render(bmp, null, null, PdfRenderer.Page.RENDER_MODE_FOR_DISPLAY)
-                        bitmaps.add(bmp)
+                        bmp
+                    } catch (e: Exception) {
+                        bmp.recycle()
+                        throw e
                     }
                 }
-                bitmaps
             }
         }
     }
@@ -353,6 +411,7 @@ fun ScanPdfScreen(
     val pdfDocs by viewModel.pdfDocuments.collectAsState()
     var hasConsumedIncoming by remember { mutableStateOf(false) }
     var toDelete by remember { mutableStateOf<PdfDocument?>(null) }
+    var forceVisualScan by rememberSaveable { mutableStateOf(false) }
     val deleteDocumentTitle = stringResource(R.string.pdf_delete_confirm_title)
     val deleteDocumentText = stringResource(R.string.pdf_delete_confirm_text)
     val deleteText = stringResource(R.string.delete)
@@ -399,7 +458,7 @@ fun ScanPdfScreen(
                     Intent.FLAG_GRANT_READ_URI_PERMISSION
                 )
             } catch (_: Exception) {}
-            viewModel.analyze(context, it)
+            viewModel.analyze(context, it, forceVisualScan)
         }
     }
 
@@ -430,6 +489,7 @@ fun ScanPdfScreen(
         ) {
             item {
                 Button(
+                    enabled = !viewModel.isLoading,
                     onClick = { launcher.launch(arrayOf("application/pdf")) },
                     modifier = Modifier.semantics {
                         role = Role.Button
@@ -438,16 +498,31 @@ fun ScanPdfScreen(
                 ) {
                     Text(selectPdfText)
                 }
+                Row(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .toggleable(
+                            value = forceVisualScan,
+                            enabled = !viewModel.isLoading,
+                            role = Role.Checkbox,
+                            onValueChange = { forceVisualScan = it }
+                        )
+                        .padding(vertical = 12.dp),
+                    verticalAlignment = Alignment.CenterVertically,
+                    horizontalArrangement = Arrangement.spacedBy(8.dp)
+                ) {
+                    Checkbox(checked = forceVisualScan, onCheckedChange = null, enabled = !viewModel.isLoading)
+                    Text(stringResource(R.string.scan_pdf_force_visual))
+                }
             }
 
-            if (viewModel.isLoading) {
+            if (viewModel.isLoading || viewModel.status != null) {
                 item {
-                    CircularProgressIndicator(
-                        modifier = Modifier.semantics {
-                            contentDescription = viewModel.status ?: loadingText
-                        }
+                    if (viewModel.isLoading) CircularProgressIndicator()
+                    Text(
+                        viewModel.status ?: loadingText,
+                        modifier = Modifier.semantics { liveRegion = LiveRegionMode.Polite }
                     )
-                    viewModel.status?.let { Text(it) }
                 }
             }
 

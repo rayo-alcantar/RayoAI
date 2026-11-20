@@ -181,6 +181,13 @@ Card: 4152314082325278</string>
     <string name="tool_scan_pdf_description">Extract text and describe images</string>
     <string name="scan_pdf_select">Select PDF</string>
     <string name="scan_pdf_loading_document">Loading document...</string>
+    <string name="scan_pdf_force_visual">Use visual scanning only (tables, formulas or images)</string>
+    <string name="scan_pdf_detecting_text">Looking for selectable text in the PDF…</string>
+    <string name="scan_pdf_remediating_range">Checking the text from %1$s against the original image…</string>
+    <string name="scan_pdf_visual_ready">Visual scanning complete.</string>
+    <string name="scan_pdf_remediation_ready">Text layer remediation complete.</string>
+    <string name="scan_pdf_mixed_ready">Mixed processing complete: text remediation and visual scanning.</string>
+    <string name="scan_pdf_remediation_review">Pages with unverified text or text that needs review: %1$d.</string>
     <string name="scan_pdf_analyzing">Analyzing with Gemini...</string>
     <string name="scan_pdf_processing_text">Processing text...</string>
     <string name="scan_pdf_copy">Copy content</string>

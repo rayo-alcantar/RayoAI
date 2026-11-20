@@ -12,6 +12,7 @@ import com.rayoai.data.local.db.MIGRATION_1_2
 import com.rayoai.data.local.db.MIGRATION_2_3
 import com.rayoai.data.local.db.MIGRATION_3_4
 import com.rayoai.data.local.pdfdb.PdfDao
+import com.rayoai.data.local.pdfdb.PdfBoxTextLayerReader
 import com.rayoai.data.local.pdfdb.PdfChatDao
 import com.rayoai.data.local.pdfdb.PdfDatabase
 import com.rayoai.data.local.pdfdb.PDF_MIGRATION_1_2
@@ -32,6 +33,7 @@ import com.rayoai.domain.repository.ProactivePresetRepository
 import com.rayoai.domain.repository.UserPreferencesRepository
 import com.rayoai.domain.repository.VideoRepository
 import com.rayoai.domain.repository.VisionRepository
+import com.rayoai.domain.repository.PdfTextLayerReader
 import dagger.Binds
 import dagger.Module
 import dagger.Provides
@@ -66,6 +68,9 @@ abstract class DataModule {
     @Binds
     @Singleton
     abstract fun bindVisionRepository(impl: VisionRepositoryImpl): VisionRepository
+
+    @Binds
+    abstract fun bindPdfTextLayerReader(impl: PdfBoxTextLayerReader): PdfTextLayerReader
 
     @Binds
     @Singleton

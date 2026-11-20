@@ -55,3 +55,6 @@
     public static **[] values();
     public static ** valueOf(java.lang.String);
 }
+
+# Optional JPEG2000 decoder referenced by pdfbox-android JPXFilter
+-dontwarn com.gemalto.jp2.JP2Decoder
