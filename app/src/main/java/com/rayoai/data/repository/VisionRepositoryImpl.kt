@@ -106,7 +106,6 @@ class VisionRepositoryImpl @Inject constructor(
                     systemInstruction = systemInstructionDto,
                     contents = contentsDto,
                     generationConfig = GenerationConfigDto(
-                        maxOutputTokens = if (isStructuredDocument) 8192 else null,
                         responseMimeType = responseMimeType,
                         thinkingConfig = GeminiModelConfig.thinkingConfigFor(modelName)
                     )

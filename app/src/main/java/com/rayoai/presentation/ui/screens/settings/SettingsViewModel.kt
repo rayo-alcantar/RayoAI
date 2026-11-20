@@ -33,7 +33,7 @@ data class SettingsUiState(
     val currentUpdateChannel: UpdateChannel = UpdateChannel.STABLE,
     val liveModel: String = GeminiModelConfig.DEFAULT_LIVE_MODEL,
     val liveVoice: String = "Kore",
-    val liveThinkingLevel: String = "minimal",
+    val liveThinkingLevel: String = GeminiModelConfig.DEFAULT_LIVE_THINKING_LEVEL,
     val liveVadSensitivity: String = "high",
     val livePushToTalk: Boolean = false,
     val liveCaptureIntervalSeconds: Float = 1.0f,

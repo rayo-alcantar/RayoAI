@@ -57,7 +57,7 @@ class LiveModeViewModel @Inject constructor(
         .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), "Kore")
 
     val liveThinkingLevel: StateFlow<String> = userPreferencesRepository.liveThinkingLevel
-        .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), "minimal")
+        .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), GeminiModelConfig.DEFAULT_LIVE_THINKING_LEVEL)
 
     val liveVadSensitivity: StateFlow<String> = userPreferencesRepository.liveVadSensitivity
         .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), "high")

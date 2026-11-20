@@ -22,7 +22,7 @@ data class LiveModeConfig(
     val apiKey: String,
     val model: String = GeminiModelConfig.DEFAULT_LIVE_MODEL,
     val voice: String = "Kore",
-    val thinkingLevel: String = "minimal",
+    val thinkingLevel: String = GeminiModelConfig.DEFAULT_LIVE_THINKING_LEVEL,
     val vadSensitivity: String = "high",
     val pushToTalk: Boolean = false,
     val captureIntervalSeconds: Float = 1.0f,

@@ -53,14 +53,7 @@ class UserPreferencesRepositoryImpl @Inject constructor(
     }
 
     override val defaultModel: Flow<String> = dataStore.data.map {
-        val savedModel = it[PreferencesKeys.DEFAULT_MODEL] ?: GeminiModelConfig.DEFAULT_MODEL
-        
-        // Migración automática: si el usuario tiene modelos obsoletos, migrar al predeterminado
-        if (savedModel.contains("2.0") || savedModel == "gemini-2.5-pro" || savedModel.isBlank()) {
-            GeminiModelConfig.DEFAULT_MODEL
-        } else {
-            savedModel
-        }
+        GeminiModelConfig.migrateGeneralModel(it[PreferencesKeys.DEFAULT_MODEL])
     }
 
     override val imageDescriptionDetail: Flow<DescriptionDetail> = dataStore.data.map {
@@ -120,12 +113,7 @@ class UserPreferencesRepositoryImpl @Inject constructor(
     }
 
     override val liveModel: Flow<String> = dataStore.data.map {
-        val stored = it[PreferencesKeys.LIVE_MODEL]
-        if (stored.isNullOrBlank() || !GeminiModelConfig.liveSelectableModels.contains(stored)) {
-            GeminiModelConfig.DEFAULT_LIVE_MODEL
-        } else {
-            stored
-        }
+        GeminiModelConfig.migrateLiveModel(it[PreferencesKeys.LIVE_MODEL])
     }
 
     override val liveVoice: Flow<String> = dataStore.data.map {
@@ -133,7 +121,10 @@ class UserPreferencesRepositoryImpl @Inject constructor(
     }
 
     override val liveThinkingLevel: Flow<String> = dataStore.data.map {
-        it[PreferencesKeys.LIVE_THINKING_LEVEL] ?: "minimal"
+        GeminiModelConfig.normalizeLiveThinkingLevel(
+            model = GeminiModelConfig.EXTENDED_THINKING_LIVE_MODEL,
+            level = it[PreferencesKeys.LIVE_THINKING_LEVEL]
+        )
     }
 
     override val liveVadSensitivity: Flow<String> = dataStore.data.map {

@@ -66,7 +66,7 @@ data class GenerationConfigDto(
 )
 
 /**
- * Configuración para el modo de razonamiento (Thinking) en Gemini 2.5 y 3.x.
+ * Configuración para el modo de razonamiento (Thinking) en Gemini 2.5, 3.x y 4.
  */
 data class ThinkingConfigDto(
     @SerializedName("include_thoughts") val includeThoughts: Boolean = false,

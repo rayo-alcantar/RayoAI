@@ -118,10 +118,20 @@ fun SettingsScreen(
     var accessibilitySectionExpanded by remember { mutableStateOf(false) }
 
     val modelOptions = listOf(
-        GeminiModelConfig.DEFAULT_MODEL to stringResource(R.string.model_gemini_31_flash_lite),
-        GeminiModelConfig.FALLBACK_MODEL to stringResource(R.string.model_gemini_25_flash),
-        "gemini-3-flash-preview" to stringResource(R.string.model_gemini_3_flash),
-        "gemini-3.1-pro-preview" to stringResource(R.string.model_gemini_31_pro)
+        GeminiModelConfig.DEFAULT_MODEL to stringResource(R.string.model_gemini_35_flash_lite),
+        GeminiModelConfig.FALLBACK_MODEL to stringResource(R.string.model_gemini_4_hydrogen),
+        GeminiModelConfig.FLASH_BALANCED_MODEL to stringResource(R.string.model_gemini_38_flash),
+        GeminiModelConfig.PRO_REASONING_MODEL to stringResource(R.string.model_gemini_4_neon),
+        GeminiModelConfig.MAX_REASONING_MODEL to stringResource(R.string.model_gemini_4_carbon)
+    )
+    val liveModelOptions = listOf(
+        GeminiModelConfig.DEFAULT_LIVE_MODEL to stringResource(R.string.live_model_gemini_38_live),
+        GeminiModelConfig.EXTENDED_THINKING_LIVE_MODEL to stringResource(R.string.live_model_gemini_38_live_extended_thinking)
+    )
+    val liveThinkingLevelOptions = listOf(
+        "low" to stringResource(R.string.live_thinking_level_low),
+        "medium" to stringResource(R.string.live_thinking_level_medium),
+        "high" to stringResource(R.string.live_thinking_level_high)
     )
     val themeOptions = listOf(
         ThemeMode.SYSTEM to stringResource(R.string.theme_mode_system),
@@ -293,16 +303,18 @@ fun SettingsScreen(
                 onExpandedChange = { liveSectionExpanded = it }
             ) {
                 // Modelo Live
+                val selectedLiveModelLabel = liveModelOptions.firstOrNull { it.first == uiState.liveModel }?.second
+                    ?: uiState.liveModel
                 BoxedDropdownField(
-                    value = uiState.liveModel,
+                    value = selectedLiveModelLabel,
                     label = stringResource(R.string.live_mode_model_label),
                     expanded = isLiveModelMenuExpanded,
                     onExpand = { isLiveModelMenuExpanded = true },
                     onDismiss = { isLiveModelMenuExpanded = false }
                 ) {
-                    GeminiModelConfig.liveSelectableModels.forEach { model ->
+                    liveModelOptions.forEach { (model, label) ->
                         DropdownMenuItem(
-                            text = { Text(model) },
+                            text = { Text(label) },
                             onClick = {
                                 viewModel.saveLiveModel(model)
                                 isLiveModelMenuExpanded = false
@@ -330,22 +342,27 @@ fun SettingsScreen(
                     }
                 }
 
-                // Nivel de Razonamiento (Thinking)
-                BoxedDropdownField(
-                    value = uiState.liveThinkingLevel.replaceFirstChar { it.uppercase() },
-                    label = stringResource(R.string.live_mode_thinking_level_label),
-                    expanded = isLiveThinkingMenuExpanded,
-                    onExpand = { isLiveThinkingMenuExpanded = true },
-                    onDismiss = { isLiveThinkingMenuExpanded = false }
-                ) {
-                    GeminiModelConfig.liveThinkingLevels.forEach { level ->
-                        DropdownMenuItem(
-                            text = { Text(level.replaceFirstChar { it.uppercase() }) },
-                            onClick = {
-                                viewModel.saveLiveThinkingLevel(level)
-                                isLiveThinkingMenuExpanded = false
-                            }
-                        )
+                // Nivel de Razonamiento (Thinking) — solo para modelos Live que admiten thinkingConfig
+                if (GeminiModelConfig.liveModelSupportsThinking(uiState.liveModel)) {
+                    val selectedThinkingLabel = liveThinkingLevelOptions
+                        .firstOrNull { it.first == uiState.liveThinkingLevel }?.second
+                        ?: uiState.liveThinkingLevel.replaceFirstChar { it.uppercase() }
+                    BoxedDropdownField(
+                        value = selectedThinkingLabel,
+                        label = stringResource(R.string.live_mode_thinking_level_label),
+                        expanded = isLiveThinkingMenuExpanded,
+                        onExpand = { isLiveThinkingMenuExpanded = true },
+                        onDismiss = { isLiveThinkingMenuExpanded = false }
+                    ) {
+                        liveThinkingLevelOptions.forEach { (level, label) ->
+                            DropdownMenuItem(
+                                text = { Text(label) },
+                                onClick = {
+                                    viewModel.saveLiveThinkingLevel(level)
+                                    isLiveThinkingMenuExpanded = false
+                                }
+                            )
+                        }
                     }
                 }
 

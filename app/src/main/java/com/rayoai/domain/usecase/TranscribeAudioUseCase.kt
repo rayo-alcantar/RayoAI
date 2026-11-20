@@ -9,8 +9,8 @@ import com.rayoai.data.remote.dto.GenerationConfigDto
 import com.rayoai.data.remote.dto.InlineDataDto
 import com.rayoai.data.remote.dto.PartDto
 import com.rayoai.data.remote.dto.SystemInstruction
-import com.rayoai.data.remote.dto.ThinkingConfigDto
 import com.rayoai.domain.model.GeminiModelConfig
+import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
 import java.io.File
@@ -56,7 +56,6 @@ class TranscribeAudioUseCase @Inject constructor(
                         )
                     ),
                     generationConfig = GenerationConfigDto(
-                        temperature = 0f,
                         thinkingConfig = GeminiModelConfig.thinkingConfigFor(modelName)
                     )
                 )
@@ -85,6 +84,8 @@ class TranscribeAudioUseCase @Inject constructor(
                     return@withContext ResultWrapper.Success(text)
                 }
                 errors += "$modelName: respuesta vacia (${candidate?.finishReason ?: "UNKNOWN"})"
+            } catch (e: CancellationException) {
+                throw e
             } catch (e: Exception) {
                 errors += "$modelName: ${e.message ?: "error desconocido"}"
             }

@@ -128,9 +128,6 @@ dependencies {
     ksp("com.google.dagger:hilt-android-compiler:2.51.1")
     implementation("androidx.hilt:hilt-navigation-compose:1.2.0")
 
-    // Gemini AI
-    implementation("com.google.ai.client.generativeai:generativeai:0.9.0")
-
     // CameraX
     val cameraxVersion = "1.5.3"
     implementation("androidx.camera:camera-core:$cameraxVersion")

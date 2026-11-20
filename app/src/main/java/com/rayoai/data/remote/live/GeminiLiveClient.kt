@@ -148,12 +148,7 @@ class GeminiLiveClient(
     }
 
     private fun resolveLiveModel(preferredModel: String): String {
-        val clean = preferredModel.removePrefix("models/").trim()
-        return if (GeminiModelConfig.liveSelectableModels.contains(clean)) {
-            clean
-        } else {
-            GeminiModelConfig.DEFAULT_LIVE_MODEL
-        }
+        return GeminiModelConfig.migrateLiveModel(preferredModel)
     }
 
     private fun sendSetup(ws: WebSocket) {
@@ -177,10 +172,16 @@ class GeminiLiveClient(
             speechConfig.put("voiceConfig", voiceConfig)
             genConfig.put("speechConfig", speechConfig)
 
-            // Thinking config si el modelo lo admite
+            // Thinking config solo para modelos Live que lo admiten explícitamente
+            // (gemini-3.8-live integra razonamiento intercalado y rechaza thinkingConfig;
+            // gemini-3.8-live-extended-thinking admite low/medium/high y rechaza minimal).
             if (GeminiModelConfig.liveModelSupportsThinking(activeModel)) {
+                val safeLevel = GeminiModelConfig.normalizeLiveThinkingLevel(
+                    model = activeModel,
+                    level = config.thinkingLevel
+                )
                 val thinkingConfig = JSONObject()
-                thinkingConfig.put("thinkingLevel", config.thinkingLevel.uppercase())
+                thinkingConfig.put("thinkingLevel", safeLevel.uppercase())
                 genConfig.put("thinkingConfig", thinkingConfig)
             }
             setup.put("generationConfig", genConfig)
@@ -301,12 +302,28 @@ class GeminiLiveClient(
                     }
                 }
 
+                val outputTranscription = serverContent.optJSONObject("outputTranscription")
+                    ?: serverContent.optJSONObject("output_transcription")
+                val transcribedText = outputTranscription?.optString("text").orEmpty()
+                if (transcribedText.isNotEmpty()) {
+                    Log.d(TAG, "Transcripción recibida de Live: $transcribedText")
+                    onTextReceived(transcribedText)
+                }
+
+                val interactionStatus = serverContent.optString("interactionStatus")
+                    .ifEmpty { serverContent.optString("interaction_status") }
+                    .ifEmpty { json.optString("interactionStatus") }
+                    .ifEmpty { json.optString("interaction_status") }
+                if (interactionStatus.isNotEmpty()) {
+                    Log.d(TAG, "Estado de interacción Live: $interactionStatus")
+                }
+
                 val isTurnComplete = serverContent.optBoolean("turnComplete", false) ||
                                      serverContent.optBoolean("turn_complete", false) ||
                                      serverContent.optBoolean("generationComplete", false) ||
                                      serverContent.optBoolean("generation_complete", false)
                 if (isTurnComplete) {
-                    Log.d(TAG, "TurnComplete / GenerationComplete recibido del servidor Live.")
+                    Log.d(TAG, "TurnComplete / GenerationComplete recibido del servidor Live (interactionStatus=$interactionStatus).")
                     isTurnCancelled.set(false)
                     turnCancelledUntilElapsedRealtime = 0L
                     onTurnComplete()

@@ -1421,12 +1421,18 @@ private fun LiveSettingsSheet(
                     }
 
                     // Modelo
+                    val liveModelOptions = listOf(
+                        GeminiModelConfig.DEFAULT_LIVE_MODEL to stringResource(R.string.live_model_gemini_38_live),
+                        GeminiModelConfig.EXTENDED_THINKING_LIVE_MODEL to stringResource(R.string.live_model_gemini_38_live_extended_thinking)
+                    )
+                    val selectedLiveModelLabel = liveModelOptions.firstOrNull { it.first == currentModel }?.second
+                        ?: currentModel
                     ExposedDropdownMenuBox(
                         expanded = expandedModel,
                         onExpandedChange = { expandedModel = it }
                     ) {
                         OutlinedTextField(
-                            value = currentModel,
+                            value = selectedLiveModelLabel,
                             onValueChange = {},
                             readOnly = true,
                             label = { Text(stringResource(R.string.live_mode_model_label)) },
@@ -1439,9 +1445,9 @@ private fun LiveSettingsSheet(
                             expanded = expandedModel,
                             onDismissRequest = { expandedModel = false }
                         ) {
-                            GeminiModelConfig.liveSelectableModels.forEach { model ->
+                            liveModelOptions.forEach { (model, label) ->
                                 DropdownMenuItem(
-                                    text = { Text(model) },
+                                    text = { Text(label) },
                                     onClick = {
                                         onSaveModel(model)
                                         expandedModel = false
@@ -1482,33 +1488,43 @@ private fun LiveSettingsSheet(
                         }
                     }
 
-                    // Thinking
-                    ExposedDropdownMenuBox(
-                        expanded = expandedThinking,
-                        onExpandedChange = { expandedThinking = it }
-                    ) {
-                        OutlinedTextField(
-                            value = currentThinking.replaceFirstChar { it.uppercase() },
-                            onValueChange = {},
-                            readOnly = true,
-                            label = { Text(stringResource(R.string.live_mode_thinking_level_label)) },
-                            trailingIcon = { ExposedDropdownMenuDefaults.TrailingIcon(expanded = expandedThinking) },
-                            modifier = Modifier
-                                .menuAnchor()
-                                .fillMaxWidth()
+                    // Thinking — solo para modelos Live que admiten thinkingConfig
+                    if (GeminiModelConfig.liveModelSupportsThinking(currentModel)) {
+                        val liveThinkingLevelOptions = listOf(
+                            "low" to stringResource(R.string.live_thinking_level_low),
+                            "medium" to stringResource(R.string.live_thinking_level_medium),
+                            "high" to stringResource(R.string.live_thinking_level_high)
                         )
-                        ExposedDropdownMenu(
+                        val selectedThinkingLabel = liveThinkingLevelOptions
+                            .firstOrNull { it.first == currentThinking }?.second
+                            ?: currentThinking.replaceFirstChar { it.uppercase() }
+                        ExposedDropdownMenuBox(
                             expanded = expandedThinking,
-                            onDismissRequest = { expandedThinking = false }
+                            onExpandedChange = { expandedThinking = it }
                         ) {
-                            GeminiModelConfig.liveThinkingLevels.forEach { level ->
-                                DropdownMenuItem(
-                                    text = { Text(level.replaceFirstChar { it.uppercase() }) },
-                                    onClick = {
-                                        onSaveThinking(level)
-                                        expandedThinking = false
-                                    }
-                                )
+                            OutlinedTextField(
+                                value = selectedThinkingLabel,
+                                onValueChange = {},
+                                readOnly = true,
+                                label = { Text(stringResource(R.string.live_mode_thinking_level_label)) },
+                                trailingIcon = { ExposedDropdownMenuDefaults.TrailingIcon(expanded = expandedThinking) },
+                                modifier = Modifier
+                                    .menuAnchor()
+                                    .fillMaxWidth()
+                            )
+                            ExposedDropdownMenu(
+                                expanded = expandedThinking,
+                                onDismissRequest = { expandedThinking = false }
+                            ) {
+                                liveThinkingLevelOptions.forEach { (level, label) ->
+                                    DropdownMenuItem(
+                                        text = { Text(label) },
+                                        onClick = {
+                                            onSaveThinking(level)
+                                            expandedThinking = false
+                                        }
+                                    )
+                                }
                             }
                         }
                     }

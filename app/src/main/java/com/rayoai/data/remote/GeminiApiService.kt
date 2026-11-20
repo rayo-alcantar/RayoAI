@@ -19,7 +19,7 @@ interface GeminiApiService {
     /**
      * Genera contenido usando un modelo de Gemini.
      * 
-     * @param model Nombre del modelo (ej. "gemini-2.0-flash", "gemini-2.5-pro")
+     * @param model Nombre del modelo (ej. "gemini-3.5-flash-lite", "gemini-4-hydrogen")
      * @param apiKey API key de Google AI Studio
      * @param request Cuerpo de la petición con system instructions, contenido e historial
      * @return Response con la respuesta del modelo o error HTTP
